@@ -1,0 +1,154 @@
+From c2b081838cfc6a8e1eabdfdcb39ef2ca8cb55578 Mon Sep 17 00:00:00 2001
+From: Zoidberg <zoidberg@planetexpress.local>
+Date: Sun, 26 Apr 2026 17:14:58 +0000
+Subject: [PATCH] fix: model-aware OAuth fallback for Haiku routing
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+OAuth tokens (sk-ant-oat*) don't work with claude-haiku-4-5.
+When auto-routing downgrades to Haiku and incoming auth is OAuth,
+fall back to ANTHROPIC_API_KEY env var instead of forwarding the
+OAuth token (which Anthropic rejects with a cryptic error).
+
+Changes:
+- Add isOAuthToken() + isOAuthUnsupportedModel() helpers
+- OAUTH_UNSUPPORTED_MODELS list (currently: haiku)
+- buildAnthropicHeadersWithAuth() accepts optional targetModel param
+- forwardNativeAnthropicRequest() passes targetModel through
+- All three call sites updated with resolved/finalModel
+
+Behaviour:
+  OAuth + haiku + ANTHROPIC_API_KEY set  → use API key ✓
+  OAuth + haiku + no API key             → forward OAuth, let Anthropic error clearly
+  OAuth + opus/sonnet                    → passthrough OAuth unchanged ✓
+  API key + any model                    → unchanged ✓
+---
+ src/standalone-proxy.ts | 64 ++++++++++++++++++++++++++++++++---------
+ 1 file changed, 51 insertions(+), 13 deletions(-)
+
+diff --git a/src/standalone-proxy.ts b/src/standalone-proxy.ts
+index 0301c20..08ab8b0 100644
+--- a/src/standalone-proxy.ts
++++ b/src/standalone-proxy.ts
+@@ -1460,6 +1460,21 @@ function shouldUseMaxToken(model: string, authConfig?: HybridAuthConfig): boolea
+   return authConfig.useMaxForModels.some(pattern => modelLower.includes(pattern.toLowerCase()));
+ }
+ 
++/**
++ * Models that do NOT support OAuth (sk-ant-oat*) tokens.
++ * API key (sk-ant-api03-*) required for these.
++ */
++const OAUTH_UNSUPPORTED_MODELS = ['haiku'];
++
++function isOAuthUnsupportedModel(model: string): boolean {
++  const lower = model.toLowerCase();
++  return OAUTH_UNSUPPORTED_MODELS.some(m => lower.includes(m));
++}
++
++function isOAuthToken(token: string): boolean {
++  return token.startsWith('sk-ant-oat');
++}
++
+ /**
+  * Get the appropriate API key for a model (hybrid auth support)
+  */
+@@ -1495,25 +1510,45 @@ function setAnthropicAuth(headers: Record<string, string>, token: string): void
+ }
+ 
+ /**
+- * Build Anthropic headers with hybrid auth support
++ * Build Anthropic headers with hybrid auth support.
++ * When targetModel is provided and doesn't support OAuth, falls back to
++ * envApiKey for OAuth tokens rather than forwarding them (Haiku rejects OAuth).
+  */
+ function buildAnthropicHeadersWithAuth(
+   ctx: RequestContext,
+   apiKey?: string,
+   isMaxToken?: boolean,
+-  isRerouted?: boolean
++  isRerouted?: boolean,
++  targetModel?: string
+ ): Record<string, string> {
+   const headers: Record<string, string> = {
+     'Content-Type': 'application/json',
+     'anthropic-version': ctx.versionHeader || '2023-06-01',
+   };
+ 
+-  // Auth priority: incoming auth (passthrough) > configured API key > env key
+-  if (ctx.authHeader) {
+-    const token = ctx.authHeader.replace(/^Bearer\s+/i, '');
+-    setAnthropicAuth(headers, token);
+-  } else if (ctx.apiKeyHeader) {
+-    setAnthropicAuth(headers, ctx.apiKeyHeader);
++  // Resolve the incoming token from whichever header was used
++  const incomingToken = ctx.authHeader
++    ? ctx.authHeader.replace(/^Bearer\s+/i, '')
++    : ctx.apiKeyHeader ?? undefined;
++
++  // If the incoming token is OAuth and the target model doesn't support OAuth,
++  // fall back to the env API key. If no env key available, forward anyway and
++  // let Anthropic return the informative error rather than failing silently.
++  const needsApiKeyFallback =
++    incomingToken &&
++    isOAuthToken(incomingToken) &&
++    targetModel &&
++    isOAuthUnsupportedModel(targetModel);
++
++  if (needsApiKeyFallback) {
++    if (apiKey) {
++      setAnthropicAuth(headers, apiKey);
++    } else {
++      // No env key — forward OAuth and let Anthropic surface a clear error
++      setAnthropicAuth(headers, incomingToken!);
++    }
++  } else if (incomingToken) {
++    setAnthropicAuth(headers, incomingToken);
+   } else if (apiKey) {
+     setAnthropicAuth(headers, apiKey);
+   }
+@@ -1633,9 +1668,10 @@ async function forwardNativeAnthropicRequest(
+   ctx: RequestContext,
+   envApiKey?: string,
+   isMaxToken?: boolean,
+-  isRerouted?: boolean
++  isRerouted?: boolean,
++  targetModel?: string
+ ): Promise<Response> {
+-  const headers = buildAnthropicHeadersWithAuth(ctx, envApiKey, isMaxToken, isRerouted);
++  const headers = buildAnthropicHeadersWithAuth(ctx, envApiKey, isMaxToken, isRerouted, targetModel);
+ 
+   const response = await fetch('https://api.anthropic.com/v1/messages', {
+     method: 'POST',
+@@ -5527,7 +5563,7 @@ export async function startProxy(config: ProxyConfig = {}): Promise<http.Server>
+                 log(`Using MAX token for ${resolved.model}`);
+               }
+               const isCascadeRerouted = resolved.model !== originalModel;
+-              const providerResponse = await forwardNativeAnthropicRequest(attemptBody, ctx, modelAuth.apiKey, modelAuth.isMax, isCascadeRerouted);
++              const providerResponse = await forwardNativeAnthropicRequest(attemptBody, ctx, modelAuth.apiKey, modelAuth.isMax, isCascadeRerouted, resolved.model);
+               const responseData = (await providerResponse.json()) as Record<string, unknown>;
+               if (!providerResponse.ok) {
+                 if (proxyConfig.reliability?.cooldowns?.enabled) {
+@@ -5574,7 +5610,8 @@ export async function startProxy(config: ProxyConfig = {}): Promise<http.Server>
+             _nativeReqCtx,
+             modelAuth.apiKey,
+             modelAuth.isMax,
+-            isRerouted
++            isRerouted,
++            finalModel
+           );
+ 
+           // Token pool: on 429, record and retry with next available token
+@@ -5595,7 +5632,8 @@ export async function startProxy(config: ProxyConfig = {}): Promise<http.Server>
+                 _retryCtx,
+                 _nextPoolToken.apiKey,
+                 _nextPoolToken.isOat,
+-                isRerouted
++                isRerouted,
++                finalModel
+               );
+             }
+           }
+-- 
+2.43.0
+
