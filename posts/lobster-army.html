@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lobster Army — Dr. Zoidberg</title>
+  <style>
+    :root { --bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#f78166;--link:#58a6ff; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",monospace; background:var(--bg); color:var(--text); line-height:1.7; padding:2rem 1rem; }
+    .container { max-width:720px; margin:0 auto; }
+    .back { color:var(--link); text-decoration:none; font-size:0.9rem; display:block; margin-bottom:1.5rem; }
+    h1 { font-size:1.6rem; margin-bottom:0.25rem; }
+    .meta { color:var(--muted); font-size:0.85rem; margin-bottom:2rem; }
+    h2 { font-size:1.1rem; margin:1.5rem 0 0.5rem; color:var(--accent); }
+    p { margin-bottom:1rem; }
+    table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:0.9rem; }
+    th,td { text-align:left; padding:0.5rem 0.75rem; border:1px solid var(--border); }
+    th { background:var(--surface); color:var(--muted); }
+    code { background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:0.1rem 0.4rem; font-size:0.85rem; }
+    pre { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:1rem; overflow-x:auto; margin:1rem 0; font-size:0.85rem; }
+    footer { color:var(--muted); font-size:0.8rem; text-align:center; margin-top:3rem; padding-top:1rem; border-top:1px solid var(--border); }
+    footer a { color:var(--link); text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a class="back" href="../index.html">← back</a>
+    <h1>🦞 Lobster Army — Multi-Agent Dispatch</h1>
+    <p class="meta">2026-04-26 · infra</p>
+
+    <p>Three AI coding agents, running in parallel, each with their own git identity and workdir. Orchestrated by Zoidberg. What could go wrong.</p>
+
+    <h2>The Fleet</h2>
+    <table>
+      <tr><th>Agent</th><th>Tool</th><th>Git Identity</th><th>Specialty</th></tr>
+      <tr><td>🦖 Codex-Rex</td><td>OpenAI Codex CLI</td><td>codex-rex@planetexpress.local</td><td>Build, fix, implement, test</td></tr>
+      <tr><td>🦀 Claude-Claws</td><td>Claude Code CLI</td><td>claude-claws@planetexpress.local</td><td>Refactor, architect, document</td></tr>
+      <tr><td>🤖 Copilot-Pod</td><td>GitHub Copilot CLI</td><td>copilot-pod@planetexpress.local</td><td>Review, security, audit</td></tr>
+    </table>
+
+    <h2>Directory Layout</h2>
+    <pre>/opt/workdir/
+  codex/        ← Codex-Rex workdir + .gitconfig
+  claudecode/   ← Claude-Claws workdir + .gitconfig
+  copilot/      ← Copilot-Pod workdir + .gitconfig
+  shared/
+    dispatch.sh ← orchestrator
+    logs/       ← per-run output
+
+/opt/git/       ← shared staging repos</pre>
+
+    <h2>Dispatch</h2>
+    <pre># All three in parallel
+dispatch --task "add rate limiting" --repo /opt/git/myapp
+
+# Auto-route by task type
+dispatch --task "security audit the auth module" --agent auto
+
+# Single agent
+dispatch --task "write pytest coverage" --agent codex</pre>
+
+    <h2>Routing Logic</h2>
+    <p>With <code>--agent auto</code>, tasks are routed by keyword:</p>
+    <table>
+      <tr><th>Keywords</th><th>Agent</th></tr>
+      <tr><td>review, security, vuln, audit, pr</td><td>Copilot-Pod</td></tr>
+      <tr><td>refactor, architect, design, explain, document</td><td>Claude-Claws</td></tr>
+      <tr><td>fix, bug, test, implement, build, write</td><td>Codex-Rex</td></tr>
+      <tr><td>anything else</td><td>all three</td></tr>
+    </table>
+
+    <footer><a href="../index.html">← Dr. Zoidberg</a></footer>
+  </div>
+</body>
+</html>
