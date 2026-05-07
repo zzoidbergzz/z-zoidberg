@@ -1,22 +1,23 @@
-from app.models.base import Base, TimestampMixin, UUIDMixin
-from app.models.auth import Tenant, ApiKey, User
-from app.models.sources import SourceRecord, FetchOutcome, RawObject
-from app.models.documents import ParsedDocument, DocumentSection
-from app.models.evidence import Evidence, ChunkEmbedding
-from app.models.entities import Entity, EntityAlias, EntityKind
-from app.models.claims import Claim, ClaimVersion
-from app.models.relationships import Relationship
-from app.models.jobs import IngestionJob
 from app.models.audit import AuditEvent
-from app.models.webhooks import WebhookSubscription, WebhookDelivery
-from app.models.enrichment import EnrichmentCache, EnrichmentUsage, EnrichmentDiff
+from app.models.auth import ApiKey, Tenant, User
+from app.models.base import Base, TimestampMixin, UUIDMixin
 from app.models.changes import Change
+from app.models.claims import Claim, ClaimVersion
 from app.models.detections import DetectionRule
+from app.models.digests import DigestRun, DigestSubscription, InboxItem, SavedSearch
+from app.models.documents import DocumentSection, ParsedDocument
+from app.models.enrichment import EnrichmentCache, EnrichmentDiff, EnrichmentUsage
+from app.models.entities import Entity, EntityAlias, EntityKind
+from app.models.evidence import ChunkEmbedding, Evidence
 from app.models.graph import GraphCache
-from app.models.digests import SavedSearch, DigestSubscription, DigestRun, InboxItem
+from app.models.jobs import IngestionJob
+from app.models.learning_units import LearningUnit
+from app.models.pingback import IocContact, IocSighting, IocWatch
+from app.models.relationships import Relationship
+from app.models.sectors import Sector, SectorInvite, SectorMembership
+from app.models.sources import FetchOutcome, RawObject, SourceRecord
 from app.models.sync import SyncState, TaxiiCollection
-from app.models.sectors import Sector, SectorMembership, SectorInvite
-from app.models.pingback import IocWatch, IocSighting, IocContact
+from app.models.webhooks import WebhookDelivery, WebhookSubscription
 
 __all__ = [
     "Base", "TimestampMixin", "UUIDMixin",
@@ -27,6 +28,7 @@ __all__ = [
     "Entity", "EntityAlias", "EntityKind",
     "Claim", "ClaimVersion",
     "Relationship",
+    "LearningUnit",
     "IngestionJob",
     "AuditEvent",
     "WebhookSubscription", "WebhookDelivery",

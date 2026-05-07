@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from datetime import datetime, timezone
+from datetime import UTC
 
 import structlog
 from sqlalchemy import select
@@ -25,7 +25,7 @@ from app.config import settings
 
 logger = structlog.get_logger(__name__)
 
-_UTC = timezone.utc
+_UTC = UTC
 
 
 async def _get_or_create_tenant(db: AsyncSession):
@@ -166,6 +166,7 @@ async def seed_mitre_attack(db: AsyncSession):
         return 0, 0
 
     import os
+
     from app.services import mitre_attack as ma_svc
 
     data_dir = ma_svc.get_data_dir()
@@ -318,7 +319,7 @@ async def seed_mitre_attack(db: AsyncSession):
     return entities_created, 0
 
 
-async def main(run_reverse_shells: bool = True, run_mitre: bool = True) -> None:
+async def main(run_reverse_shells: bool = True, run_mitre: bool = True, run_research_pack: bool = False) -> None:
     engine = create_async_engine(settings.DATABASE_URL, echo=False)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -331,6 +332,26 @@ async def main(run_reverse_shells: bool = True, run_mitre: bool = True) -> None:
             print("\n── MITRE ATT&CK Enterprise ───────────────────────────")
             await seed_mitre_attack(db)
 
+        if run_research_pack:
+            from seed.seed_research_pack import (
+                seed_context_packs,
+                seed_learning_units,
+                seed_relationships,
+            )
+            print("\n── Research Pack: Relationships ──────────────────────")
+            rel_c, rel_s = await seed_relationships(db)
+            print(f"   {rel_c} new relationships, {rel_s} already existed")
+
+            print("\n── Research Pack: Learning Units ─────────────────────")
+            lu_c, lu_s = await seed_learning_units(db)
+            print(f"   {lu_c} new learning units, {lu_s} already existed")
+
+            print("\n── Research Pack: Context/Sysinternals Packs ─────────")
+            doc_c, doc_s = await seed_context_packs(db)
+            print(f"   {doc_c} new documents, {doc_s} already existed")
+
+            await db.commit()
+
     await engine.dispose()
     print("\n✅ Knowledge seed complete.")
 
@@ -339,10 +360,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Seed knowledge content into the SK database")
     parser.add_argument("--reverse-shells", action="store_true", help="Load reverse shells knowledge only")
     parser.add_argument("--mitre", action="store_true", help="Load MITRE ATT&CK data only")
+    parser.add_argument("--research-pack", action="store_true", help="Load research pack (relationships, learning units, context packs)")
     parser.add_argument("--all", action="store_true", help="Load everything (default)")
     args = parser.parse_args()
 
-    run_rs = args.reverse_shells or args.all or not (args.reverse_shells or args.mitre)
-    run_m = args.mitre or args.all or not (args.reverse_shells or args.mitre)
+    any_flag = args.reverse_shells or args.mitre or args.research_pack
+    run_rs = args.reverse_shells or args.all or not any_flag
+    run_m = args.mitre or args.all or not any_flag
+    run_rp = args.research_pack or args.all
 
-    asyncio.run(main(run_reverse_shells=run_rs, run_mitre=run_m))
+    asyncio.run(main(run_reverse_shells=run_rs, run_mitre=run_m, run_research_pack=run_rp))
