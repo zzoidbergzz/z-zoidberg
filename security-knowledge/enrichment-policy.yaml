@@ -1,0 +1,19 @@
+version: "1.0"
+providers:
+  nvd:
+    enabled: true
+    daily_budget: 1000
+    entity_kinds: [cve, vulnerability]
+    ttl_seconds: 86400
+
+  virustotal:
+    enabled: true
+    daily_budget: 500
+    entity_kinds: [ip_address, domain, url, hash]
+    ttl_seconds: 86400
+
+  shodan:
+    enabled: true
+    daily_budget: 100
+    entity_kinds: [ip_address]
+    ttl_seconds: 3600

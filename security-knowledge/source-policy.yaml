@@ -1,0 +1,25 @@
+version: "1.0"
+policies:
+  - name: allow-nvd
+    sources:
+      - pattern: "https://services.nvd.nist.gov/*"
+    action: allow
+    rate_limit: 100/day
+
+  - name: allow-cisa-kev
+    sources:
+      - pattern: "https://www.cisa.gov/*"
+    action: allow
+
+  - name: allow-github-advisory
+    sources:
+      - pattern: "https://api.github.com/advisories*"
+    action: allow
+    rate_limit: 1000/hour
+
+  - name: deny-private
+    sources:
+      - pattern: "http://10.*"
+      - pattern: "http://192.168.*"
+      - pattern: "http://172.16.*"
+    action: deny

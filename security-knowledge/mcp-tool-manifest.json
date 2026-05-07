@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "name": "security-knowledge-mcp",
+  "description": "Security intelligence MCP tools",
+  "tools": [
+    {
+      "name": "enrich_entity",
+      "description": "Enrich a named security entity with data from external sources",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "entity_name": {"type": "string", "description": "Name of the entity (e.g. CVE-2024-1234)"},
+          "entity_kind": {"type": "string", "description": "Kind of entity", "enum": ["cve", "malware", "actor", "ip_address", "domain", "hash", "url"]},
+          "tenant_id": {"type": "string", "description": "Tenant identifier"}
+        },
+        "required": ["entity_name", "entity_kind", "tenant_id"]
+      }
+    }
+  ]
+}

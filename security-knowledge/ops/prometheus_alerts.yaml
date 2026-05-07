@@ -1,0 +1,26 @@
+groups:
+  - name: security-knowledge
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP error rate"
+
+      - alert: SlowRequests
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 latency above 2s"
+
+      - alert: EnrichmentBudgetNearLimit
+        expr: enrichment_usage_total / enrichment_budget_total > 0.9
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Enrichment budget 90% consumed"

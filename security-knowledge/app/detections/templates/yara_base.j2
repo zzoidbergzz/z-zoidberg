@@ -1,0 +1,12 @@
+rule {{ rule_name }} {
+    meta:
+        description = "{{ description }}"
+        author = "security-knowledge"
+        severity = "{{ severity | default('medium') }}"
+    strings:
+        {% for s in strings %}
+        $s{{ loop.index }} = "{{ s }}"
+        {% endfor %}
+    condition:
+        {% if strings %}any of them{% else %}false{% endif %}
+}
