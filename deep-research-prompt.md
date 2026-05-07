@@ -55,7 +55,7 @@ Allowed:
 
 - Explain concepts, workflows, terminology, mappings, and defensive use.
 - Describe offensive techniques at a high level when needed to understand detection, prevention, or authorized validation.
-- Include lab-safe validation ideas and detection requirements.
+- Include lab-safe and non-lab-safe (fully volitile lab)validation ideas and detection requirements.
 - Include TTP mappings, observables, logs, controls, mitigations, and response actions.
 - Include penetration testing methodology and reporting structure.
 
@@ -69,7 +69,7 @@ Do not include:
 
 If a source contains offensive content, extract only the defensible knowledge:
 preconditions, affected systems, observable behavior, detection logic,
-mitigations, response, references, and risk.
+mitigations, response, references, and risk but retain the raw data in a raw field for backreference/disclaimer accepted users only.
 
 ## Source Strategy
 
@@ -128,13 +128,13 @@ High-quality analytical sources used only when primary sources are insufficient:
 - Peer-reviewed or clearly sourced research.
 - Vendor threat reports with transparent methodology.
 
-### Source Exclusion Rules
+### Source Rules
 
-Exclude or quarantine:
+TAG SPECIFICALLY (1 source is fine but we must mark it as such):
 
 - Unsourced blog claims.
 - Tool marketing pages without technical detail.
-- Exploit PoC repositories unless the artifact is needed only for metadata and defensive context.
+- Include Exploit PoC repositorie.
 - Forums, social posts, paste sites, leaked chats, or private material.
 - Sources with unclear redistribution terms unless only metadata is captured.
 
