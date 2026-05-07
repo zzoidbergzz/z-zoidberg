@@ -100,5 +100,16 @@ class Settings(BaseSettings):
     # Ghidra
     GHIDRA_SERVER_URL: str = ""
 
+    # BYOK
+    BYOK_ENCRYPTION_KEY: str = ""
+
+    # Playwright
+    PLAYWRIGHT_ENABLED: bool = False
+    PLAYWRIGHT_TIMEOUT_MS: int = 30000
+
+    # Sectors / ISACs
+    DEFAULT_SECTOR: str = "uk-general"
+    SECTOR_INVITE_EXPIRY_DAYS: int = 7
+
 
 settings = Settings()

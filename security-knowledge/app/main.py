@@ -27,6 +27,9 @@ from app.routers.digests import router as digests_router
 from app.routers.detections import router as detections_router
 from app.routers.sources import router as sources_router
 from app.routers.mcp import router as mcp_router
+from app.routers.admin import router as admin_router
+from app.routers.pingback import router as pingback_router
+from app.routers.sectors import router as sectors_router
 from app.taxii.server import taxii_router
 from app.graphql.schema import graphql_router
 
@@ -76,6 +79,9 @@ app.include_router(detections_router, prefix="/api/v1")
 app.include_router(sources_router, prefix="/api/v1")
 app.include_router(mcp_router, prefix="/api/v1")
 app.include_router(taxii_router)
+app.include_router(admin_router, prefix="/api/v1")
+app.include_router(pingback_router, prefix="/api/v1")
+app.include_router(sectors_router, prefix="/api/v1")
 app.include_router(graphql_router, prefix="/graphql")
 
 # Static files (UI)

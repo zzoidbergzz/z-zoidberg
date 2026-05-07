@@ -26,3 +26,15 @@ docker compose up -d
 
 docker-down:
 docker compose down
+
+seed:
+python -m seed.seed_data
+
+seed-knowledge:
+python -m seed.seed_knowledge --all
+
+seed-mitre:
+python -m seed.seed_knowledge --mitre
+
+seed-reverse-shells:
+python -m seed.seed_knowledge --reverse-shells

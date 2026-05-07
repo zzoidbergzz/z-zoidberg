@@ -1,59 +1,123 @@
+"""Auth dependencies and RBAC scope enforcement."""
+from __future__ import annotations
+from enum import Enum
 from typing import Annotated
+import structlog
 from fastapi import Depends, HTTPException, Security, status
-from fastapi.security import APIKeyHeader, HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
-
-from app.database import get_db
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.api_key import validate_api_key
 from app.auth.jwt import decode_token
-from app.models.auth import Tenant, ApiKey
+from app.database import get_db
+from app.models.auth import ApiKey, User, UserStatus
 
-
+logger = structlog.get_logger(__name__)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
-async def get_current_tenant_from_api_key(
-    api_key: str | None = Security(api_key_header),
-    db: AsyncSession = Depends(get_db),
-) -> ApiKey | None:
-    if api_key is None:
-        return None
-    key_record = await validate_api_key(db, api_key)
-    return key_record
+class Scope(str, Enum):
+    read = "read"
+    write = "write"
+    review = "review"
+    admin = "admin"
+    enrichment = "enrichment"
+    watch = "watch"
+    contact = "contact"
+    export = "export"
+    superadmin = "superadmin"
 
 
-async def get_current_tenant_from_bearer(
-    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
-    db: AsyncSession = Depends(get_db),
-) -> dict | None:
-    if credentials is None:
+ADMIN_SCOPES = {Scope.read, Scope.write, Scope.review, Scope.admin, Scope.enrichment, Scope.watch, Scope.contact, Scope.export}
+USER_SCOPES = {Scope.read, Scope.write, Scope.enrichment, Scope.watch, Scope.contact}
+SUPERADMIN_SCOPES = set(Scope)
+
+
+def _parse_scopes(raw: str) -> set[Scope]:
+    result: set[Scope] = set()
+    for token in raw.replace(",", " ").split():
+        try:
+            result.add(Scope(token))
+        except ValueError:
+            pass
+    if Scope.superadmin in result:
+        return SUPERADMIN_SCOPES
+    return result
+
+
+class AuthContext:
+    def __init__(self, tenant_id: str, scopes: set[Scope], user_id: str | None = None, user_email: str | None = None, auth_type: str = "api_key") -> None:
+        self.tenant_id = tenant_id
+        self.scopes = scopes
+        self.user_id = user_id
+        self.user_email = user_email
+        self.auth_type = auth_type
+
+    def has_scope(self, scope: Scope) -> bool:
+        return scope in self.scopes or Scope.superadmin in self.scopes
+
+    def require_scope(self, scope: Scope) -> None:
+        if not self.has_scope(scope):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Scope '{scope.value}' required")
+
+
+async def _resolve_api_key(raw_key: str, db: AsyncSession) -> AuthContext | None:
+    record: ApiKey | None = await validate_api_key(db, raw_key)
+    if record is None or not record.active:
         return None
+    return AuthContext(tenant_id=str(record.tenant_id), scopes=_parse_scopes(record.scopes), user_id=str(record.user_id) if record.user_id else None, auth_type="api_key")
+
+
+async def _resolve_bearer(token: str, db: AsyncSession) -> AuthContext | None:
     try:
-        payload = decode_token(credentials.credentials)
-        return payload
+        payload = decode_token(token)
     except JWTError:
         return None
+    user_id = payload.get("sub")
+    tenant_id = payload.get("tenant_id")
+    if not user_id or not tenant_id:
+        return None
+    result = await db.execute(select(User).where(User.id == user_id))
+    user: User | None = result.scalar_one_or_none()
+    if user is None or not user.active or user.status != UserStatus.approved:
+        return None
+    scopes = ADMIN_SCOPES if user.role == "admin" else USER_SCOPES
+    return AuthContext(tenant_id=tenant_id, scopes=scopes, user_id=str(user.id), user_email=user.email, auth_type="bearer")
 
 
-async def require_auth(
-    api_key_record: ApiKey | None = Depends(get_current_tenant_from_api_key),
-    bearer_payload: dict | None = Depends(get_current_tenant_from_bearer),
-) -> dict:
-    if api_key_record is not None:
-        return {"tenant_id": str(api_key_record.tenant_id), "scopes": api_key_record.scopes, "auth_type": "api_key"}
-    if bearer_payload is not None:
-        return bearer_payload
+async def get_auth(raw_api_key: str | None = Security(api_key_header), credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme), db: AsyncSession = Depends(get_db)) -> AuthContext:
+    if raw_api_key:
+        ctx = await _resolve_api_key(raw_api_key, db)
+        if ctx:
+            return ctx
+    if credentials:
+        ctx = await _resolve_bearer(credentials.credentials, db)
+        if ctx:
+            return ctx
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
 
-async def require_read(auth: dict = Depends(require_auth)) -> dict:
-    return auth
+async def get_auth_optional(raw_api_key: str | None = Security(api_key_header), credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme), db: AsyncSession = Depends(get_db)) -> AuthContext | None:
+    try:
+        return await get_auth(raw_api_key, credentials, db)
+    except HTTPException:
+        return None
 
 
-async def require_write(auth: dict = Depends(require_auth)) -> dict:
-    scopes = auth.get("scopes", "")
-    if "write" not in scopes and not auth.get("is_superuser"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Write scope required")
-    return auth
+def require_scope(scope: Scope):
+    async def _dep(auth: AuthContext = Depends(get_auth)) -> AuthContext:
+        auth.require_scope(scope)
+        return auth
+    return _dep
+
+
+require_read = require_scope(Scope.read)
+require_write = require_scope(Scope.write)
+require_review = require_scope(Scope.review)
+require_admin = require_scope(Scope.admin)
+require_enrichment = require_scope(Scope.enrichment)
+require_watch = require_scope(Scope.watch)
+require_contact = require_scope(Scope.contact)
+require_export = require_scope(Scope.export)

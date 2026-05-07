@@ -9,12 +9,14 @@ from app.models.relationships import Relationship
 from app.models.jobs import IngestionJob
 from app.models.audit import AuditEvent
 from app.models.webhooks import WebhookSubscription, WebhookDelivery
-from app.models.enrichment import EnrichmentCache, EnrichmentUsage
+from app.models.enrichment import EnrichmentCache, EnrichmentUsage, EnrichmentDiff
 from app.models.changes import Change
 from app.models.detections import DetectionRule
 from app.models.graph import GraphCache
 from app.models.digests import SavedSearch, DigestSubscription, DigestRun, InboxItem
 from app.models.sync import SyncState, TaxiiCollection
+from app.models.sectors import Sector, SectorMembership, SectorInvite
+from app.models.pingback import IocWatch, IocSighting, IocContact
 
 __all__ = [
     "Base", "TimestampMixin", "UUIDMixin",
@@ -28,10 +30,12 @@ __all__ = [
     "IngestionJob",
     "AuditEvent",
     "WebhookSubscription", "WebhookDelivery",
-    "EnrichmentCache", "EnrichmentUsage",
+    "EnrichmentCache", "EnrichmentUsage", "EnrichmentDiff",
     "Change",
     "DetectionRule",
     "GraphCache",
     "SavedSearch", "DigestSubscription", "DigestRun", "InboxItem",
     "SyncState", "TaxiiCollection",
+    "Sector", "SectorMembership", "SectorInvite",
+    "IocWatch", "IocSighting", "IocContact",
 ]
