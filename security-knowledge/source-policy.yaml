@@ -61,6 +61,13 @@ policies:
     use_browser: true
     rate_limit: 60/hour
 
+  - name: allow-crowdstrike-api
+    sources:
+      - pattern: "https://api.crowdstrike.com/*"
+    action: allow
+    rate_limit: 1000/hour
+    use_browser: false
+
   - name: deny-private
     sources:
       - pattern: "http://10.*"

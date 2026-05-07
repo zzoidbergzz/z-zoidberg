@@ -13,10 +13,12 @@ import uuid
 
 import structlog
 from arq.connections import RedisSettings
+from arq.cron import cron
 
 from app.config import settings
-from app.observability.trace_propagation import get_traceparent, trace_from_job
+from app.observability.trace_propagation import trace_from_job
 from app.observability.worker import record_job_end, record_job_start
+from app.workers.feed_poller import poll_feeds
 
 logger = structlog.get_logger(__name__)
 
@@ -46,7 +48,7 @@ async def process_ingest_job(
             span.set_attribute("job.status", "complete")
             await record_job_end(job_id, "ingest", "complete", time.monotonic() - t0)
             return result
-        except Exception as exc:
+        except Exception:
             await record_job_end(job_id, "ingest", "error", time.monotonic() - t0)
             raise
 
@@ -87,7 +89,7 @@ async def run_enrichment(
             span.set_attribute("job.status", "complete")
             await record_job_end(entity_id, "enrichment", "complete", time.monotonic() - t0)
             return result
-        except Exception as exc:
+        except Exception:
             await record_job_end(entity_id, "enrichment", "error", time.monotonic() - t0)
             raise
 
@@ -110,7 +112,7 @@ async def send_digests(
             span.set_attribute("job.status", "complete")
             await record_job_end(job_id, "digest", "complete", time.monotonic() - t0)
             return result
-        except Exception as exc:
+        except Exception:
             await record_job_end(job_id, "digest", "error", time.monotonic() - t0)
             raise
 
@@ -164,8 +166,9 @@ async def startup(ctx: dict) -> None:
     logger.info("worker_starting")
     # Pre-load MITRE data if cached (non-blocking)
     try:
-        from app.services import mitre_attack
         import asyncio
+
+        from app.services import mitre_attack
         asyncio.create_task(mitre_attack.preload_if_cached())
     except Exception:
         pass
@@ -176,10 +179,14 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [process_ingest_job, run_enrichment, send_digests, check_ioc_watches]
+    functions = [process_ingest_job, run_enrichment, send_digests, check_ioc_watches, poll_feeds]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     max_jobs = 10
     job_timeout = 300
     keep_result = 3600  # seconds — retain job results for 1 hour
+    # Run feed poller every 5 minutes
+    cron_jobs = [
+        cron(poll_feeds, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+    ]

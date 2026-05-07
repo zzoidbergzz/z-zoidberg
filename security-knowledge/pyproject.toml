@@ -47,6 +47,7 @@ dependencies = [
     "starlette>=0.37.0",
     "mitreattack-python>=3.1.0",
     "playwright>=1.44.0",
+    "crowdstrike-falconpy>=1.4.0",
 ]
 
 [project.optional-dependencies]
