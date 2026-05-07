@@ -85,6 +85,7 @@ async def _upsert_entity(db: AsyncSession, tenant_id, edict: dict):
         canonical_name=edict["canonical_name"],
         description=edict.get("description", ""),
         stix_id=edict.get("stix_id"),
+        mitre_attack_id=edict.get("mitre_attack_id") or (edict.get("properties", {}).get("attack_id")),
         external_refs=edict.get("external_refs", {}),
         properties=edict.get("properties", {}),
     )
@@ -160,30 +161,22 @@ async def seed_mitre_attack(db: AsyncSession):
     """
     try:
         from mitreattack.stix20 import MitreAttackData
-        from mitreattack import download_stix, release_info
     except ImportError:
         print("⚠️  mitreattack-python not installed. Skipping MITRE seed. Run: pip install mitreattack-python", file=sys.stderr)
         return 0, 0
 
     import os
-    from pathlib import Path
+    from app.services import mitre_attack as ma_svc
 
-    data_dir = settings.MITRE_ATTACK_DATA_DIR if hasattr(settings, "MITRE_ATTACK_DATA_DIR") and settings.MITRE_ATTACK_DATA_DIR else os.path.expanduser("~/.cache/sk-mitre-data")
+    data_dir = ma_svc.get_data_dir()
     domain = "enterprise"
-    version = release_info.LATEST_VERSION
-    stix_path = os.path.join(data_dir, f"v{version}", f"{domain}-attack.json")
+    stix_path = str(ma_svc._stix_file_path(domain))
 
     if not os.path.exists(stix_path):
         print(f"📥 Downloading MITRE ATT&CK STIX data to {data_dir} ...")
         try:
-            known_hash = release_info.STIX21[domain][version]
-            download_stix.download_stix(
-                stix_version="2.1",
-                domain=domain,
-                download_dir=data_dir,
-                release=version,
-                known_hash=known_hash,
-            )
+            import asyncio
+            asyncio.get_event_loop().run_until_complete(ma_svc.ensure_data_downloaded(domain))
         except Exception as e:
             print(f"❌ MITRE download failed: {e}", file=sys.stderr)
             return 0, 0

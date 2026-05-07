@@ -111,5 +111,9 @@ class Settings(BaseSettings):
     DEFAULT_SECTOR: str = "uk-general"
     SECTOR_INVITE_EXPIRY_DAYS: int = 7
 
+    # MITRE ATT&CK
+    MITRE_ATTACK_DATA_DIR: str = ""  # defaults to ~/.cache/sk-mitre-data if empty
+    MITRE_ATTACK_DEFAULT_DOMAIN: str = "enterprise"
+
 
 settings = Settings()
