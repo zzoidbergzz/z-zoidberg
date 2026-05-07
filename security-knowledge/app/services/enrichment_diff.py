@@ -92,4 +92,21 @@ async def force_refresh_enrichment(
         db.add(cache)
 
     await db.flush()
+
+    # Notify IOC watchers if data changed
+    if has_changes:
+        try:
+            from app.services.diff_alerting import notify_diff_watchers
+            await notify_diff_watchers(
+                entity_value=entity_value,
+                entity_kind=entity_kind,
+                provider=provider,
+                diff_summary=diff_summary,
+                has_changes=has_changes,
+                diff_id=diff_row.id,
+                db=db,
+            )
+        except Exception as alert_exc:
+            logger.warning("diff_alerting_failed", error=str(alert_exc))
+
     return new_data, diff_row

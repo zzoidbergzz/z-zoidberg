@@ -44,6 +44,79 @@ import yaml
 
 from app.config import settings
 
+# ---------------------------------------------------------------------------
+# Rate limiting (fixed-window token counter via Redis)
+# ---------------------------------------------------------------------------
+
+_PERIOD_SECONDS: dict[str, int] = {
+    "second": 1,
+    "minute": 60,
+    "hour": 3600,
+    "day": 86400,
+}
+
+
+def _parse_rate_limit(rate_str: str) -> tuple[int, int]:
+    """Parse '100/day' → (100, 86400).  Returns (0, 0) on parse failure."""
+    try:
+        count_s, period = rate_str.strip().split("/", 1)
+        window = _PERIOD_SECONDS.get(period.lower().rstrip("s"), 0)
+        return int(count_s), window
+    except Exception:
+        return 0, 0
+
+
+async def _check_rate_limit(url: str) -> bool:
+    """Return True if the request is within the policy rate limit.
+
+    Uses a Redis fixed-window counter.  Fails open (returns True) if Redis is
+    unavailable or the policy has no rate_limit field.
+    """
+    policy = _get_policy_for_url.__wrapped__(url) if hasattr(_get_policy_for_url, "__wrapped__") else None
+    # Inline lookup to avoid circular reference before function is defined;
+    # the real call happens after _get_policy_for_url is defined below.
+    return True  # placeholder — replaced after _get_policy_for_url definition
+
+
+async def _enforce_rate_limit(url: str) -> bool:
+    """Actual rate-limit check — called from fetch() after policy helpers are defined."""
+    policy = _get_policy_for_url(url)
+    if not policy:
+        return True
+    rate_str = policy.get("rate_limit", "")
+    if not rate_str:
+        return True
+
+    max_count, window_secs = _parse_rate_limit(rate_str)
+    if not max_count or not window_secs:
+        return True
+
+    window_id = int(time.time()) // window_secs
+    key = f"sk:ratelimit:{policy['name']}:{window_id}"
+
+    try:
+        import redis.asyncio as aioredis
+
+        r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        async with r:
+            current = await r.incr(key)
+            if current == 1:
+                await r.expire(key, window_secs)
+            allowed = current <= max_count
+            if not allowed:
+                logger.warning(
+                    "fetch_rate_limited",
+                    url=url,
+                    policy=policy["name"],
+                    count=current,
+                    limit=max_count,
+                    window=f"{window_secs}s",
+                )
+            return allowed
+    except Exception as exc:
+        logger.debug("rate_limit_redis_unavailable", error=str(exc))
+        return True  # Fail open
+
 logger = structlog.get_logger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -213,48 +286,40 @@ async def _fetch_httpx(url: str, timeout: int = 30, headers: dict | None = None)
 # ---------------------------------------------------------------------------
 
 async def _fetch_playwright(url: str, timeout_ms: int | None = None) -> FetchResult:
-    """Fetch a URL using a headless Chromium browser via Playwright."""
+    """Fetch a URL using the shared browser pool.
+
+    Acquires a Page from the BrowserPool singleton (reused Chromium context),
+    navigates, waits for JS rendering, then applies CAPTCHA detection.
+    """
     timeout_ms = timeout_ms or settings.PLAYWRIGHT_TIMEOUT_MS
+    from app.browser_pool import browser_pool
 
     t0 = time.monotonic()
     try:
-        from playwright.async_api import async_playwright
-
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
-            context = await browser.new_context(
-                user_agent=(
-                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-                ),
-                java_script_enabled=True,
-            )
-            page = await context.new_page()
-
+        async with browser_pool.acquire(timeout=timeout_ms / 1000) as page:
             try:
                 response = await page.goto(
                     url,
                     timeout=timeout_ms,
                     wait_until="domcontentloaded",
                 )
-                # Wait a little for JS-rendered content
+                # Brief pause to let JS-rendered content settle
                 await page.wait_for_timeout(1500)
                 html = await page.content()
                 status = response.status if response else 0
                 resp_headers = dict(response.headers) if response else {}
-            finally:
-                await context.close()
-                await browser.close()
+            except Exception as nav_exc:
+                elapsed = (time.monotonic() - t0) * 1000
+                logger.warning("playwright_navigation_error", url=url, error=str(nav_exc))
+                return FetchResult(
+                    url=url, ok=False, elapsed_ms=elapsed, used_browser=True, error=str(nav_exc)
+                )
 
         elapsed = (time.monotonic() - t0) * 1000
 
         # Layer 3 — CAPTCHA detection
         if _detect_captcha(html):
-            logger.warning(
-                "captcha_detected",
-                url=url,
-                elapsed_ms=round(elapsed, 1),
-            )
+            logger.warning("captcha_detected", url=url, elapsed_ms=round(elapsed, 1))
             return FetchResult(
                 url=url,
                 ok=False,
@@ -277,6 +342,10 @@ async def _fetch_playwright(url: str, timeout_ms: int | None = None) -> FetchRes
             used_browser=True,
         )
 
+    except RuntimeError as exc:
+        elapsed = (time.monotonic() - t0) * 1000
+        logger.warning("playwright_pool_error", url=url, error=str(exc))
+        return FetchResult(url=url, ok=False, elapsed_ms=elapsed, used_browser=True, error=str(exc))
     except Exception as exc:
         elapsed = (time.monotonic() - t0) * 1000
         logger.warning("playwright_fetch_error", url=url, error=str(exc))
@@ -312,6 +381,10 @@ async def fetch(
     if _is_denied(url):
         logger.warning("fetch_denied_by_policy", url=url)
         return FetchResult(url=url, ok=False, error="Denied by source policy")
+
+    # Rate-limit check (Redis fixed-window counter)
+    if not await _enforce_rate_limit(url):
+        return FetchResult(url=url, ok=False, status_code=429, error="Rate limit exceeded per source policy")
 
     use_browser = (
         settings.PLAYWRIGHT_ENABLED

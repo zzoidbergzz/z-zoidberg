@@ -31,6 +31,7 @@ from app.routers.admin import router as admin_router
 from app.routers.pingback import router as pingback_router
 from app.routers.sectors import router as sectors_router
 from app.routers.mitre import router as mitre_router
+from app.routers.export import router as export_router
 from app.taxii.server import taxii_router
 from app.graphql.schema import graphql_router
 
@@ -44,8 +45,11 @@ if settings.OTEL_EXPORTER_OTLP_ENDPOINT:
 async def lifespan(app: FastAPI):
     import asyncio
     from app.services import mitre_attack
+    from app.browser_pool import browser_pool
     asyncio.create_task(mitre_attack.preload_if_cached())
+    await browser_pool.start()  # no-op if PLAYWRIGHT_ENABLED=false
     yield
+    await browser_pool.stop()
     await engine.dispose()
 
 
@@ -87,6 +91,7 @@ app.include_router(admin_router, prefix="/api/v1")
 app.include_router(pingback_router, prefix="/api/v1")
 app.include_router(sectors_router, prefix="/api/v1")
 app.include_router(mitre_router, prefix="/api/v1")
+app.include_router(export_router, prefix="/api/v1")
 app.include_router(graphql_router, prefix="/graphql")
 
 # Static files (UI)
