@@ -2,15 +2,175 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Security Knowledge - entities</title>
+  <title>Security Knowledge · Entities</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0c18; --surface: #12132a; --surface2: #1a1b35; --border: #2a2b4a;
+      --accent: #5b8df6; --green: #3ecf8e; --red: #f25f5c;
+      --text: #e2e4f0; --muted: #7c7f9e; --radius: 10px;
+    }
+    html, body { height: 100%; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+    .topbar {
+      position: sticky; top: 0; z-index: 100; background: var(--surface);
+      border-bottom: 1px solid var(--border); display: flex; align-items: center;
+      padding: 0 24px; height: 56px; gap: 0;
+    }
+    .topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--text); text-decoration: none; margin-right: 32px; }
+    .topbar .brand span { color: var(--accent); }
+    .topbar nav { display: flex; gap: 4px; }
+    .topbar nav a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; transition: all .15s; }
+    .topbar nav a:hover, .topbar nav a.active { color: var(--text); background: var(--surface2); }
+    .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+    .page-header { margin-bottom: 24px; }
+    .page-header h1 { font-size: 22px; font-weight: 700; }
+    .page-header p { color: var(--muted); margin-top: 4px; font-size: 13px; }
+    .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
+    .toolbar input, .toolbar select {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 7px;
+      padding: 8px 12px; color: var(--text); font-size: 13px; outline: none; transition: border-color .15s;
+    }
+    .toolbar input { flex: 1; min-width: 200px; max-width: 360px; }
+    .toolbar input:focus, .toolbar select:focus { border-color: var(--accent); }
+    .toolbar input::placeholder { color: var(--muted); }
+    .btn { background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--surface2); }
+    .badge { background: var(--surface2); border: 1px solid var(--border); color: var(--accent); font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .empty { color: var(--muted); font-size: 13px; padding: 16px 0; }
+  </style>
 </head>
 <body>
-<main class="container">
-  <h1>Security Knowledge</h1>
-  <p>Page: entities</p>
+<header class="topbar">
+  <a class="brand" href="/ui/">🦀 <span>Security</span>&nbsp;Knowledge</a>
+  <nav>
+    <a href="/ui/">Dashboard</a>
+    <a href="/ui/entities" class="active">Entities</a>
+    <a href="/ui/search">Search</a>
+    <a href="/ui/graph">Graph</a>
+    <a href="/docs" target="_blank">API Docs ↗</a>
+  </nav>
+</header>
+<main class="page">
+  <div class="page-header">
+    <h1>Entities</h1>
+    <p>Browse and filter all known security entities</p>
+  </div>
+  <div class="toolbar">
+    <input type="text" id="filter" placeholder="Filter by name…" oninput="loadEntities()">
+    <select id="kind-filter" onchange="loadEntities()">
+      <option value="">All kinds</option>
+      <option>cve</option><option>actor</option><option>malware</option>
+      <option>technique</option><option>domain</option><option>ip</option>
+      <option>hash</option><option>tool</option>
+    </select>
+    <button class="btn" onclick="loadEntities()">↺ Refresh</button>
+  </div>
+  <div class="card">
+    <div id="entity-table"><div class="empty" style="padding:20px">Loading…</div></div>
+  </div>
 </main>
+<script>
+function getKey() { return localStorage.getItem('sk_api_key') || ''; }
+function authHeaders() { const k = getKey(); return k ? {'X-API-Key': k} : {}; }
+
+async function loadEntities() {
+  const q = document.getElementById('filter').value;
+  const kind = document.getElementById('kind-filter').value;
+  let url = '/api/v1/entities/?limit=50';
+  if (q) url += '&q=' + encodeURIComponent(q);
+  if (kind) url += '&kind=' + encodeURIComponent(kind);
+  try {
+    const r = await fetch(url, {headers: authHeaders()});
+    const data = await r.json();
+    const el = document.getElementById('entity-table');
+    if (!r.ok) { el.innerHTML = `<div class="empty" style="padding:20px;color:#f25f5c">Error ${r.status}</div>`; return; }
+    if (!data.length) { el.innerHTML = '<div class="empty" style="padding:20px">No entities found.</div>'; return; }
+    el.innerHTML = `<table><thead><tr>
+      <th>Name</th><th>Kind</th><th>Aliases</th><th>Created</th>
+    </tr></thead><tbody>` +
+      data.map(e => `<tr>
+        <td><a href="/ui/entities/${e.id}">${e.name}</a></td>
+        <td><span class="badge">${e.kind || '—'}</span></td>
+        <td style="color:var(--muted)">${(e.aliases||[]).slice(0,3).join(', ') || '—'}</td>
+        <td style="color:var(--muted);font-size:12px">${(e.created_at||'').slice(0,10)}</td>
+      </tr>`).join('') + `</tbody></table>`;
+  } catch(err) { document.getElementById('entity-table').innerHTML = `<div class="empty" style="padding:20px;color:#f25f5c">${err}</div>`; }
+}
+window.addEventListener('DOMContentLoaded', loadEntities);
+</script>
+</body>
+</html>
+  <style>
+    nav.top { background: #1a1a2e; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1.5rem; }
+    nav.top a { color: #e0e0e0; text-decoration: none; font-size: 0.9rem; }
+    nav.top a:hover { color: #fff; }
+    nav.top .brand { font-weight: bold; font-size: 1rem; color: #fff; margin-right: auto; }
+    body { background: #0d0d1a; color: #ddd; }
+    table { width: 100%; font-size: 0.85rem; }
+    th { color: #aaa; font-weight: 600; }
+    td { border-bottom: 1px solid #222; }
+    .badge { background: #1e2a3a; border: 1px solid #456; color: #9af; font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 10px; }
+    h1 { font-size: 1.4rem; color: #fff; }
+  </style>
+</head>
+<body data-theme="dark">
+<nav class="top">
+  <span class="brand">🦀 Security Knowledge</span>
+  <a href="/ui/">Dashboard</a>
+  <a href="/ui/entities">Entities</a>
+  <a href="/ui/search">Search</a>
+  <a href="/ui/graph">Graph</a>
+  <a href="/docs" target="_blank">API Docs ↗</a>
+</nav>
+<main class="container">
+  <h1>Entities</h1>
+  <div style="display:flex;gap:0.75rem;margin-bottom:1rem;align-items:center">
+    <input type="text" id="filter" placeholder="Filter by name…" style="max-width:300px;margin:0" oninput="loadEntities()">
+    <select id="kind-filter" onchange="loadEntities()" style="max-width:180px;margin:0">
+      <option value="">All kinds</option>
+      <option>cve</option><option>actor</option><option>malware</option><option>technique</option>
+      <option>domain</option><option>ip</option><option>hash</option><option>tool</option>
+    </select>
+    <button onclick="loadEntities()">Refresh</button>
+  </div>
+  <div id="entity-table"><span style="color:#888">Loading…</span></div>
+</main>
+<script>
+function getKey() { return localStorage.getItem('sk_api_key') || ''; }
+function authHeaders() { const k = getKey(); return k ? {'X-API-Key': k} : {}; }
+
+async function loadEntities() {
+  const q = document.getElementById('filter').value;
+  const kind = document.getElementById('kind-filter').value;
+  let url = '/api/v1/entities/?limit=50';
+  if (q) url += '&q=' + encodeURIComponent(q);
+  if (kind) url += '&kind=' + encodeURIComponent(kind);
+  try {
+    const r = await fetch(url, {headers: authHeaders()});
+    const data = await r.json();
+    const el = document.getElementById('entity-table');
+    if (!r.ok) { el.innerHTML = `<span style="color:#f88">Error ${r.status}: ${JSON.stringify(data)}</span>`; return; }
+    if (!data.length) { el.innerHTML = '<span style="color:#888">No entities found.</span>'; return; }
+    el.innerHTML = `<table><thead><tr><th>Name</th><th>Kind</th><th>Aliases</th><th>Created</th></tr></thead><tbody>` +
+      data.map(e => `<tr>
+        <td><a href="/ui/entities/${e.id}" style="color:#7eb8f7">${e.name}</a></td>
+        <td><span class="badge">${e.kind || '—'}</span></td>
+        <td>${(e.aliases||[]).join(', ') || '—'}</td>
+        <td style="color:#888;font-size:0.8rem">${e.created_at ? e.created_at.slice(0,10) : ''}</td>
+      </tr>`).join('') + `</tbody></table>`;
+  } catch(err) { document.getElementById('entity-table').innerHTML = `<span style="color:#f88">${err}</span>`; }
+}
+window.addEventListener('DOMContentLoaded', loadEntities);
+</script>
 </body>
 </html>

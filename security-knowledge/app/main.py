@@ -1,40 +1,39 @@
 """Security Knowledge FastAPI application."""
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+
 from app.config import settings
+from app.database import engine
+from app.graphql.schema import graphql_router
 from app.observability.logging import configure_logging
 from app.observability.tracing import configure_tracing
-from app.database import engine
-
-from app.routers.health import router as health_router
-from app.routers.metrics import router as metrics_router
+from app.routers.admin import router as admin_router
+from app.routers.audit import router as audit_router
 from app.routers.auth import router as auth_router
-from app.routers.entities import router as entities_router
 from app.routers.claims import router as claims_router
-from app.routers.evidence import router as evidence_router
-from app.routers.search import router as search_router
-from app.routers.ingest import router as ingest_router
+from app.routers.detections import router as detections_router
+from app.routers.digests import router as digests_router
 from app.routers.enrich import router as enrich_router
+from app.routers.entities import router as entities_router
+from app.routers.evidence import router as evidence_router
+from app.routers.export import router as export_router
 from app.routers.graph import router as graph_router
+from app.routers.health import router as health_router
+from app.routers.ingest import router as ingest_router
+from app.routers.mcp import router as mcp_router
+from app.routers.metrics import router as metrics_router
+from app.routers.mitre import router as mitre_router
+from app.routers.pingback import router as pingback_router
+from app.routers.search import router as search_router
+from app.routers.sectors import router as sectors_router
+from app.routers.sources import router as sources_router
 from app.routers.stix import router as stix_router
 from app.routers.webhooks import router as webhooks_router
-from app.routers.audit import router as audit_router
-from app.routers.digests import router as digests_router
-from app.routers.detections import router as detections_router
-from app.routers.sources import router as sources_router
-from app.routers.mcp import router as mcp_router
-from app.routers.admin import router as admin_router
-from app.routers.pingback import router as pingback_router
-from app.routers.sectors import router as sectors_router
-from app.routers.mitre import router as mitre_router
-from app.routers.export import router as export_router
 from app.taxii.server import taxii_router
-from app.graphql.schema import graphql_router
-
 
 configure_logging()
 if settings.OTEL_EXPORTER_OTLP_ENDPOINT:
@@ -44,8 +43,9 @@ if settings.OTEL_EXPORTER_OTLP_ENDPOINT:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import asyncio
-    from app.services import mitre_attack
+
     from app.browser_pool import browser_pool
+    from app.services import mitre_attack
     asyncio.create_task(mitre_attack.preload_if_cached())
     await browser_pool.start()  # no-op if PLAYWRIGHT_ENABLED=false
     yield
@@ -67,6 +67,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/ui/")
+
 
 # Routers
 app.include_router(health_router)

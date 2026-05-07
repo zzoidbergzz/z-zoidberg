@@ -1,6 +1,7 @@
 import logging
-import sys
+
 import structlog
+
 from app.config import settings
 
 
@@ -18,13 +19,15 @@ def configure_logging() -> None:
     else:
         processors.append(structlog.dev.ConsoleRenderer())
 
+    logging.basicConfig(level=log_level)
+
     structlog.configure(
         processors=processors,
         wrapper_class=structlog.make_filtering_bound_logger(log_level),
         context_class=dict,
-        logger_factory=structlog.PrintLoggerFactory(sys.stdout),
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
     )
-    logging.basicConfig(level=log_level, stream=sys.stdout)
 
 
 logger = structlog.get_logger(__name__)

@@ -2,15 +2,160 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Security Knowledge - search</title>
+  <title>Security Knowledge · Search</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0c18; --surface: #12132a; --surface2: #1a1b35; --border: #2a2b4a;
+      --accent: #5b8df6; --green: #3ecf8e; --red: #f25f5c;
+      --text: #e2e4f0; --muted: #7c7f9e; --radius: 10px;
+    }
+    html, body { height: 100%; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+    .topbar {
+      position: sticky; top: 0; z-index: 100; background: var(--surface);
+      border-bottom: 1px solid var(--border); display: flex; align-items: center;
+      padding: 0 24px; height: 56px; gap: 0;
+    }
+    .topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--text); text-decoration: none; margin-right: 32px; }
+    .topbar .brand span { color: var(--accent); }
+    .topbar nav { display: flex; gap: 4px; }
+    .topbar nav a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; transition: all .15s; }
+    .topbar nav a:hover, .topbar nav a.active { color: var(--text); background: var(--surface2); }
+    .page { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+    .page-header { margin-bottom: 24px; }
+    .page-header h1 { font-size: 22px; font-weight: 700; }
+    .search-bar { display: flex; gap: 10px; margin-bottom: 24px; }
+    .search-bar input {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 9px; padding: 11px 16px; color: var(--text);
+      font-size: 15px; outline: none; transition: border-color .15s;
+    }
+    .search-bar input:focus { border-color: var(--accent); }
+    .search-bar input::placeholder { color: var(--muted); }
+    .btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 11px 20px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .result { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin: 8px 0; }
+    .result h3 { font-size: 14px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+    .result p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .badge { background: var(--surface2); border: 1px solid var(--border); color: var(--accent); font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; margin-right: 6px; }
+    .empty { color: var(--muted); font-size: 13px; }
+    a { color: var(--accent); text-decoration: none; }
+  </style>
 </head>
 <body>
-<main class="container">
-  <h1>Security Knowledge</h1>
-  <p>Page: search</p>
+<header class="topbar">
+  <a class="brand" href="/ui/">🦀 <span>Security</span>&nbsp;Knowledge</a>
+  <nav>
+    <a href="/ui/">Dashboard</a>
+    <a href="/ui/entities">Entities</a>
+    <a href="/ui/search" class="active">Search</a>
+    <a href="/ui/graph">Graph</a>
+    <a href="/docs" target="_blank">API Docs ↗</a>
+  </nav>
+</header>
+<main class="page">
+  <div class="page-header">
+    <h1>Search</h1>
+  </div>
+  <div class="search-bar">
+    <input type="text" id="q" placeholder="CVE-2024-1234, ransomware, APT28, T1059…" autofocus />
+    <button class="btn" onclick="doSearch()">Search</button>
+  </div>
+  <div id="results"><span class="empty">Enter a query above.</span></div>
 </main>
+<script>
+function getKey() { return localStorage.getItem('sk_api_key') || ''; }
+function authHeaders() { const k = getKey(); return k ? {'X-API-Key': k} : {}; }
+
+async function doSearch() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  document.getElementById('results').innerHTML = '<span class="empty">Searching…</span>';
+  try {
+    const r = await fetch('/api/v1/search/?q=' + encodeURIComponent(q) + '&limit=20', {headers: authHeaders()});
+    const data = await r.json();
+    const el = document.getElementById('results');
+    const items = Array.isArray(data) ? data : (data.results || data.items || []);
+    if (!items.length) { el.innerHTML = '<span class="empty">No results.</span>'; return; }
+    el.innerHTML = items.map(item => `
+      <div class="result">
+        <h3>${item.name || item.title || item.source_url || item.id}</h3>
+        <p>
+          ${item.kind ? `<span class="badge">${item.kind}</span>` : ''}
+          ${item.content ? item.content.slice(0,220) + '…' : (item.description || '')}
+        </p>
+      </div>`).join('');
+  } catch(err) { document.getElementById('results').innerHTML = `<span class="empty" style="color:#f25f5c">${err}</span>`; }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  const params = new URLSearchParams(location.search);
+  if (params.get('q')) { document.getElementById('q').value = params.get('q'); doSearch(); }
+});
+</script>
+</body>
+</html>
+  <style>
+    nav.top { background: #1a1a2e; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1.5rem; }
+    nav.top a { color: #e0e0e0; text-decoration: none; font-size: 0.9rem; }
+    nav.top a:hover { color: #fff; }
+    nav.top .brand { font-weight: bold; font-size: 1rem; color: #fff; margin-right: auto; }
+    body { background: #0d0d1a; color: #ddd; }
+    h1 { font-size: 1.4rem; color: #fff; }
+    .result { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 0.75rem 1rem; margin: 0.5rem 0; }
+    .result h3 { margin: 0 0 0.25rem; font-size: 0.95rem; color: #7eb8f7; }
+    .result p { margin: 0; font-size: 0.82rem; color: #aaa; }
+    .badge { background: #1e2a3a; border: 1px solid #456; color: #9af; font-size: 0.72rem; padding: 0.1rem 0.4rem; border-radius: 10px; }
+  </style>
+</head>
+<body data-theme="dark">
+<nav class="top">
+  <span class="brand">🦀 Security Knowledge</span>
+  <a href="/ui/">Dashboard</a>
+  <a href="/ui/entities">Entities</a>
+  <a href="/ui/search">Search</a>
+  <a href="/ui/graph">Graph</a>
+  <a href="/docs" target="_blank">API Docs ↗</a>
+</nav>
+<main class="container">
+  <h1>Search</h1>
+  <form onsubmit="doSearch(event)" style="display:flex;gap:0.75rem;margin-bottom:1rem">
+    <input type="text" id="q" placeholder="CVE-2024-1234, ransomware, APT28…" style="flex:1;margin:0" autofocus>
+    <button type="submit">Search</button>
+  </form>
+  <div id="results"><span style="color:#888">Enter a query above.</span></div>
+</main>
+<script>
+function getKey() { return localStorage.getItem('sk_api_key') || ''; }
+function authHeaders() { const k = getKey(); return k ? {'X-API-Key': k} : {}; }
+
+async function doSearch(e) {
+  e && e.preventDefault();
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  document.getElementById('results').innerHTML = '<span style="color:#888">Searching…</span>';
+  try {
+    const r = await fetch('/api/v1/search/?q=' + encodeURIComponent(q) + '&limit=20', {headers: authHeaders()});
+    const data = await r.json();
+    const el = document.getElementById('results');
+    const items = Array.isArray(data) ? data : (data.results || data.items || []);
+    if (!items.length) { el.innerHTML = '<span style="color:#888">No results.</span>'; return; }
+    el.innerHTML = items.map(item => `
+      <div class="result">
+        <h3>${item.name || item.title || item.source_url || item.id}</h3>
+        <p>
+          ${item.kind ? `<span class="badge">${item.kind}</span> ` : ''}
+          ${item.content ? item.content.slice(0, 200) + '…' : (item.description || '')}
+        </p>
+      </div>`).join('');
+  } catch(err) { document.getElementById('results').innerHTML = `<span style="color:#f88">${err}</span>`; }
+}
+
+const params = new URLSearchParams(location.search);
+if (params.get('q')) { document.getElementById('q').value = params.get('q'); doSearch(); }
+</script>
 </body>
 </html>
