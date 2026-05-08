@@ -1,10 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}z.je{% endblock %}</title>
   <meta name="theme-color" content="#091117">
+  <script>
+    (function(){
+      var t = localStorage.getItem("zje-theme") || "dark";
+      document.documentElement.setAttribute("data-theme", t);
+      if (t === "light") {
+        document.documentElement.style.colorScheme = "light";
+      }
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -32,6 +41,7 @@
         {% endif %}
       </div>
       <div class="nav-user">
+        <button class="button-muted" id="theme-toggle" title="Toggle light/dark mode" style="font-size:1.1rem;padding:0.6rem 0.7rem;">🌙</button>
         {% if current_user %}
         <span class="tiny-pill">{{ current_user.email }}</span>
         <button class="button-muted" onclick="fetch('/api/v1/auth/logout',{method:'POST',credentials:'same-origin'}).then(()=>window.location='/login')">Logout</button>
@@ -46,5 +56,21 @@
 
     <p class="footer-note">Single-box OSINT lookup, cached enrichment, graph pivots, and hidden fingerprint event logging.</p>
   </div>
+  <script>
+    (function(){
+      const btn = document.getElementById("theme-toggle");
+      const html = document.documentElement;
+      const update = (t) => {
+        html.setAttribute("data-theme", t);
+        html.style.colorScheme = t;
+        localStorage.setItem("zje-theme", t);
+        if (btn) btn.textContent = t === "dark" ? "☀️" : "🌙";
+      };
+      if (btn) btn.addEventListener("click", () => {
+        update(html.getAttribute("data-theme") === "dark" ? "light" : "dark");
+      });
+      update(localStorage.getItem("zje-theme") || "dark");
+    })();
+  </script>
 </body>
 </html>
