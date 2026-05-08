@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth.dependencies import AuthContext, Scope, get_auth, require_scope
+from app.database import get_db
 from app.services import mitre_attack
 
 router = APIRouter(prefix="/mcp", tags=["MCP"])
@@ -86,13 +89,17 @@ MITRE_TOOL_SCHEMAS = {
 
 
 @router.post("/call")
-async def call_tool(body: ToolCall, auth: AuthContext = Depends(get_auth)):
+async def call_tool(
+    body: ToolCall,
+    auth: AuthContext = Depends(get_auth),
+    db: AsyncSession = Depends(get_db),
+):
     auth.require_scope(Scope.read)
 
     if body.tool == "enrich_entity":
         from app.mcp.tools.enrich_entity import EnrichEntityInput, enrich_entity_tool
         inp = EnrichEntityInput(tenant_id=str(auth.tenant_id), **body.args)
-        result = await enrich_entity_tool(inp)
+        result = await enrich_entity_tool(inp, db)
         return result.model_dump()
 
     if body.tool in MITRE_TOOLS:
@@ -117,7 +124,31 @@ async def list_tools(auth: AuthContext = Depends(get_auth)):
     return {
         "tools": ["enrich_entity"] + [t["name"] for t in mitre_tool_list],
         "tool_schemas": [
-            {"name": "enrich_entity", "parameters": {"entity_kind": "string", "entity_value": "string", "tenant_id": "string"}},
+            {
+                "name": "enrich_entity",
+                "parameters": {
+                    "type": "object",
+                    "required": ["entity_kind", "entity_value"],
+                    "properties": {
+                        "entity_kind": {
+                            "type": "string",
+                            "description": "Kind of entity to enrich (e.g. cve, ip_address, domain, malware)",
+                        },
+                        "entity_value": {
+                            "type": "string",
+                            "description": "The entity value to look up (e.g. CVE-2024-1234, 1.2.3.4)",
+                        },
+                        "providers": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": (
+                                "Optional provider names to restrict enrichment to;"
+                                " omit to run all matching providers"
+                            ),
+                        },
+                    },
+                },
+            },
             *mitre_tool_list,
         ],
     }
