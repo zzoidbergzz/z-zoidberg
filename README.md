@@ -7,10 +7,12 @@ The `security-knowledge/` FastAPI service is live at **https://z.je** and powers
 ### Auth & Access
 - Everything requires login — no content is exposed without an authenticated session.
 - `POST /api/v1/auth/login` — email + password → JWT + httpOnly `sk_session` cookie (7 days).
-- `POST /api/v1/auth/register` — account creation (pending approval by admin).
+- `POST /api/v1/auth/register` — account creation (status `pending`; awaits admin approval).
 - `POST /api/v1/auth/logout` — clears session cookie.
 - `POST /api/v1/auth/token` — API key → JWT for programmatic access.
 - Bootstrap admin `m@z.je` is created automatically on first startup from `.env`.
+- **On approval**, the admin panel auto-generates a personal API key (shown ONCE in the approval dialog) with `read write enrichment watch` scopes.
+- **First-login BYOK prompt**: a non-blocking banner appears site-wide until the user adds at least one provider key in `/settings` (or dismisses for 7 days).
 
 ### Browser UI (all at root paths on https://z.je)
 
@@ -22,7 +24,10 @@ The `security-knowledge/` FastAPI service is live at **https://z.je** and powers
 | `/graph` | Pivot graph explorer |
 | `/entities` | Entity browser |
 | `/search` | Full-text search |
-| `/admin` | Admin panel (admin role required) |
+| `/claims` | Browse + author structured claims |
+| `/digests` | Recurring digest subscriptions |
+| `/admin` | Admin panel (admin role required): stats, pending approvals, user list, source health, audit |
+| `/settings` | Account, password, BYOK provider keys |
 | `/login` | Login page |
 | `/register` | Account registration |
 
@@ -165,10 +170,11 @@ not incorporated into this codebase, so it does not impose GPL requirements on t
 
 ## Known Gaps
 
-- Ingestion worker (`process_ingest_job`) is a stub — creates job record but does not fetch/parse/embed.
-- Search uses `ILIKE` rather than the FTS/trigram migrations.
+- Historical backfill is **not** performed — feeds only expose the recent N items so the knowledge base grows from the moment ingestion starts.
+- Enrichment runs on-demand for IPs/CVEs/URLs; a backfill sweep across all pre-existing entities is not yet automated (typical coverage after first day: CVEs ~17%, hashes ~5%, URLs near-100% via urlscan).
 - GraphQL resolvers return empty data.
 - MISP/OpenCTI bidirectional sync is incomplete.
+- Apache catch-all proxy means non-app paths (e.g. `/lookup.txt`) are answered by FastAPI rather than the filesystem.
 
 ---
 

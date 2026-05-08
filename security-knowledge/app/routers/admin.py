@@ -70,12 +70,36 @@ async def approve_user(
         user.status = UserStatus.approved
         user.approved_by = uuid.UUID(auth.user_id) if auth.user_id else None
         user.approved_at = datetime.now(timezone.utc)
+        # Auto-generate first API key on approval if user has none
+        from app.auth.api_key import generate_api_key
+        from app.models.auth import ApiKey
+
+        existing_keys = (await db.execute(
+            select(func.count()).select_from(ApiKey).where(ApiKey.user_id == user.id)
+        )).scalar_one()
+        new_key_plaintext = None
+        if existing_keys == 0:
+            raw, key_hash = generate_api_key()
+            ak = ApiKey(
+                user_id=user.id,
+                tenant_id=user.tenant_id,
+                key_hash=key_hash,
+                name=f"auto-generated-{user.email.split('@')[0]}",
+                scopes="read write enrichment watch",
+                active=True,
+            )
+            db.add(ak)
+            new_key_plaintext = raw
+        await db.flush()
+        await db.commit()
+        return {"id": str(user.id), "status": user.status, "api_key": new_key_plaintext}
     elif body.action == "reject":
         user.status = UserStatus.rejected
     else:
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
 
     await db.flush()
+    await db.commit()
     return {"id": str(user.id), "status": user.status}
 
 
@@ -138,4 +162,5 @@ async def toggle_source(
         raise HTTPException(status_code=404, detail="Source not found")
     src.active = body.active
     await db.flush()
+    await db.commit()
     return {"id": str(src.id), "active": src.active, "url": src.url}

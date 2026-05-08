@@ -138,6 +138,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.flush()
     await db.refresh(user)
+    await db.commit()
 
     return {
         "id": str(user.id),

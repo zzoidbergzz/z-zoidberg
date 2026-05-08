@@ -63,6 +63,34 @@
       </div>
     </nav>
 
+    {% if current_user %}
+    <div id="byok-banner" class="byok-banner" style="display:none;">
+      <span>👋 Welcome! You have no provider API keys configured yet — your lookups will use the system defaults.</span>
+      <a href="/settings" class="button" style="margin-left:0.5rem;">Add your keys (BYOK)</a>
+      <button class="button-muted" id="byok-banner-dismiss" style="margin-left:0.25rem;">Dismiss for 7 days</button>
+    </div>
+    <script>
+      (() => {
+        const dismissed = localStorage.getItem("byok_banner_dismissed_until");
+        if (dismissed && Date.now() < parseInt(dismissed, 10)) return;
+        fetch("/api/v1/auth/provider-keys", {credentials:"same-origin"})
+          .then(r => r.ok ? r.json() : [])
+          .then(keys => {
+            if (!Array.isArray(keys) || keys.length === 0) {
+              const b = document.getElementById("byok-banner");
+              if (b) b.style.display = "flex";
+            }
+          })
+          .catch(() => {});
+        const dismissBtn = document.getElementById("byok-banner-dismiss");
+        if (dismissBtn) dismissBtn.addEventListener("click", () => {
+          localStorage.setItem("byok_banner_dismissed_until", String(Date.now() + 7*24*3600*1000));
+          document.getElementById("byok-banner").style.display = "none";
+        });
+      })();
+    </script>
+    {% endif %}
+
     {% block content %}{% endblock %}
 
     <p class="footer-note">Single-box OSINT lookup, cached enrichment, graph pivots, and hidden fingerprint event logging.</p>
