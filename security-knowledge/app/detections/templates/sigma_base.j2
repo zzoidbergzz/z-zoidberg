@@ -1,0 +1,14 @@
+title: {{ title }}
+status: experimental
+description: {{ description }}
+author: security-knowledge
+logsource:
+    category: {{ logsource_category | default('process_creation') }}
+    product: {{ logsource_product | default('windows') }}
+detection:
+    selection:
+        {{ selection | indent(8) }}
+    condition: selection
+falsepositives:
+    - Unknown
+level: {{ level | default('medium') }}

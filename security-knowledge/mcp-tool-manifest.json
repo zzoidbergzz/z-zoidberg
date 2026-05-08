@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "name": "security-knowledge-mcp",
+  "description": "Security intelligence MCP tools",
+  "tools": [
+    {
+      "name": "enrich_entity",
+      "description": "Enrich a named security entity with data from external sources",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "entity_name": {"type": "string", "description": "Name of the entity (e.g. CVE-2024-1234)"},
+          "entity_kind": {"type": "string", "description": "Kind of entity", "enum": ["cve", "malware", "actor", "ip_address", "domain", "hash", "url"]},
+          "tenant_id": {"type": "string", "description": "Tenant identifier"}
+        },
+        "required": ["entity_name", "entity_kind", "tenant_id"]
+      }
+    }
+  ],
+  "mcp_servers": {
+    "falcon-mcp": {
+      "description": "CrowdStrike Falcon MCP server — detections, threat intel, hosts, IOC, Spotlight, NGSIEM, RTR",
+      "source": "https://github.com/CrowdStrike/falcon-mcp",
+      "sdk": "https://github.com/CrowdStrike/falconpy",
+      "transport": "stdio",
+      "run": {
+        "uvx": {
+          "command": "uvx",
+          "args": ["falcon-mcp"]
+        },
+        "uvx_modules": {
+          "command": "uvx",
+          "args": ["falcon-mcp", "--modules", "detections,intel,hosts,ioc,spotlight"]
+        },
+        "docker": {
+          "command": "docker",
+          "args": ["run", "-i", "--rm", "--env-file", "/path/to/.env", "quay.io/crowdstrike/falcon-mcp:latest"]
+        }
+      },
+      "env": {
+        "FALCON_CLIENT_ID": "settings.CROWDSTRIKE_CLIENT_ID",
+        "FALCON_CLIENT_SECRET": "settings.CROWDSTRIKE_CLIENT_SECRET",
+        "FALCON_BASE_URL": "settings.CROWDSTRIKE_BASE_URL"
+      },
+      "modules": [
+        "core", "detections", "hosts", "intel", "ioc", "spotlight",
+        "cloud", "discover", "firewall", "idp", "ngsiem", "rtr",
+        "custom-ioa", "scheduled-reports", "sensor-usage", "serverless", "shield"
+      ]
+    }
+  }
+}
+

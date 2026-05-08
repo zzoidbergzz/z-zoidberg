@@ -1,0 +1,79 @@
+version: "1.0"
+# Source fetch policy.
+# Fields per entry:
+#   name        — human-readable label
+#   sources     — list of URL glob patterns
+#   action      — "allow" or "deny"
+#   rate_limit  — optional, e.g. "100/day", "1000/hour"
+#   use_browser — optional bool; when true AND PLAYWRIGHT_ENABLED=true, use
+#                 headless Chromium (Layer 2 of the 3-layer fetcher).
+#                 CAPTCHA detection (Layer 3) always runs after a browser fetch.
+policies:
+  - name: allow-nvd
+    sources:
+      - pattern: "https://services.nvd.nist.gov/*"
+    action: allow
+    rate_limit: 100/day
+    use_browser: false
+
+  - name: allow-cisa-kev
+    sources:
+      - pattern: "https://www.cisa.gov/*"
+    action: allow
+    use_browser: false
+
+  - name: allow-github-advisory
+    sources:
+      - pattern: "https://api.github.com/advisories*"
+    action: allow
+    rate_limit: 1000/hour
+    use_browser: false
+
+  # Threat-intel sites that are commonly Cloudflare-protected or JS-rendered.
+  # These require the Playwright browser path to retrieve usable content.
+  # Enable by setting PLAYWRIGHT_ENABLED=true in your .env file and running
+  # `make playwright-install` to download browser binaries.
+  - name: allow-threatfox
+    sources:
+      - pattern: "https://threatfox.abuse.ch/*"
+    action: allow
+    use_browser: true
+    rate_limit: 60/hour
+
+  - name: allow-urlhaus
+    sources:
+      - pattern: "https://urlhaus.abuse.ch/*"
+    action: allow
+    use_browser: true
+    rate_limit: 60/hour
+
+  - name: allow-bazaar
+    sources:
+      - pattern: "https://bazaar.abuse.ch/*"
+    action: allow
+    use_browser: true
+    rate_limit: 60/hour
+
+  - name: allow-virustotal-public
+    sources:
+      - pattern: "https://www.virustotal.com/gui/*"
+    action: allow
+    use_browser: true
+    rate_limit: 60/hour
+
+  - name: allow-crowdstrike-api
+    sources:
+      - pattern: "https://api.crowdstrike.com/*"
+    action: allow
+    rate_limit: 1000/hour
+    use_browser: false
+
+  - name: deny-private
+    sources:
+      - pattern: "http://10.*"
+      - pattern: "http://192.168.*"
+      - pattern: "http://172.16.*"
+      - pattern: "http://127.*"
+      - pattern: "http://localhost*"
+      - pattern: "https://localhost*"
+    action: deny

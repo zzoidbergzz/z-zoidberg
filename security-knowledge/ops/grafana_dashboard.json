@@ -1,0 +1,22 @@
+{
+  "title": "Security Knowledge",
+  "uid": "sk-main",
+  "panels": [
+    {
+      "title": "HTTP Requests/sec",
+      "type": "graph",
+      "targets": [{"expr": "rate(http_requests_total[1m])"}]
+    },
+    {
+      "title": "P95 Latency",
+      "type": "graph",
+      "targets": [{"expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))"}]
+    },
+    {
+      "title": "Active Jobs",
+      "type": "stat",
+      "targets": [{"expr": "ingestion_jobs_active_total"}]
+    }
+  ],
+  "schemaVersion": 38
+}

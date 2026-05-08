@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}z.je | Login{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="panel">
+    <p class="tiny-pill">SESSION ACCESS</p>
+    <h1 class="headline" style="margin-top:1rem;">Login to the analyst workspace.</h1>
+    <p class="subtle" style="margin-top:1rem;">Active accounts can use both the browser UI and bearer tokens. Sessions are stored server-side and validated on every request.</p>
+  </div>
+
+  <div class="panel">
+    <div class="section-title">Login</div>
+    {% if error %}
+    <div class="status-bar" data-kind="error" style="margin-top:0.75rem;">{{ error }}</div>
+    {% endif %}
+    <form class="stack" id="login-form" style="margin-top:1rem;">
+      <input class="form-input" type="email" name="email" placeholder="Email" required>
+      <input class="form-input" type="password" name="password" placeholder="Password" required>
+      <button class="button" type="submit">Open Session</button>
+      <div id="auth-status" class="status-bar"></div>
+    </form>
+    <p class="subtle" style="margin-top:1rem;">No account? <a href="/register">Request access</a>.</p>
+  </div>
+</section>
+<script>
+  document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const status = document.getElementById("auth-status");
+    const data = Object.fromEntries(new FormData(e.currentTarget).entries());
+    status.textContent = "Authenticating…";
+    status.dataset.kind = "";
+    try {
+      const res = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "same-origin",
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.detail || "Login failed");
+      status.textContent = "Success — redirecting…";
+      status.dataset.kind = "success";
+      window.location.href = "/";
+    } catch (err) {
+      status.textContent = err.message;
+      status.dataset.kind = "error";
+    }
+  });
+</script>
+{% endblock %}

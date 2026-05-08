@@ -1,0 +1,22 @@
+version: "1.0"
+collections:
+  - id: "collection-1"
+    title: "CVE Feed"
+    description: "Known CVE vulnerabilities"
+    can_read: true
+    can_write: false
+    entity_kinds: [cve, vulnerability]
+
+  - id: "collection-2"
+    title: "Threat Actors"
+    description: "Threat actor profiles"
+    can_read: true
+    can_write: false
+    entity_kinds: [actor, campaign]
+
+  - id: "collection-3"
+    title: "Indicators of Compromise"
+    description: "IP, domain, hash, URL indicators"
+    can_read: true
+    can_write: true
+    entity_kinds: [ip_address, domain, hash, url]

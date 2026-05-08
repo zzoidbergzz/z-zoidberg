@@ -1,0 +1,18 @@
+[Unit]
+Description=Security Knowledge FastAPI service
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=z
+Group=z
+WorkingDirectory=/home/z/z-zoidberg/security-knowledge
+EnvironmentFile=/home/z/z-zoidberg/security-knowledge/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/home/z/z-zoidberg/security-knowledge/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

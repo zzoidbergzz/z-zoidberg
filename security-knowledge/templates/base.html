@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}z.je{% endblock %}</title>
+  <meta name="theme-color" content="#091117">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/site.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+  <script defer src="/static/js/indicator.js"></script>
+  <script defer src="/static/js/search.js"></script>
+  <script defer src="/static/js/graph.js"></script>
+  <script defer src="/static/js/app.js"></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="shell">
+    <nav class="shell-nav">
+      <div class="nav-links">
+        <a href="/" class="brand-mark">z.je</a>
+        <a href="/" class="nav-pill">Search</a>
+        <a href="/fp" class="nav-pill">Fingerprint</a>
+        <a href="/investigation" class="nav-pill">Investigations</a>
+        <a href="/graph" class="nav-pill">Graph</a>
+        {% if current_user and current_user.role == 'admin' %}
+        <a href="/admin" class="nav-pill">Admin</a>
+        {% endif %}
+      </div>
+      <div class="nav-user">
+        {% if current_user %}
+        <span class="tiny-pill">{{ current_user.email }}</span>
+        <button class="button-muted" onclick="fetch('/api/v1/auth/logout',{method:'POST',credentials:'same-origin'}).then(()=>window.location='/login')">Logout</button>
+        {% else %}
+        <a href="/login" class="button-muted">Login</a>
+        <a href="/register" class="button">Register</a>
+        {% endif %}
+      </div>
+    </nav>
+
+    {% block content %}{% endblock %}
+
+    <p class="footer-note">Single-box OSINT lookup, cached enrichment, graph pivots, and hidden fingerprint event logging.</p>
+  </div>
+</body>
+</html>
