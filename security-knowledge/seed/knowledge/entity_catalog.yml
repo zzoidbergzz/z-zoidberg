@@ -1,0 +1,336 @@
+# Curated catalog for knowledge-graph bootstrap entities.
+# Maps `knowledge_id` (the slug stored in external_refs.knowledge_id) to a
+# friendly name, kind, description, and link. Used by:
+#   * scripts/backfill_kg_entities.py  — rewrite existing stub rows
+#   * seed/seed_research_pack.py       — populate new rows on import
+
+ent_framework_cve:
+  name: CVE
+  kind: framework
+  aka: [Common Vulnerabilities and Exposures]
+  url: https://www.cve.org/
+  description: >
+    MITRE-operated catalogue assigning unique IDs to publicly disclosed
+    software vulnerabilities. The starting point for vulnerability tracking
+    and the key all other vuln databases (NVD, KEV, EPSS, vendor advisories)
+    join on.
+
+ent_framework_cvss_v40:
+  name: CVSS v4.0
+  kind: framework
+  aka: [Common Vulnerability Scoring System v4]
+  url: https://www.first.org/cvss/v4.0/
+  description: >
+    FIRST.org open scoring framework producing a 0–10 severity score for a
+    vulnerability across Base, Threat, Environmental and Supplemental metric
+    groups. Severity ≠ priority; pair with EPSS / KEV / SSVC for action.
+
+ent_framework_epss:
+  name: EPSS
+  kind: framework
+  aka: [Exploit Prediction Scoring System]
+  url: https://www.first.org/epss/
+  description: >
+    FIRST.org daily-updated probability (0–1) that a CVE will be exploited
+    in the wild within the next 30 days. Used to triage which patches matter
+    today vs. theoretically-severe-but-unexploited.
+
+ent_catalog_kev:
+  name: CISA KEV
+  kind: framework
+  aka: [Known Exploited Vulnerabilities catalog]
+  url: https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+  description: >
+    CISA-maintained list of CVEs with confirmed in-the-wild exploitation.
+    KEV is the single strongest urgency signal — anything on the list should
+    be patched ahead of equivalent-CVSS items that are not.
+
+ent_framework_ssvc:
+  name: SSVC
+  kind: framework
+  aka: [Stakeholder-Specific Vulnerability Categorization]
+  url: https://www.cisa.gov/stakeholder-specific-vulnerability-categorization-ssvc
+  description: >
+    CISA decision-tree framework that maps exploitation status, technical
+    impact and mission/well-being impact to one of four actions
+    (Track, Track*, Attend, Act). Designed as the action-oriented complement
+    to CVSS severity.
+
+ent_product_nvd:
+  name: NIST NVD
+  kind: product
+  aka: [National Vulnerability Database]
+  url: https://nvd.nist.gov/
+  description: >
+    NIST-run enrichment layer over the CVE list — adds CVSS scores, CPE
+    product mappings, CWE weakness types and reference URLs. Most
+    automation pulls CVE detail from the NVD JSON feed, not raw cve.org.
+
+ent_framework_stix_21:
+  name: STIX 2.1
+  kind: framework
+  aka: [Structured Threat Information Expression]
+  url: https://oasis-open.github.io/cti-documentation/stix/intro
+  description: >
+    OASIS standard for representing CTI as typed objects (Indicator,
+    Malware, Threat-Actor, Attack-Pattern, Relationship…) in JSON. Lingua
+    franca for sharing structured threat data between platforms.
+
+ent_framework_taxii_21:
+  name: TAXII 2.1
+  kind: framework
+  aka: [Trusted Automated Exchange of Indicator Information]
+  url: https://oasis-open.github.io/cti-documentation/taxii/intro
+  description: >
+    OASIS HTTPS+JSON transport protocol for exchanging STIX bundles between
+    producers and consumers via collections and channels. The wire format
+    that pairs with STIX as the data format.
+
+ent_framework_csaf_21:
+  name: CSAF 2.1
+  kind: framework
+  aka: [Common Security Advisory Framework]
+  url: https://oasis-open.github.io/csaf-documentation/
+  description: >
+    OASIS machine-readable format for vendor security advisories — supersedes
+    older PDF/HTML advisories with structured JSON describing affected
+    products, vulnerabilities, scores and remediations.
+
+ent_framework_cyclonedx_17:
+  name: CycloneDX 1.7
+  kind: framework
+  aka: [SBOM standard]
+  url: https://cyclonedx.org/
+  description: >
+    OWASP-led SBOM (Software Bill of Materials) specification. Covers
+    components, dependencies, vulnerabilities, services, ML models and
+    cryptographic assets in a single graph format.
+
+ent_framework_spdx_30:
+  name: SPDX 3.0
+  kind: framework
+  aka: [Software Package Data Exchange]
+  url: https://spdx.dev/
+  description: >
+    Linux Foundation / ISO/IEC 5962 SBOM standard with a focus on licence
+    compliance and provenance. Often required for US Federal supply-chain
+    attestations alongside or instead of CycloneDX.
+
+ent_framework_osv_schema:
+  name: OSV Schema
+  kind: framework
+  aka: [Open Source Vulnerability schema]
+  url: https://ossf.github.io/osv-schema/
+  description: >
+    Google/OpenSSF JSON schema describing vulnerabilities in open-source
+    packages with precise version-range affected/fixed semantics. Powers
+    osv.dev, GHSA, PyPI Advisory DB and others.
+
+ent_framework_nist_csf_20:
+  name: NIST CSF 2.0
+  kind: framework
+  aka: [Cybersecurity Framework]
+  url: https://www.nist.gov/cyberframework
+  description: >
+    NIST high-level security programme framework with six Functions
+    (Govern, Identify, Protect, Detect, Respond, Recover). Used for
+    organisational maturity mapping and board-level reporting.
+
+ent_framework_nist_sp_800_61_r3:
+  name: NIST SP 800-61 r3
+  kind: framework
+  aka: [Computer Security Incident Handling Guide]
+  url: https://csrc.nist.gov/pubs/sp/800/61/r3/final
+  description: >
+    NIST incident-response lifecycle reference — Preparation,
+    Detection & Analysis, Containment/Eradication/Recovery, Post-incident.
+    Most enterprise IR runbooks are derived from this document.
+
+ent_framework_api_top10_2023:
+  name: OWASP API Top 10 (2023)
+  kind: framework
+  url: https://owasp.org/API-Security/editions/2023/en/0x00-introduction/
+  description: >
+    OWASP top-10 list of API-specific risks (BOLA, broken auth,
+    over-permissive object property exposure, unrestricted resource
+    consumption…). The API analogue to the classic OWASP Top 10.
+
+ent_framework_asvs_50:
+  name: OWASP ASVS 5.0
+  kind: framework
+  aka: [Application Security Verification Standard]
+  url: https://owasp.org/www-project-application-security-verification-standard/
+  description: >
+    OWASP requirements catalogue for verifying the security of web apps and
+    services across three depth levels (L1 opportunistic, L2 standard,
+    L3 advanced). Useful as a procurement / pen-test scope checklist.
+
+ent_framework_wstg:
+  name: OWASP WSTG
+  kind: framework
+  aka: [Web Security Testing Guide]
+  url: https://owasp.org/www-project-web-security-testing-guide/
+  description: >
+    OWASP testing playbook organised by category (auth, session,
+    input-validation, business logic…). The practical companion to ASVS
+    for hands-on web app pen-testing.
+
+# ── Microsoft / Defender stack ────────────────────────────────────
+ent_product_defender_endpoint:
+  name: Microsoft Defender for Endpoint
+  kind: product
+  aka: [MDE, Defender ATP]
+  url: https://learn.microsoft.com/en-us/defender-endpoint/
+  description: >
+    Microsoft EDR/EPP platform — real-time process telemetry, behaviour
+    analytics, attack-surface reduction rules and live-response shell on
+    Windows/macOS/Linux endpoints.
+
+ent_product_sentinel:
+  name: Microsoft Sentinel
+  kind: product
+  aka: [Azure Sentinel]
+  url: https://learn.microsoft.com/en-us/azure/sentinel/
+  description: >
+    Microsoft cloud-native SIEM/SOAR built on Log Analytics. Ingests
+    Microsoft 365, Azure, AWS, on-prem and third-party logs; detection
+    rules in KQL; playbooks via Logic Apps.
+
+ent_product_entra:
+  name: Microsoft Entra ID
+  kind: product
+  aka: [Azure AD, AAD]
+  url: https://learn.microsoft.com/en-us/entra/identity/
+  description: >
+    Microsoft cloud identity platform — users, groups, conditional access,
+    MFA, sign-in logs. Common pivot point for cloud incident response and
+    a frequent target (token theft, illicit consent, dir-sync abuse).
+
+# ── Sysinternals / forensics tools ───────────────────────────────
+ent_tool_sysmon:
+  name: Sysmon
+  kind: tool
+  url: https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon
+  description: >
+    Sysinternals system service that produces detailed Windows event log
+    entries (process create with command line + hashes, network connections,
+    image loads, registry, WMI). Foundation for most home-grown Windows EDR.
+
+ent_log_channel_sysmon_operational:
+  name: Sysmon/Operational log channel
+  kind: log_source
+  url: https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon
+  description: >
+    Windows Event Log channel where Sysmon writes its events
+    (Microsoft-Windows-Sysmon/Operational). Forwarded via WEC/WEF or agent
+    collectors into the SIEM.
+
+ent_tool_procmon:
+  name: Process Monitor
+  kind: tool
+  aka: [Procmon]
+  url: https://learn.microsoft.com/en-us/sysinternals/downloads/procmon
+  description: >
+    Sysinternals real-time file-system, registry, process and network
+    activity tracer. Standard tool for behavioural analysis of unknown
+    binaries in a sandbox.
+
+ent_tool_process_explorer:
+  name: Process Explorer
+  kind: tool
+  aka: [Procexp]
+  url: https://learn.microsoft.com/en-us/sysinternals/downloads/process-explorer
+  description: >
+    Sysinternals enhanced Task Manager — process tree, loaded DLLs/handles,
+    digital-signature verification, VirusTotal lookups. Quick triage for
+    suspicious live processes.
+
+ent_tool_procdump:
+  name: ProcDump
+  kind: tool
+  url: https://learn.microsoft.com/en-us/sysinternals/downloads/procdump
+  description: >
+    Sysinternals command-line tool for capturing process memory dumps on
+    triggers (CPU, exception, hang, time). Frequently abused by attackers
+    to dump LSASS — and by responders to capture malware in flight.
+
+ent_tool_autoruns:
+  name: Autoruns
+  kind: tool
+  url: https://learn.microsoft.com/en-us/sysinternals/downloads/autoruns
+  description: >
+    Sysinternals tool enumerating every Windows auto-start location
+    (Run keys, services, scheduled tasks, drivers, WMI subscriptions,
+    Office add-ins, AppInit DLLs, ...). Goes-to for persistence hunts.
+
+ent_tool_sigcheck:
+  name: Sigcheck
+  kind: tool
+  url: https://learn.microsoft.com/en-us/sysinternals/downloads/sigcheck
+  description: >
+    Sysinternals binary signature / version-info verifier with optional
+    VirusTotal hash lookup. Used to spot unsigned or mis-signed binaries
+    in lieu of attestation tooling.
+
+ent_tool_windbg:
+  name: WinDbg
+  kind: tool
+  url: https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/
+  description: >
+    Microsoft kernel and user-mode debugger. Standard tool for malware
+    reverse engineering, crash-dump analysis and Windows kernel research.
+
+# ── Detection / data-source taxonomy ─────────────────────────────
+ent_data_component_process_creation:
+  name: Process Creation (data component)
+  kind: data_component
+  url: https://attack.mitre.org/datasources/DS0009/
+  description: >
+    MITRE ATT&CK data component for "process started" events
+    (Sysmon EID 1, Windows Security 4688, Linux execve auditd). The single
+    most useful telemetry for EDR detections.
+
+ent_data_component_network_connection:
+  name: Network Connection (data component)
+  kind: data_component
+  url: https://attack.mitre.org/datasources/DS0029/
+  description: >
+    MITRE ATT&CK data component for outbound/inbound network connection
+    events (Sysmon EID 3, firewall/Zeek conn logs). Used for C2 detection,
+    lateral movement and exfiltration analytics.
+
+ent_data_component_dns_query:
+  name: DNS Query (data component)
+  kind: data_component
+  url: https://attack.mitre.org/datasources/DS0038/
+  description: >
+    MITRE ATT&CK data component for DNS resolution events (Sysmon EID 22,
+    DNS server query logs, passive-DNS). Powers DGA detection,
+    DNS-tunnelling identification and threat-intel matching.
+
+ent_event_id_4688:
+  name: Windows Security Event 4688
+  kind: event_id
+  url: https://learn.microsoft.com/en-us/windows/security/threat-protection/auditing/event-4688
+  description: >
+    Windows audit event "A new process has been created". Includes parent
+    process and (when Audit Process Creation Command Line policy is enabled)
+    the full command line. Native equivalent of Sysmon EID 1.
+
+ent_concept_kubernetes_audit_logging:
+  name: Kubernetes Audit Logging
+  kind: concept
+  url: https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/
+  description: >
+    Built-in K8s API-server audit log of every request (who, what, when,
+    response). Critical telemetry for cluster-level threat detection —
+    enable at Metadata or Request level and ship to a SIEM.
+
+# ── Bootstrap meta ───────────────────────────────────────────────
+ent_corpus_context_packs:
+  name: Security Knowledge Context Packs
+  kind: concept
+  description: >
+    Internal collection of curated Markdown/JSONL fixtures that bootstrap
+    the knowledge graph with frameworks, products, tools and relationships.
+    Lives under seed/knowledge/research_pack/.
