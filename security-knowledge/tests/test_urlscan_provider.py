@@ -66,7 +66,7 @@ async def test_url_search_success():
         )
 
     with _patched_client(handler):
-        prov = UrlscanProvider(api_key="test-key")
+        prov = UrlscanProvider(api_key="test-key", enable_rescan=False)
         out = await prov.enrich("url", "https://www.google.com/")
 
     assert captured["api_key_header"] == "test-key"
@@ -103,7 +103,7 @@ async def test_ip_search_success():
         )
 
     with _patched_client(handler):
-        prov = UrlscanProvider(api_key="test-key")
+        prov = UrlscanProvider(api_key="test-key", enable_rescan=False)
         out = await prov.enrich("ip_address", "8.8.8.8")
 
     assert "page.ip" in captured["url"]
@@ -136,7 +136,7 @@ async def test_empty_results_falls_back_to_domain_for_url():
         )
 
     with _patched_client(handler):
-        prov = UrlscanProvider(api_key="test-key")
+        prov = UrlscanProvider(api_key="test-key", enable_rescan=False)
         out = await prov.enrich("url", "https://foo.example/never-seen")
 
     assert len(calls) == 2
@@ -150,7 +150,7 @@ async def test_empty_results_no_fallback_when_no_match():
         return httpx.Response(200, json={"total": 0, "results": []})
 
     with _patched_client(handler):
-        prov = UrlscanProvider(api_key="test-key")
+        prov = UrlscanProvider(api_key="test-key", enable_rescan=False)
         out = await prov.enrich("ip_address", "203.0.113.99")
 
     assert out["total_results"] == 0
@@ -166,7 +166,7 @@ async def test_rate_limited_returns_empty():
         return httpx.Response(429, json={"message": "Rate limit exceeded"})
 
     with _patched_client(handler):
-        prov = UrlscanProvider(api_key="test-key")
+        prov = UrlscanProvider(api_key="test-key", enable_rescan=False)
         out = await prov.enrich("url", "https://example.com/")
 
     assert out == {}
@@ -192,7 +192,7 @@ async def test_missing_api_key_short_circuits(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_unsupported_kind_short_circuits():
-    prov = UrlscanProvider(api_key="test-key")
+    prov = UrlscanProvider(api_key="test-key", enable_rescan=False)
     out = await prov.enrich("hash", "deadbeef")
     assert out == {}
 

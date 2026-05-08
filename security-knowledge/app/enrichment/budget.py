@@ -1,8 +1,44 @@
+import asyncio
+from datetime import date
+
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enrichment import EnrichmentUsage
+
+# ---------------------------------------------------------------------------
+# In-process daily counter for circuit-breaker style guards (e.g. rescans).
+# This is intentionally process-local and resets on restart — it complements
+# the DB-backed per-tenant quotas above and protects the *outbound* submit
+# quota of upstream providers (urlscan, VT) from runaway loops.
+# ---------------------------------------------------------------------------
+
+_in_proc_lock = asyncio.Lock()
+_in_proc_counts: dict[str, tuple[str, int]] = {}
+
+
+async def check_and_increment(key: str, daily: int) -> bool:
+    """Return True if we are still under the *daily* cap for *key* and atomically
+    increment the counter. Returns False once the cap is reached for today.
+
+    The counter is process-local and rolls over at UTC midnight (date.today()).
+    """
+    today = date.today().isoformat()
+    async with _in_proc_lock:
+        d, c = _in_proc_counts.get(key, (today, 0))
+        if d != today:
+            d, c = today, 0
+        if c >= daily:
+            _in_proc_counts[key] = (d, c)
+            return False
+        _in_proc_counts[key] = (d, c + 1)
+        return True
+
+
+def _reset_counters_for_tests() -> None:
+    """Test helper — clears the in-process counter map."""
+    _in_proc_counts.clear()
 
 logger = structlog.get_logger(__name__)
 
