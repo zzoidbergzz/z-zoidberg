@@ -75,6 +75,9 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+# E501 (line too long) is impractical to enforce in model/migration files
+# that contain long SQL expressions, URLs, and type annotations.
+ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"

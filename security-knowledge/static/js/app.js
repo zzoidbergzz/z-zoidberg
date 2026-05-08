@@ -38,8 +38,115 @@ window.ZjeApp = (() => {
     return parseResponse(response);
   }
 
-  function prettify(data) {
-    return JSON.stringify(data, null, 2);
+  // ---------------------------------------------------------------------------
+  // Enrichment card rendering — per-provider rich layouts
+  // ---------------------------------------------------------------------------
+
+  function renderEnrichmentItem(item) {
+    const d = item.data || {};
+    const hasData = d && Object.keys(d).length > 0 && !d.not_found;
+    const providerIcons = {
+      virustotal:  "🦠", greynoise: "🔇", shodan: "🔍", ipinfo: "📍",
+      bgp_he:      "🌐", mitre_attack: "⚔️", nvd: "🛡", crowdstrike: "🦅",
+      misp: "🔗", opencti: "🕵️",
+    };
+    const icon = providerIcons[item.source] || "🔌";
+    const cachedBadge = item.expired
+      ? `<span class="tiny-pill" style="background:rgba(255,100,50,0.18);color:#f87">⏰ expired</span>`
+      : `<span class="tiny-pill" style="opacity:.5">cached</span>`;
+
+    let body = "";
+    if (!hasData) {
+      body = `<p class="subtle" style="margin-top:.5rem;font-style:italic;">No data returned${item.success ? "" : " (provider error)"}.</p>`;
+    } else if (item.source === "virustotal") {
+      const stats = [
+        ["malicious",  d.malicious,  "#f44"],
+        ["suspicious", d.suspicious, "#fb6"],
+        ["harmless",   d.harmless,   "#4c4"],
+        ["undetected", d.undetected, "#888"],
+      ];
+      const detScore = (d.malicious ?? 0) + (d.suspicious ?? 0);
+      body = `
+        <div style="margin:.6rem 0;display:flex;gap:.6rem;flex-wrap:wrap;">
+          ${stats.map(([k,v,c]) => `<span style="background:rgba(0,0,0,.25);border-radius:.5rem;padding:.25rem .6rem;color:${c};">${k}: <b>${v ?? 0}</b></span>`).join("")}
+        </div>
+        <div class="grid-2" style="gap:.5rem;margin-top:.5rem;">
+          ${d.country    ? `<div class="grid-card" style="padding:.5rem .75rem;"><small>Country</small><div>${escapeHtml(d.country)}</div></div>` : ""}
+          ${d.asn        ? `<div class="grid-card" style="padding:.5rem .75rem;"><small>ASN</small><div>${escapeHtml(String(d.asn))}</div></div>` : ""}
+          ${d.as_owner   ? `<div class="grid-card" style="padding:.5rem .75rem;"><small>AS Owner</small><div>${escapeHtml(d.as_owner)}</div></div>` : ""}
+          ${d.network    ? `<div class="grid-card" style="padding:.5rem .75rem;"><small>Network</small><div>${escapeHtml(d.network)}</div></div>` : ""}
+          ${d.reputation != null ? `<div class="grid-card" style="padding:.5rem .75rem;"><small>Reputation</small><div style="color:${d.reputation>0?'#4c4':d.reputation<0?'#f44':'#aaa'}">${d.reputation}</div></div>` : ""}
+        </div>
+        ${d.tags?.length ? `<div style="margin-top:.4rem;">${d.tags.map(t=>`<span class="tiny-pill">${escapeHtml(t)}</span>`).join(" ")}</div>` : ""}
+        ${d.vt_link     ? `<a class="button-muted" href="${escapeHtml(d.vt_link)}" target="_blank" rel="noopener" style="margin-top:.6rem;display:inline-block;">View on VirusTotal ↗</a>` : ""}
+      `;
+    } else if (item.source === "greynoise") {
+      const cls = d.classification === "malicious" ? "#f44" : d.classification === "benign" ? "#4c4" : "#aaa";
+      body = `
+        <div style="margin:.4rem 0;display:flex;gap:.5rem;flex-wrap:wrap;">
+          <span class="tiny-pill" style="color:${cls};">${escapeHtml(d.classification || "unknown")}</span>
+          ${d.noise   ? `<span class="tiny-pill">📡 noise</span>` : ""}
+          ${d.riot    ? `<span class="tiny-pill" style="color:#4c4;">✅ riot (trusted infra)</span>` : ""}
+        </div>
+        ${d.name       ? `<p style="margin:.3rem 0;"><b>${escapeHtml(d.name)}</b></p>` : ""}
+        ${d.last_seen  ? `<p class="subtle">Last seen: ${escapeHtml(d.last_seen)}</p>` : ""}
+        ${d.link       ? `<a class="button-muted" href="${escapeHtml(d.link)}" target="_blank" rel="noopener" style="margin-top:.4rem;display:inline-block;">GreyNoise ↗</a>` : ""}
+      `;
+    } else if (item.source === "shodan") {
+      body = `
+        <div class="grid-2" style="gap:.4rem;margin:.4rem 0;">
+          ${d.org     ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Org</small><div>${escapeHtml(d.org)}</div></div>` : ""}
+          ${d.country ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Country</small><div>${escapeHtml(d.country)}</div></div>` : ""}
+        </div>
+        ${d.ports?.length   ? `<p style="margin:.3rem 0;">Ports: ${d.ports.map(p=>`<span class="mono">${p}</span>`).join(", ")}</p>` : ""}
+        ${d.hostnames?.length ? `<p class="subtle">Hostnames: ${d.hostnames.slice(0,5).map(h=>escapeHtml(h)).join(", ")}</p>` : ""}
+        ${d.tags?.length    ? `<div>${d.tags.map(t=>`<span class="tiny-pill">${escapeHtml(t)}</span>`).join(" ")}</div>` : ""}
+      `;
+    } else if (item.source === "ipinfo") {
+      body = `
+        <div class="grid-2" style="gap:.4rem;margin:.4rem 0;">
+          ${d.city     ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>City</small><div>${escapeHtml(d.city)}, ${escapeHtml(d.region||"")}</div></div>` : ""}
+          ${d.country  ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Country</small><div>${escapeHtml(d.country)}</div></div>` : ""}
+          ${d.org      ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Org</small><div>${escapeHtml(d.org)}</div></div>` : ""}
+          ${d.hostname ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>rDNS</small><div>${escapeHtml(d.hostname)}</div></div>` : ""}
+        </div>
+        ${d.latitude && d.longitude ? `<p class="subtle">Coords: ${d.latitude}, ${d.longitude}</p>` : ""}
+      `;
+    } else if (item.source === "bgp_he") {
+      const asn = d.asn_detail || {};
+      const routes = d.routes || [];
+      const prefixCount = asn.prefix_count_v4 || 0;
+      const peerCount   = asn.peer_count || 0;
+      const asnNum      = d.origin_asn || asn.asn || "";
+      body = `
+        <div class="grid-2" style="gap:.4rem;margin:.4rem 0;">
+          ${d.containing_prefix ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Containing Prefix</small><div class="mono">${escapeHtml(d.containing_prefix)}</div></div>` : ""}
+          ${d.origin_asn ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Origin AS</small><div class="mono">AS${escapeHtml(String(d.origin_asn))}</div></div>` : ""}
+        </div>
+        ${asn.name ? `<p style="margin:.3rem 0;"><b>${escapeHtml(asn.name)}</b></p>` : ""}
+        ${prefixCount ? `<p class="subtle">Advertised prefixes: ${prefixCount} v4 · ${asn.prefix_count_v6 || 0} v6 · ${peerCount} peers</p>` : ""}
+        ${routes.slice(0,6).map(r=>`<div style="font-size:.8rem;opacity:.8;" class="mono">${escapeHtml(r.prefix)} via AS${escapeHtml(String(r.origin_asn))} — ${escapeHtml(r.description)}</div>`).join("")}
+        ${asnNum ? `<a class="button-muted" href="https://bgp.he.net/AS${escapeHtml(String(asnNum))}" target="_blank" rel="noopener" style="margin-top:.5rem;display:inline-block;">bgp.he.net ↗</a>` : ""}
+      `;
+    } else {
+      // Generic fallback — show non-empty fields
+      const entries = Object.entries(d).filter(([,v]) => v != null && v !== "" && !(Array.isArray(v) && v.length === 0));
+      body = entries.length
+        ? `<dl style="margin:.4rem 0;display:grid;grid-template-columns:auto 1fr;gap:.15rem .75rem;">
+            ${entries.slice(0,20).map(([k,v]) => `<dt class="subtle" style="white-space:nowrap;">${escapeHtml(k)}</dt><dd class="mono" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(Array.isArray(v)?v.join(", "):String(v)).slice(0,120)}</dd>`).join("")}
+           </dl>`
+        : `<p class="subtle" style="margin-top:.5rem;font-style:italic;">No data returned.</p>`;
+    }
+
+    return `
+      <article class="result-card${!hasData ? ' result-card--empty' : ''}">
+        <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap;">
+          <h3 style="display:flex;align-items:center;gap:.4rem;">${icon} ${escapeHtml(item.source)}</h3>
+          <div style="display:flex;gap:.4rem;align-items:center;">${cachedBadge}</div>
+        </div>
+        ${body}
+      </article>
+    `;
   }
 
   function escapeHtml(value) {
@@ -220,31 +327,18 @@ window.ZjeApp = (() => {
       </div>
     `;
 
-    enrichments.innerHTML = payload.enrichments?.length
-      ? payload.enrichments
-          .map(
-            (item) => {
-              const screenshot = item.data?.static_url
-                ? `
-                  <div style="margin-top:0.9rem;">
-                    <img src="${escapeHtml(item.data.static_url)}" alt="Captured screenshot for ${escapeHtml(item.source)}" style="width:100%;border-radius:0.9rem;border:1px solid rgba(123,161,181,0.18);" loading="lazy">
-                  </div>
-                `
-                : "";
-              return `
-                <article class="result-card">
-                  <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;">
-                    <h3>${escapeHtml(item.source)}</h3>
-                    <span class="tiny-pill">${escapeHtml(item.query_duration_ms ?? "?")}ms</span>
-                  </div>
-                  ${screenshot}
-                  <pre>${escapeHtml(prettify(item.data))}</pre>
-                </article>
-              `;
-            }
-          )
-          .join("")
-      : "<div class='empty-state'>No enrichment results yet. Polling is still running.</div>";
+    const allEnrichments = payload.enrichments || [];
+    const richEnrichments = allEnrichments.filter(e => e.data && Object.keys(e.data).length > 0);
+    const emptyEnrichments = allEnrichments.filter(e => !e.data || Object.keys(e.data).length === 0);
+
+    enrichments.innerHTML = richEnrichments.length
+      ? richEnrichments.map(renderEnrichmentItem).join("") +
+        (emptyEnrichments.length
+          ? `<details style="margin-top:.75rem;"><summary class="subtle" style="cursor:pointer;">${emptyEnrichments.length} providers returned no data</summary><div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem;">${emptyEnrichments.map(e=>`<span class="tiny-pill" style="opacity:.6;">${escapeHtml(e.source)}</span>`).join("")}</div></details>`
+          : "")
+      : (allEnrichments.length
+          ? `<div class='empty-state'>Enrichment is running — ${allEnrichments.length} providers queried, no results yet.</div>`
+          : "<div class='empty-state'>No enrichment results yet. Polling is still running.</div>");
 
     relationships.innerHTML = payload.relationships?.length
       ? payload.relationships

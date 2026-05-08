@@ -1,6 +1,4 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
-from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -57,12 +55,12 @@ class Settings(BaseSettings):
 
     # Budgets
     VIRUSTOTAL_DAILY_BUDGET: int = 500
-    VIRUSTOTAL_MINUTE_BUDGET: int = 4   # free tier: 4 req/min
+    VIRUSTOTAL_MINUTE_BUDGET: int = 4  # free tier: 4 req/min
     SHODAN_DAILY_BUDGET: int = 100
     IPINFO_MONTHLY_BUDGET: int = 50000
     GREYNOISE_DAILY_BUDGET: int = 1000
     CROWDSTRIKE_DAILY_BUDGET: int = 1000
-    BGP_HE_DAILY_BUDGET: int = 200      # scraping — be conservative
+    BGP_HE_DAILY_BUDGET: int = 200  # scraping — be conservative
 
     # TTLs (seconds)
     ENRICHMENT_TTL_VIRUSTOTAL: int = 86400

@@ -26,7 +26,7 @@ Caveats:
 import asyncio
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -40,10 +40,7 @@ logger = structlog.get_logger(__name__)
 
 _BASE = "https://bgp.he.net"
 _HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (compatible; SecurityKnowledgeBot/1.0; "
-        "+https://z.je/about)"
-    ),
+    "User-Agent": ("Mozilla/5.0 (compatible; SecurityKnowledgeBot/1.0; +https://z.je/about)"),
     "Accept": "text/html,application/xhtml+xml",
     "Accept-Language": "en-GB,en;q=0.9",
 }
@@ -119,7 +116,7 @@ async def _enrich_asn(client: httpx.AsyncClient, asn_num: str) -> dict[str, Any]
     result: dict[str, Any] = {
         "asn": f"AS{asn_num}",
         "source_url": url,
-        "scraped_at": datetime.now(timezone.utc).isoformat(),
+        "scraped_at": datetime.now(UTC).isoformat(),
     }
 
     # --- ASN name / description from <h1> or page title ---
@@ -151,17 +148,16 @@ async def _enrich_asn(client: httpx.AsyncClient, asn_num: str) -> dict[str, Any]
     result["ipv6_prefixes"] = _parse_prefix_table(soup, "table_prefixes6")
 
     # --- BGP peers (upstream / downstream / lateral) ---
-    result["peers_ipv4"]  = _parse_peer_table(soup, "table_peers4")
-    result["peers_ipv6"]  = _parse_peer_table(soup, "table_peers6")
-    result["upstreams_ipv4"]   = _parse_peer_table(soup, "table_upstreams4")
-    result["upstreams_ipv6"]   = _parse_peer_table(soup, "table_upstreams6")
+    result["peers_ipv4"] = _parse_peer_table(soup, "table_peers4")
+    result["peers_ipv6"] = _parse_peer_table(soup, "table_peers6")
+    result["upstreams_ipv4"] = _parse_peer_table(soup, "table_upstreams4")
+    result["upstreams_ipv6"] = _parse_peer_table(soup, "table_upstreams6")
     result["downstreams_ipv4"] = _parse_peer_table(soup, "table_downstreams4")
     result["downstreams_ipv6"] = _parse_peer_table(soup, "table_downstreams6")
 
     # Derive a flat unique peer-ASN list for quick scanning
     all_peers: set[str] = set()
-    for key in ("peers_ipv4", "peers_ipv6", "upstreams_ipv4", "upstreams_ipv6",
-                "downstreams_ipv4", "downstreams_ipv6"):
+    for key in ("peers_ipv4", "peers_ipv6", "upstreams_ipv4", "upstreams_ipv6", "downstreams_ipv4", "downstreams_ipv6"):
         for entry in result.get(key, []):
             all_peers.add(entry["asn"])
     result["connected_asns"] = sorted(all_peers)
@@ -169,7 +165,7 @@ async def _enrich_asn(client: httpx.AsyncClient, asn_num: str) -> dict[str, Any]
     # Summary counts
     result["prefix_count_v4"] = len(result["ipv4_prefixes"])
     result["prefix_count_v6"] = len(result["ipv6_prefixes"])
-    result["peer_count"]      = len(result["connected_asns"])
+    result["peer_count"] = len(result["connected_asns"])
 
     return result
 
@@ -185,25 +181,27 @@ async def _enrich_ip(client: httpx.AsyncClient, ip: str) -> dict[str, Any]:
     result: dict[str, Any] = {
         "ip": ip,
         "source_url": url,
-        "scraped_at": datetime.now(timezone.utc).isoformat(),
+        "scraped_at": datetime.now(UTC).isoformat(),
     }
 
-    # Route table — usually a single <table> with prefix/ASN/description columns
+    # Route table: HE /ip/ page columns are Origin AS | Announcement (prefix) | Description
     table = soup.find("table")
     if table:
         for tr in table.find_all("tr")[1:]:
             cells = tr.find_all("td")
             if len(cells) >= 3:
-                prefix  = cells[0].get_text(strip=True)
-                asn_raw = cells[1].get_text(strip=True)
-                desc    = cells[2].get_text(strip=True)
+                asn_raw = cells[0].get_text(strip=True)  # "AS15169"
+                prefix = cells[1].get_text(strip=True)  # "8.8.8.0/24"
+                desc = cells[2].get_text(strip=True)
                 asn_num = _norm_asn(asn_raw)
                 if prefix:
-                    result.setdefault("routes", []).append({
-                        "prefix":      prefix,
-                        "origin_asn":  asn_num,
-                        "description": desc,
-                    })
+                    result.setdefault("routes", []).append(
+                        {
+                            "prefix": prefix,
+                            "origin_asn": asn_num,
+                            "description": desc,
+                        }
+                    )
 
     # Origin ASN convenience field (first route)
     routes = result.get("routes", [])
@@ -250,7 +248,7 @@ class BGPHEProvider(BaseEnrichmentProvider):
                 result: dict = {
                     "domain": entity_value,
                     "source_url": url,
-                    "scraped_at": datetime.now(timezone.utc).isoformat(),
+                    "scraped_at": datetime.now(UTC).isoformat(),
                 }
                 table = soup.find("table")
                 if table:

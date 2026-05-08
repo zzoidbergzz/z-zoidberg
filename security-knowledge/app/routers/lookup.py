@@ -1,14 +1,14 @@
 from __future__ import annotations
-import uuid
-from datetime import datetime, timezone, timedelta
-from typing import Optional
 
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, Query
+import uuid
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_auth, AuthContext, Scope
+from app.auth.dependencies import AuthContext, Scope, get_auth
 from app.database import get_db
 from app.enrichment.registry import list_providers
 from app.enrichment.service import EnrichmentService
@@ -29,15 +29,16 @@ _DISPATCH_DEBOUNCE_SECONDS = 300
 # Request / response models
 # ---------------------------------------------------------------------------
 
+
 class LookupRequest(BaseModel):
     query: str
     force_repoll: bool = False
-    investigation_id: Optional[str] = None
+    investigation_id: str | None = None
 
 
 class BulkLookupRequest(BaseModel):
     queries: list[str]
-    investigation_id: Optional[str] = None
+    investigation_id: str | None = None
 
 
 class TagRequest(BaseModel):
@@ -50,7 +51,7 @@ class NoteRequest(BaseModel):
 
 class InvestigationCreate(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -106,17 +107,17 @@ async def _should_dispatch(db: AsyncSession, entity_id: str, tenant_id: str, for
     rec = row.mappings().one_or_none()
     if rec is None or rec["last_dispatch_at"] is None:
         return True
-    elapsed = (datetime.now(timezone.utc) - rec["last_dispatch_at"]).total_seconds()
+    elapsed = (datetime.now(UTC) - rec["last_dispatch_at"]).total_seconds()
     return elapsed > _DISPATCH_DEBOUNCE_SECONDS
 
 
 async def _record_dispatch(db: AsyncSession, entity_id: str, tenant_id: str, force: bool) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     extra = ", last_force_repoll_at = :now" if force else ""
     await db.execute(
         text(f"""
-            INSERT INTO entity_lookup_state (entity_id, tenant_id, last_dispatch_at{', last_force_repoll_at' if force else ''})
-            VALUES (:eid, :tid, :now{', :now' if force else ''})
+            INSERT INTO entity_lookup_state (entity_id, tenant_id, last_dispatch_at{", last_force_repoll_at" if force else ""})
+            VALUES (:eid, :tid, :now{", :now" if force else ""})
             ON CONFLICT (entity_id, tenant_id) DO UPDATE
             SET last_dispatch_at = :now{extra}
         """),
@@ -124,7 +125,9 @@ async def _record_dispatch(db: AsyncSession, entity_id: str, tenant_id: str, for
     )
 
 
-async def _dispatch_enrichment(entity: Entity, tenant_id: str, force: bool, db: AsyncSession, user_id: str | None = None) -> None:
+async def _dispatch_enrichment(
+    entity: Entity, tenant_id: str, force: bool, db: AsyncSession, user_id: str | None = None
+) -> None:
     """Run enrichment for all registered providers (background-safe, opens own session)."""
     from app.database import AsyncSessionLocal  # avoid circular at module level
 
@@ -147,28 +150,31 @@ async def _get_enrichment_results(db: AsyncSession, tenant_id: str, entity_kind:
         )
     )
     rows = result.scalars().all()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     out = []
     for row in rows:
         expired = row.expires_at is not None and row.expires_at < now
-        out.append({
-            # JS renderResults() expects these field names:
-            "source": row.provider,
-            "data": row.normalized,
-            "query_duration_ms": None,
-            # additional metadata
-            "provider": row.provider,
-            "success": row.success,
-            "cached_at": row.created_at.isoformat() if row.created_at else None,
-            "expires_at": row.expires_at.isoformat() if row.expires_at else None,
-            "expired": expired,
-        })
+        out.append(
+            {
+                # JS renderResults() expects these field names:
+                "source": row.provider,
+                "data": row.normalized,
+                "query_duration_ms": None,
+                # additional metadata
+                "provider": row.provider,
+                "success": row.success,
+                "cached_at": row.created_at.isoformat() if row.created_at else None,
+                "expires_at": row.expires_at.isoformat() if row.expires_at else None,
+                "expired": expired,
+            }
+        )
     return out
 
 
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.post("/lookup")
 async def lookup(
@@ -240,15 +246,19 @@ async def bulk_lookup(
             if should_dispatch:
                 background_tasks.add_task(_dispatch_enrichment, entity, auth.tenant_id, False, db, auth.user_id)
             if body.investigation_id:
-                await _add_entity_to_investigation(db, body.investigation_id, str(entity.id), auth.tenant_id, auth.user_id)
-            results.append({
-                "query": query,
-                "entity_id": str(entity.id),
-                "kind": kind,
-                "canonical_name": canonical,
-                "classified_as": classified["type"],
-                "enrichment_dispatched": should_dispatch,
-            })
+                await _add_entity_to_investigation(
+                    db, body.investigation_id, str(entity.id), auth.tenant_id, auth.user_id
+                )
+            results.append(
+                {
+                    "query": query,
+                    "entity_id": str(entity.id),
+                    "kind": kind,
+                    "canonical_name": canonical,
+                    "classified_as": classified["type"],
+                    "enrichment_dispatched": should_dispatch,
+                }
+            )
         except Exception as exc:
             results.append({"query": query, "error": str(exc)})
     await db.commit()
@@ -277,11 +287,13 @@ async def entity_results(
     relationships = []
     for row in rels_raw.mappings().all():
         target = str(row["to_entity_id"]) if str(row["from_entity_id"]) == entity_id else str(row["from_entity_id"])
-        relationships.append({
-            "relation_type": row["kind"],
-            "target_entity": target,
-            "discovered_via": "graph",
-        })
+        relationships.append(
+            {
+                "relation_type": row["kind"],
+                "target_entity": target,
+                "discovered_via": "graph",
+            }
+        )
 
     return {
         # JS renderResults() expects this shape:
@@ -306,7 +318,7 @@ async def entity_graph(
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_auth),
 ):
-    entity = await _get_entity_for_tenant(db, entity_id, auth.tenant_id)
+    await _get_entity_for_tenant(db, entity_id, auth.tenant_id)
     rels = await db.execute(
         text("""SELECT from_entity_id, to_entity_id, kind, confidence
                 FROM relationships
@@ -321,13 +333,15 @@ async def entity_graph(
     for row in rel_rows:
         from_id = str(row["from_entity_id"])
         to_id = str(row["to_entity_id"])
-        edges.append({
-            "from": from_id,
-            "to": to_id,
-            "label": row["kind"],
-            "kind": row["kind"],
-            "confidence": row["confidence"],
-        })
+        edges.append(
+            {
+                "from": from_id,
+                "to": to_id,
+                "label": row["kind"],
+                "kind": row["kind"],
+                "confidence": row["confidence"],
+            }
+        )
         related_ids.add(from_id)
         related_ids.add(to_id)
 
@@ -341,13 +355,15 @@ async def entity_graph(
     )
     nodes = []
     for e in entities_q.scalars().all():
-        nodes.append({
-            "id": str(e.id),
-            "label": e.canonical_name,
-            "type": e.kind,
-            "color": "#2dd4bf" if str(e.id) == entity_id else "#6366f1",
-            "size": 18 if str(e.id) == entity_id else 12,
-        })
+        nodes.append(
+            {
+                "id": str(e.id),
+                "label": e.canonical_name,
+                "type": e.kind,
+                "color": "#2dd4bf" if str(e.id) == entity_id else "#6366f1",
+                "size": 18 if str(e.id) == entity_id else 12,
+            }
+        )
 
     return {"entity_id": entity_id, "nodes": nodes, "edges": edges}
 
@@ -370,13 +386,15 @@ async def entity_history(
     )
     history = []
     for d in diffs.scalars().all():
-        history.append({
-            "id": str(d.id),
-            "provider": d.provider,
-            "has_changes": d.has_changes,
-            "diff_summary": d.diff_summary,
-            "created_at": d.created_at.isoformat() if d.created_at else None,
-        })
+        history.append(
+            {
+                "id": str(d.id),
+                "provider": d.provider,
+                "has_changes": d.has_changes,
+                "diff_summary": d.diff_summary,
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+            }
+        )
     return {"entity_id": entity_id, "history": history}
 
 
@@ -430,7 +448,7 @@ async def entity_note(
     entity = await _get_entity_for_tenant(db, entity_id, auth.tenant_id)
     existing = entity.external_refs or {}
     notes = existing.get("notes", [])
-    notes.append({"note": body.note, "created_at": datetime.now(timezone.utc).isoformat()})
+    notes.append({"note": body.note, "created_at": datetime.now(UTC).isoformat()})
     entity.external_refs = {**existing, "notes": notes}
     await db.commit()
     return {"entity_id": entity_id, "note_count": len(notes)}
@@ -439,6 +457,7 @@ async def entity_note(
 # ---------------------------------------------------------------------------
 # Investigations
 # ---------------------------------------------------------------------------
+
 
 async def _add_entity_to_investigation(
     db: AsyncSession, investigation_id: str, entity_id: str, tenant_id: str, user_id: str | None
@@ -465,7 +484,9 @@ async def list_investigations(
     auth: AuthContext = Depends(get_auth),
 ):
     result = await db.execute(
-        text("SELECT id, name, description, created_by, created_at, updated_at FROM investigations WHERE tenant_id = :tid ORDER BY updated_at DESC"),
+        text(
+            "SELECT id, name, description, created_by, created_at, updated_at FROM investigations WHERE tenant_id = :tid ORDER BY updated_at DESC"
+        ),
         {"tid": auth.tenant_id},
     )
     rows = result.mappings().all()
@@ -508,6 +529,7 @@ async def add_entity_to_investigation(
 # Path finding
 # ---------------------------------------------------------------------------
 
+
 @router.get("/lookup/path")
 async def find_path(
     source_entity_id: str = Query(...),
@@ -541,6 +563,7 @@ async def find_path(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 async def _get_entity_for_tenant(db: AsyncSession, entity_id: str, tenant_id: str) -> Entity:
     result = await db.execute(

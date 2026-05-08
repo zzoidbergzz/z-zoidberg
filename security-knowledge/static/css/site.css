@@ -346,6 +346,11 @@ body::before {
   padding: 1rem;
 }
 
+.result-card--empty {
+  opacity: 0.45;
+  border-style: dashed;
+}
+
 .result-card pre,
 .json-view {
   white-space: pre-wrap;

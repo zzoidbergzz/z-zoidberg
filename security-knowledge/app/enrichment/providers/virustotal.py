@@ -59,16 +59,16 @@ async def _rate_limit() -> None:
 # Maps entity kind → VT API resource path segment.
 # Include both the old short forms and the canonical model kinds.
 _KIND_MAP: dict[str, str] = {
-    "ip":         "ip_addresses",
+    "ip": "ip_addresses",
     "ip_address": "ip_addresses",  # ← was missing; canonical kind from lookup.py
-    "domain":     "domains",
-    "hostname":   "domains",
-    "hash":       "files",
-    "md5":        "files",
-    "sha1":       "files",
-    "sha256":     "files",
-    "url":        "urls",
-    "indicator":  None,            # need more info; skip
+    "domain": "domains",
+    "hostname": "domains",
+    "hash": "files",
+    "md5": "files",
+    "sha1": "files",
+    "sha256": "files",
+    "url": "urls",
+    "indicator": None,  # need more info; skip
 }
 
 
@@ -113,20 +113,20 @@ class VirusTotalProvider(BaseEnrichmentProvider):
             "value": entity_value,
             "resource_type": resource_type,
             # Detection stats
-            "malicious":   stats.get("malicious", 0),
-            "suspicious":  stats.get("suspicious", 0),
-            "harmless":    stats.get("harmless", 0),
-            "undetected":  stats.get("undetected", 0),
-            "timeout":     stats.get("timeout", 0),
+            "malicious": stats.get("malicious", 0),
+            "suspicious": stats.get("suspicious", 0),
+            "harmless": stats.get("harmless", 0),
+            "undetected": stats.get("undetected", 0),
+            "timeout": stats.get("timeout", 0),
             # Reputation / votes
-            "reputation":       attrs.get("reputation"),
-            "votes_malicious":  votes.get("malicious", 0),
-            "votes_harmless":   votes.get("harmless", 0),
+            "reputation": attrs.get("reputation"),
+            "votes_malicious": votes.get("malicious", 0),
+            "votes_harmless": votes.get("harmless", 0),
             # Temporal
             "last_analysis_date": attrs.get("last_analysis_date"),
             "last_modification_date": attrs.get("last_modification_date"),
             # Tags / categories
-            "tags":       attrs.get("tags", []),
+            "tags": attrs.get("tags", []),
             "categories": attrs.get("categories", {}),
             # VT link
             "vt_link": f"https://www.virustotal.com/gui/{resource_type.rstrip('s')}/{entity_value}",
@@ -134,40 +134,46 @@ class VirusTotalProvider(BaseEnrichmentProvider):
 
         # --- IP-specific fields ---
         if resource_type == "ip_addresses":
-            result.update({
-                "country":        attrs.get("country"),
-                "continent":      attrs.get("continent"),
-                "as_owner":       attrs.get("as_owner"),
-                "asn":            attrs.get("asn"),
-                "network":        attrs.get("network"),
-                "whois":          attrs.get("whois", "")[:2000],  # cap at 2 KB
-                "regional_internet_registry": attrs.get("regional_internet_registry"),
-            })
+            result.update(
+                {
+                    "country": attrs.get("country"),
+                    "continent": attrs.get("continent"),
+                    "as_owner": attrs.get("as_owner"),
+                    "asn": attrs.get("asn"),
+                    "network": attrs.get("network"),
+                    "whois": attrs.get("whois", "")[:2000],  # cap at 2 KB
+                    "regional_internet_registry": attrs.get("regional_internet_registry"),
+                }
+            )
 
         # --- Domain-specific fields ---
         elif resource_type == "domains":
-            result.update({
-                "registrar":     attrs.get("registrar"),
-                "creation_date": attrs.get("creation_date"),
-                "last_dns_records": attrs.get("last_dns_records", [])[:20],
-                "popularity_ranks": attrs.get("popularity_ranks", {}),
-                "jarm":          attrs.get("jarm"),
-            })
+            result.update(
+                {
+                    "registrar": attrs.get("registrar"),
+                    "creation_date": attrs.get("creation_date"),
+                    "last_dns_records": attrs.get("last_dns_records", [])[:20],
+                    "popularity_ranks": attrs.get("popularity_ranks", {}),
+                    "jarm": attrs.get("jarm"),
+                }
+            )
 
         # --- File-specific fields ---
         elif resource_type == "files":
-            result.update({
-                "file_type":    attrs.get("type_description"),
-                "file_size":    attrs.get("size"),
-                "md5":          attrs.get("md5"),
-                "sha1":         attrs.get("sha1"),
-                "sha256":       attrs.get("sha256"),
-                "ssdeep":       attrs.get("ssdeep"),
-                "tlsh":         attrs.get("tlsh"),
-                "meaningful_name": attrs.get("meaningful_name"),
-                "names":        attrs.get("names", [])[:10],
-                "signature_info": attrs.get("signature_info"),
-                "popular_threat_classification": attrs.get("popular_threat_classification"),
-            })
+            result.update(
+                {
+                    "file_type": attrs.get("type_description"),
+                    "file_size": attrs.get("size"),
+                    "md5": attrs.get("md5"),
+                    "sha1": attrs.get("sha1"),
+                    "sha256": attrs.get("sha256"),
+                    "ssdeep": attrs.get("ssdeep"),
+                    "tlsh": attrs.get("tlsh"),
+                    "meaningful_name": attrs.get("meaningful_name"),
+                    "names": attrs.get("names", [])[:10],
+                    "signature_info": attrs.get("signature_info"),
+                    "popular_threat_classification": attrs.get("popular_threat_classification"),
+                }
+            )
 
         return result

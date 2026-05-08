@@ -1,35 +1,46 @@
 """Auth router: token exchange, registration, password login, user profile management."""
+
 from __future__ import annotations
+
 import hashlib
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Literal, Optional
+from datetime import datetime
 
 import bcrypt as _bcrypt
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, EmailStr, field_validator
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import AuthContext, get_auth
+from app.auth.jwt import create_access_token
 from app.config import settings
 from app.database import get_db
-from app.models.auth import ApiKey, User, Tenant, UserStatus, UserRole
-from app.auth.jwt import create_access_token
-from app.auth.dependencies import get_auth, AuthContext
+from app.models.auth import ApiKey, Tenant, User, UserRole, UserStatus
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 VALID_SECTORS = [
-    "UK-General", "Financial-Banking", "Retail", "Infrastructure-Energy",
-    "Healthcare", "Education", "Government-Defence", "Technology",
-    "Transportation-Logistics", "Legal-Professional", "Manufacturing",
-    "Media-Entertainment", "Charity-NGO",
+    "UK-General",
+    "Financial-Banking",
+    "Retail",
+    "Infrastructure-Energy",
+    "Healthcare",
+    "Education",
+    "Government-Defence",
+    "Technology",
+    "Transportation-Logistics",
+    "Legal-Professional",
+    "Manufacturing",
+    "Media-Entertainment",
+    "Charity-NGO",
 ]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Schemas
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TokenRequest(BaseModel):
     api_key: str
@@ -39,8 +50,8 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str = ""
-    business_sector: Optional[str] = "UK-General"
-    tenant_name: Optional[str] = None
+    business_sector: str | None = "UK-General"
+    tenant_name: str | None = None
 
     @field_validator("business_sector")
     @classmethod
@@ -51,8 +62,8 @@ class RegisterRequest(BaseModel):
 
 
 class UpdateProfileRequest(BaseModel):
-    full_name: Optional[str] = None
-    business_sector: Optional[str] = None
+    full_name: str | None = None
+    business_sector: str | None = None
 
     @field_validator("business_sector")
     @classmethod
@@ -78,6 +89,7 @@ class UserProfileResponse(BaseModel):
 # ──────────────────────────────────────────────────────────────────────────────
 # Endpoints
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @router.post("/token")
 async def get_token(req: TokenRequest, db: AsyncSession = Depends(get_db)):
@@ -197,6 +209,7 @@ async def update_me(
 # Password login / logout (browser session cookie)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
@@ -218,12 +231,14 @@ async def login(req: LoginRequest, response: Response, db: AsyncSession = Depend
         raise HTTPException(status_code=403, detail="Account disabled")
 
     expire_hours = settings.ACCESS_TOKEN_EXPIRE_HOURS
-    token = create_access_token({
-        "sub": str(user.id),
-        "tenant_id": str(user.tenant_id),
-        "email": user.email,
-        "role": user.role,
-    })
+    token = create_access_token(
+        {
+            "sub": str(user.id),
+            "tenant_id": str(user.tenant_id),
+            "email": user.email,
+            "role": user.role,
+        }
+    )
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=token,
@@ -255,6 +270,7 @@ async def logout(response: Response):
 # ──────────────────────────────────────────────────────────────────────────────
 # Change password
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
@@ -304,12 +320,11 @@ async def change_password(
 # Bring-your-own-key (BYOK) provider key management
 # ──────────────────────────────────────────────────────────────────────────────
 
-from app.auth.byok import (
-    BYOK_PROVIDERS,
-    encrypt_key as _encrypt_key,
-    key_hint as _key_hint,
-)
-from app.models.auth import UserProviderKey
+# noqa: E402 — imports intentionally after route definitions to avoid circular
+from app.auth.byok import BYOK_PROVIDERS  # noqa: E402
+from app.auth.byok import encrypt_key as _encrypt_key  # noqa: E402
+from app.auth.byok import key_hint as _key_hint  # noqa: E402
+from app.models.auth import UserProviderKey  # noqa: E402
 
 
 class ProviderKeyRequest(BaseModel):
@@ -347,9 +362,7 @@ async def list_provider_keys(
     """List BYOK rows for the current user. Plaintext is never returned."""
     if not auth.user_id:
         raise HTTPException(status_code=403, detail="User context required")
-    result = await db.execute(
-        select(UserProviderKey).where(UserProviderKey.user_id == uuid.UUID(auth.user_id))
-    )
+    result = await db.execute(select(UserProviderKey).where(UserProviderKey.user_id == uuid.UUID(auth.user_id)))
     rows = result.scalars().all()
     return [
         ProviderKeyResponse(

@@ -1,7 +1,8 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from app.models.enrichment import EnrichmentUsage
 import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.enrichment import EnrichmentUsage
 
 logger = structlog.get_logger(__name__)
 
@@ -10,10 +11,10 @@ logger = structlog.get_logger(__name__)
 # circular imports during startup).
 _BUDGET_ATTR: dict[str, str] = {
     "virustotal": "VIRUSTOTAL_DAILY_BUDGET",
-    "shodan":     "SHODAN_DAILY_BUDGET",
-    "greynoise":  "GREYNOISE_DAILY_BUDGET",
+    "shodan": "SHODAN_DAILY_BUDGET",
+    "greynoise": "GREYNOISE_DAILY_BUDGET",
     "crowdstrike": "CROWDSTRIKE_DAILY_BUDGET",
-    "bgp_he":     "BGP_HE_DAILY_BUDGET",
+    "bgp_he": "BGP_HE_DAILY_BUDGET",
 }
 _DEFAULT_BUDGET = 1000
 
@@ -21,6 +22,7 @@ _DEFAULT_BUDGET = 1000
 def _daily_budget(provider: str) -> int:
     """Return the configured daily budget for *provider*, falling back to 1000."""
     from app.config import settings
+
     attr = _BUDGET_ATTR.get(provider)
     if attr:
         return int(getattr(settings, attr, _DEFAULT_BUDGET))
@@ -29,6 +31,7 @@ def _daily_budget(provider: str) -> int:
 
 async def check_budget(db: AsyncSession, provider: str, tenant_id: str) -> bool:
     from datetime import date
+
     today = date.today().isoformat()
     result = await db.execute(
         select(EnrichmentUsage).where(
@@ -45,6 +48,7 @@ async def check_budget(db: AsyncSession, provider: str, tenant_id: str) -> bool:
 
 async def increment_usage(db: AsyncSession, provider: str, tenant_id: str) -> None:
     from datetime import date
+
     today = date.today().isoformat()
     result = await db.execute(
         select(EnrichmentUsage).where(
