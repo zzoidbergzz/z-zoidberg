@@ -1,10 +1,11 @@
 """Tests for BYOK encryption + provider api_key_override + change-password validation."""
+
 import pytest
 
 from app.auth.byok import (
     BYOK_PROVIDERS,
-    encrypt_key,
     decrypt_key,
+    encrypt_key,
     key_hint,
     resolve_user_provider_key,
 )
@@ -27,7 +28,7 @@ def test_byok_hint_last_four():
 
 
 def test_byok_supported_providers():
-    assert set(BYOK_PROVIDERS) == {"virustotal", "greynoise", "ipinfo", "shodan"}
+    assert set(BYOK_PROVIDERS) == {"virustotal", "greynoise", "ipinfo", "shodan", "anthropic", "abuseipdb", "urlscan"}
 
 
 @pytest.mark.asyncio
@@ -42,10 +43,10 @@ async def test_resolve_unsupported_provider():
 
 
 def test_provider_api_key_override():
-    from app.enrichment.providers.virustotal import VirusTotalProvider
     from app.enrichment.providers.greynoise import GreyNoiseProvider
     from app.enrichment.providers.ipinfo import IPinfoProvider
     from app.enrichment.providers.shodan import ShodanProvider
+    from app.enrichment.providers.virustotal import VirusTotalProvider
 
     for cls in (VirusTotalProvider, GreyNoiseProvider, IPinfoProvider, ShodanProvider):
         inst = cls(api_key="user-supplied-key")
@@ -81,8 +82,9 @@ def test_provider_key_request_validation():
 
 
 def test_get_template_user_no_cookie():
-    from app.ui.deps import get_template_user
     from unittest.mock import MagicMock
+
+    from app.ui.deps import get_template_user
 
     req = MagicMock()
     req.cookies = {}
@@ -90,17 +92,20 @@ def test_get_template_user_no_cookie():
 
 
 def test_get_template_user_with_valid_cookie():
-    from app.ui.deps import get_template_user
-    from app.auth.jwt import create_access_token
-    from app.config import settings
     from unittest.mock import MagicMock
 
-    token = create_access_token({
-        "sub": "user-123",
-        "tenant_id": "tenant-456",
-        "email": "x@example.com",
-        "role": "admin",
-    })
+    from app.auth.jwt import create_access_token
+    from app.config import settings
+    from app.ui.deps import get_template_user
+
+    token = create_access_token(
+        {
+            "sub": "user-123",
+            "tenant_id": "tenant-456",
+            "email": "x@example.com",
+            "role": "admin",
+        }
+    )
     req = MagicMock()
     req.cookies = {settings.SESSION_COOKIE_NAME: token}
     user = get_template_user(req)
@@ -113,9 +118,10 @@ def test_get_template_user_with_valid_cookie():
 
 
 def test_get_template_user_invalid_cookie():
-    from app.ui.deps import get_template_user
-    from app.config import settings
     from unittest.mock import MagicMock
+
+    from app.config import settings
+    from app.ui.deps import get_template_user
 
     req = MagicMock()
     req.cookies = {settings.SESSION_COOKIE_NAME: "garbage.not.jwt"}

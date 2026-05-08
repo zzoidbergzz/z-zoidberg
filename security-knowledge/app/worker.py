@@ -41,23 +41,31 @@ _KIND_MAP: dict[str, str] = {
 }
 
 
+def _strip_null_bytes(value: str) -> str:
+    """Postgres TEXT/VARCHAR cannot store NUL (0x00). Strip and normalise."""
+    if not value:
+        return value
+    # Drop NULs and other C0 controls except \t \n \r — keeps utf-8 valid.
+    return value.replace("\x00", "").translate({i: None for i in range(0, 32) if i not in (9, 10, 13)})
+
+
 def _extract_title(html: str) -> str:
     """Pull <title> text from raw HTML."""
     m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
-    return m.group(1).strip() if m else ""
+    return _strip_null_bytes(m.group(1).strip()) if m else ""
 
 
 def _parse_content(html: str, content_type: str) -> str:
     """Extract plain text from HTML using trafilatura, falling back to BeautifulSoup."""
     if content_type == "text/markdown":
-        return html
+        return _strip_null_bytes(html)
 
     try:
         import trafilatura
 
         text = trafilatura.extract(html, include_comments=False, include_tables=True)
         if text:
-            return text
+            return _strip_null_bytes(text)
     except Exception:
         pass
 
@@ -67,12 +75,12 @@ def _parse_content(html: str, content_type: str) -> str:
         soup = BeautifulSoup(html, "html.parser")
         for tag in soup(["script", "style", "noscript"]):
             tag.decompose()
-        return soup.get_text(separator="\n")
+        return _strip_null_bytes(soup.get_text(separator="\n"))
     except Exception:
         pass
 
     # Last resort: strip HTML tags with regex
-    return re.sub(r"<[^>]+>", " ", html)
+    return _strip_null_bytes(re.sub(r"<[^>]+>", " ", html))
 
 
 def _chunk_text(text: str) -> list[tuple[str, str]]:
@@ -116,6 +124,76 @@ def _chunk_text(text: str) -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 # Job functions
 # ---------------------------------------------------------------------------
+
+
+# Map Entity.kind (post _KIND_MAP normalisation) → list of arq enrichment
+# providers to dispatch when a new entity is materialised at ingest time.
+_AUTO_ENRICHMENT_PROVIDERS: dict[str, tuple[str, ...]] = {
+    "cve": ("nvd",),
+    "cve_id": ("nvd",),
+    "attack_pattern": ("mitre_attack",),
+    "technique": ("mitre_attack",),
+    "url": ("urlscan",),
+    "ip_address": ("urlscan", "ipinfo"),
+}
+
+
+async def _enqueue_auto_enrichment(entities: list, tenant_id: str) -> None:
+    """Enqueue run_enrichment jobs for newly-created entities.
+
+    Each enqueue is wrapped in its own try/except so a single failure
+    cannot roll back the ingest transaction.  Returns silently if the
+    arq pool cannot be reached (jobs can be re-driven manually later).
+    """
+    if not entities:
+        return
+
+    try:
+        from arq import create_pool
+        from arq.connections import RedisSettings
+    except Exception as exc:  # pragma: no cover
+        logger.warning("auto_enrichment_arq_import_failed", error=str(exc))
+        return
+
+    pool = None
+    try:
+        pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+    except Exception as exc:
+        logger.warning("auto_enrichment_pool_failed", error=str(exc))
+        return
+
+    try:
+        for ent in entities:
+            providers = _AUTO_ENRICHMENT_PROVIDERS.get(ent.kind)
+            if not providers:
+                continue
+            for prov in providers:
+                try:
+                    await pool.enqueue_job(
+                        "run_enrichment",
+                        str(ent.id),
+                        tenant_id,
+                        provider=prov,
+                    )
+                    logger.info(
+                        "auto_enrichment_enqueued",
+                        entity_id=str(ent.id),
+                        kind=ent.kind,
+                        provider=prov,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "auto_enrichment_enqueue_failed",
+                        entity_id=str(ent.id),
+                        kind=ent.kind,
+                        provider=prov,
+                        error=str(exc),
+                    )
+    finally:
+        try:
+            await pool.aclose()
+        except Exception:
+            pass
 
 
 async def process_ingest_job(
@@ -183,7 +261,7 @@ async def process_ingest_job(
                             ParsedDocument.url == source_url,
                         )
                     )
-                    existing_doc = existing.scalar_one_or_none()
+                    existing_doc = existing.scalars().first()
                     if existing_doc is not None:
                         logger.info(
                             "ingest_job_skipped_duplicate",
@@ -255,7 +333,7 @@ async def process_ingest_job(
                         ParsedDocument.metadata_["content_sha256"].as_string() == content_sha256,
                     )
                 )
-                existing_by_hash_doc = existing_by_hash.scalar_one_or_none()
+                existing_by_hash_doc = existing_by_hash.scalars().first()
                 if existing_by_hash_doc is not None:
                     logger.info(
                         "ingest_job_skipped_duplicate_hash",
@@ -334,6 +412,7 @@ async def process_ingest_job(
                 anchor_section = sections[0] if sections else None
 
                 entity_count = 0
+                newly_created_entities: list[Entity] = []
                 for ent_data in unique_entities:
                     raw_kind = ent_data["kind"]
                     mapped_kind = _KIND_MAP.get(raw_kind, "other")
@@ -357,6 +436,7 @@ async def process_ingest_job(
                         )
                         db.add(entity)
                         await db.flush()
+                        newly_created_entities.append(entity)
 
                     # Create Claim linking entity to this document
                     claim = Claim(
@@ -387,6 +467,15 @@ async def process_ingest_job(
                     entity_count += 1
 
                 await db.flush()
+
+                # ----------------------------------------------------------
+                # 9b. Auto-enrichment — enqueue per-provider arq jobs for
+                #     newly-created entities.  Each enqueue is wrapped in
+                #     try/except so a transient redis failure (or one
+                #     bad provider) cannot roll back the whole ingest.
+                # ----------------------------------------------------------
+                if not getattr(settings, "AUTO_ENRICHMENT_DISABLED", False) and newly_created_entities:
+                    await _enqueue_auto_enrichment(newly_created_entities, str(tenant_id))
 
                 # ----------------------------------------------------------
                 # 10. Emit AuditEvent

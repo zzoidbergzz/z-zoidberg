@@ -247,15 +247,33 @@ class FetchResult:
 # httpx fetch (Layer 1 default path)
 # ---------------------------------------------------------------------------
 
+CHROME_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+)
+
+DEFAULT_BROWSER_HEADERS: dict[str, str] = {
+    "User-Agent": CHROME_USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Sec-Ch-Ua": '"Chromium";v="147", "Not?A_Brand";v="24", "Google Chrome";v="147"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Linux"',
+}
+
+
 async def _fetch_httpx(url: str, timeout: int = 30, headers: dict | None = None) -> FetchResult:
     import httpx
 
-    default_headers = {
-        "User-Agent": "SecurityKnowledge/1.0 (threat-intel-crawler; +https://github.com/mzje/z-zoidberg)",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-GB,en;q=0.5",
-    }
-    merged = {**default_headers, **(headers or {})}
+    # Caller-supplied headers win (case-insensitive on User-Agent).
+    overrides = headers or {}
+    has_ua_override = any(k.lower() == "user-agent" for k in overrides)
+    merged = {**DEFAULT_BROWSER_HEADERS, **overrides}
+    if has_ua_override:
+        # Drop our default UA so the override (with its original casing) wins.
+        merged.pop("User-Agent", None)
+        merged.update(overrides)
 
     t0 = time.monotonic()
     try:
