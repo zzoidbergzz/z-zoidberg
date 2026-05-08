@@ -1,15 +1,17 @@
-"""Auth router: token exchange, registration, user profile management."""
+"""Auth router: token exchange, registration, password login, user profile management."""
 from __future__ import annotations
 import hashlib
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import bcrypt as _bcrypt
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.config import settings
 from app.database import get_db
 from app.models.auth import ApiKey, User, Tenant, UserStatus, UserRole
 from app.auth.jwt import create_access_token
@@ -189,3 +191,62 @@ async def update_me(
         tenant_id=str(user.tenant_id),
         created_at=user.created_at,
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Password login / logout (browser session cookie)
+# ──────────────────────────────────────────────────────────────────────────────
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+@router.post("/login")
+async def login(req: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
+    """Authenticate with email + password; set an httpOnly session cookie."""
+    result = await db.execute(select(User).where(User.email == req.email.lower().strip()))
+    user: User | None = result.scalar_one_or_none()
+
+    if not user or not user.hashed_password:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not _bcrypt.checkpw(req.password.encode(), user.hashed_password.encode()):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if user.status != UserStatus.approved:
+        raise HTTPException(status_code=403, detail=f"Account status: {user.status}")
+    if not user.active:
+        raise HTTPException(status_code=403, detail="Account disabled")
+
+    expire_hours = settings.ACCESS_TOKEN_EXPIRE_HOURS
+    token = create_access_token({
+        "sub": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "email": user.email,
+        "role": user.role,
+    })
+    response.set_cookie(
+        key=settings.SESSION_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite="lax",
+        max_age=expire_hours * 3600,
+    )
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "tenant_id": str(user.tenant_id),
+        },
+    }
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    """Clear the session cookie."""
+    response.delete_cookie(settings.SESSION_COOKIE_NAME)
+    return {"message": "Logged out"}

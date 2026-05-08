@@ -3,13 +3,14 @@ from __future__ import annotations
 from enum import Enum
 from typing import Annotated
 import structlog
-from fastapi import Depends, HTTPException, Security, status
+from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.api_key import validate_api_key
 from app.auth.jwt import decode_token
+from app.config import settings
 from app.database import get_db
 from app.models.auth import ApiKey, User, UserStatus
 
@@ -87,21 +88,39 @@ async def _resolve_bearer(token: str, db: AsyncSession) -> AuthContext | None:
     return AuthContext(tenant_id=tenant_id, scopes=scopes, user_id=str(user.id), user_email=user.email, auth_type="bearer")
 
 
-async def get_auth(raw_api_key: str | None = Security(api_key_header), credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme), db: AsyncSession = Depends(get_db)) -> AuthContext:
+async def get_auth(
+    request: Request,
+    raw_api_key: str | None = Security(api_key_header),
+    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> AuthContext:
+    # 1. X-API-Key header
     if raw_api_key:
         ctx = await _resolve_api_key(raw_api_key, db)
         if ctx:
             return ctx
+    # 2. Authorization: Bearer token
     if credentials:
         ctx = await _resolve_bearer(credentials.credentials, db)
+        if ctx:
+            return ctx
+    # 3. Session cookie (browser UI)
+    cookie_token = request.cookies.get(settings.SESSION_COOKIE_NAME)
+    if cookie_token:
+        ctx = await _resolve_bearer(cookie_token, db)
         if ctx:
             return ctx
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
 
-async def get_auth_optional(raw_api_key: str | None = Security(api_key_header), credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme), db: AsyncSession = Depends(get_db)) -> AuthContext | None:
+async def get_auth_optional(
+    request: Request,
+    raw_api_key: str | None = Security(api_key_header),
+    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> AuthContext | None:
     try:
-        return await get_auth(raw_api_key, credentials, db)
+        return await get_auth(request, raw_api_key, credentials, db)
     except HTTPException:
         return None
 

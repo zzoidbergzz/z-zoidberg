@@ -1,598 +1,104 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Security Knowledge</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+{% extends "base.html" %}
+{% block title %}z.je | OSINT Research{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="panel">
+    <p class="tiny-pill">OSINT RESEARCH PLATFORM</p>
+    <h1 class="headline" style="margin-top:1rem;">Paste one indicator. Let the graph do the rest.</h1>
+    <p class="subtle" style="margin-top:1rem;max-width:46rem;">IP, domain, URL, email, hash, ASN, phone, or username. z.je classifies the input, caches enrichment, extracts pivots, and keeps re-checking for changes over time.</p>
 
-    :root {
-      --bg:        #0b0c18;
-      --surface:   #12132a;
-      --surface2:  #1a1b35;
-      --border:    #2a2b4a;
-      --accent:    #5b8df6;
-      --accent2:   #7c5bf6;
-      --green:     #3ecf8e;
-      --red:       #f25f5c;
-      --text:      #e2e4f0;
-      --muted:     #7c7f9e;
-      --radius:    10px;
-      --font:      'Inter', system-ui, -apple-system, sans-serif;
-    }
-
-    html, body { height: 100%; }
-    body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; }
-
-    /* ── Topbar ── */
-    .topbar {
-      position: sticky; top: 0; z-index: 100;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center;
-      padding: 0 24px; height: 56px; gap: 0;
-    }
-    .topbar .brand {
-      display: flex; align-items: center; gap: 8px;
-      font-weight: 700; font-size: 15px; color: var(--text);
-      text-decoration: none; margin-right: 32px; white-space: nowrap;
-    }
-    .topbar .brand span { color: var(--accent); }
-    .topbar nav { display: flex; gap: 4px; flex: 1; }
-    .topbar nav a {
-      color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500;
-      padding: 6px 12px; border-radius: 6px; transition: all .15s;
-    }
-    .topbar nav a:hover { color: var(--text); background: var(--surface2); }
-    .topbar nav a.active { color: var(--text); background: var(--surface2); }
-
-    /* ── API Key widget ── */
-    .key-widget {
-      display: flex; align-items: center; gap: 10px;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 6px 10px 6px 14px;
-      min-width: 340px;
-    }
-    .key-widget label {
-      font-size: 11px; font-weight: 600; letter-spacing: .06em;
-      text-transform: uppercase; color: var(--muted); white-space: nowrap;
-    }
-    .key-widget input {
-      flex: 1; background: transparent; border: none; outline: none;
-      color: var(--text); font-family: 'SF Mono', 'Fira Code', monospace;
-      font-size: 12px; min-width: 0;
-    }
-    .key-widget input::placeholder { color: var(--muted); }
-    .key-btn {
-      background: var(--accent); color: #fff; border: none;
-      border-radius: 6px; padding: 5px 12px; font-size: 12px;
-      font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity .15s;
-    }
-    .key-btn:hover { opacity: .85; }
-    #key-indicator {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--muted); flex-shrink: 0; transition: background .3s;
-    }
-    #key-indicator.ok { background: var(--green); }
-    #key-indicator.err { background: var(--red); }
-
-    /* ── Layout ── */
-    .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
-
-    .page-header { margin-bottom: 28px; }
-    .page-header h1 { font-size: 22px; font-weight: 700; color: var(--text); }
-    .page-header p  { color: var(--muted); margin-top: 4px; font-size: 13px; }
-
-    /* ── Stat cards ── */
-    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
-    .stat-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 20px 24px;
-    }
-    .stat-card .label { font-size: 11px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: .07em; color: var(--muted); margin-bottom: 10px; }
-    .stat-card .value { font-size: 32px; font-weight: 700; color: var(--text); line-height: 1; }
-    .stat-card .sub   { font-size: 12px; color: var(--muted); margin-top: 6px; }
-
-    /* ── Two-column grid ── */
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-    .full-col { margin-bottom: 20px; }
-
-    /* ── Cards ── */
-    .card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); overflow: hidden;
-    }
-    .card-header {
-      padding: 14px 20px; border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .card-header h2 { font-size: 13px; font-weight: 600; color: var(--text); }
-    .card-header a  { font-size: 12px; color: var(--accent); text-decoration: none; }
-    .card-body { padding: 16px 20px; }
-
-    /* ── Ingest form ── */
-    .ingest-row { display: flex; gap: 10px; align-items: flex-end; }
-    .field { display: flex; flex-direction: column; gap: 5px; flex: 1; }
-    .field label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-    .field input, .field select {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 7px; padding: 8px 12px; color: var(--text);
-      font-size: 13px; outline: none; transition: border-color .15s;
-    }
-    .field input:focus, .field select:focus { border-color: var(--accent); }
-    .field input::placeholder { color: var(--muted); }
-    .btn-primary {
-      background: var(--accent); color: #fff; border: none;
-      border-radius: 7px; padding: 9px 18px; font-size: 13px;
-      font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity .15s;
-    }
-    .btn-primary:hover { opacity: .85; }
-    #ingest-result { margin-top: 10px; font-size: 12px; }
-    .msg-ok  { color: var(--green); }
-    .msg-err { color: var(--red); }
-
-    /* ── Jobs table ── */
-    .job-row {
-      display: flex; gap: 12px; align-items: center;
-      padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px;
-    }
-    .job-row:last-child { border-bottom: none; }
-    .pill {
-      display: inline-block; border-radius: 20px; padding: 2px 8px;
-      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
-    }
-    .pill-pending  { background: #2a2a1a; color: #e0c060; }
-    .pill-done     { background: #0e2a1a; color: var(--green); }
-    .pill-failed   { background: #2a0e0e; color: var(--red); }
-    .pill-running  { background: #0e1a2a; color: var(--accent); }
-    .job-url { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-
-    /* ── MCP tools ── */
-    .tool-grid { display: flex; flex-wrap: wrap; gap: 6px; }
-    .tool-tag {
-      background: var(--bg); border: 1px solid var(--border);
-      color: var(--muted); font-family: 'SF Mono', 'Fira Code', monospace;
-      font-size: 11px; padding: 3px 9px; border-radius: 6px;
-      cursor: default; transition: all .15s;
-    }
-    .tool-tag:hover { border-color: var(--accent); color: var(--text); }
-
-    /* ── Quick links ── */
-    .link-row { display: flex; flex-wrap: wrap; gap: 10px; }
-    .link-chip {
-      display: flex; align-items: center; gap: 6px;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; padding: 8px 14px;
-      color: var(--text); text-decoration: none; font-size: 13px;
-      transition: border-color .15s;
-    }
-    .link-chip:hover { border-color: var(--accent); }
-    .empty { color: var(--muted); font-size: 13px; }
-
-    @media (max-width: 900px) {
-      .stats-row { grid-template-columns: repeat(2, 1fr); }
-      .two-col { grid-template-columns: 1fr; }
-      .key-widget { min-width: 220px; }
-    }
-  </style>
-</head>
-<body>
-
-<header class="topbar">
-  <a class="brand" href="/ui/">🦀 <span>Security</span>&nbsp;Knowledge</a>
-  <nav>
-    <a href="/ui/" class="active">Dashboard</a>
-    <a href="/ui/entities">Entities</a>
-    <a href="/ui/search">Search</a>
-    <a href="/ui/graph">Graph</a>
-    <a href="/docs" target="_blank">API Docs ↗</a>
-  </nav>
-  <div class="key-widget">
-    <div id="key-indicator"></div>
-    <label for="api-key-input">API Key</label>
-    <input type="password" id="api-key-input" placeholder="paste key…" spellcheck="false" autocomplete="off" />
-    <button class="key-btn" onclick="saveKey()">Apply</button>
-  </div>
-</header>
-
-<main class="page">
-  <div class="page-header">
-    <h1>Dashboard</h1>
-    <p>Security knowledge base · enrichment · MCP engine</p>
-  </div>
-
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="label">Service</div>
-      <div class="value" id="s-health">—</div>
-      <div class="sub" id="s-db">checking…</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Users</div>
-      <div class="value" id="s-users">—</div>
-      <div class="sub">registered accounts</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Ingest Jobs</div>
-      <div class="value" id="s-jobs">—</div>
-      <div class="sub" id="s-jobs-sub">pending / total</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Enrichment Cache</div>
-      <div class="value" id="s-enrichment">—</div>
-      <div class="sub">cached lookups</div>
-    </div>
-  </div>
-
-  <div class="two-col">
-    <!-- Ingest -->
-    <div class="card">
-      <div class="card-header">
-        <h2>Queue Ingestion Job</h2>
-      </div>
-      <div class="card-body">
-        <div class="ingest-row">
-          <div class="field" style="flex:2">
-            <label>Source URL</label>
-            <input type="url" id="ingest-url" placeholder="https://example.com/advisory.html" />
-          </div>
-          <div class="field">
-            <label>Type</label>
-            <select id="ingest-type">
-              <option>generic</option>
-              <option>nvd</option>
-              <option>github_advisory</option>
-              <option>misp</option>
-              <option>euvd</option>
-            </select>
-          </div>
-          <button class="btn-primary" onclick="submitIngest()">Queue</button>
-        </div>
-        <div id="ingest-result"></div>
-      </div>
-    </div>
-
-    <!-- Quick links -->
-    <div class="card">
-      <div class="card-header"><h2>Quick Links</h2></div>
-      <div class="card-body">
-        <div class="link-row">
-          <a class="link-chip" href="/docs" target="_blank">📖 Swagger UI</a>
-          <a class="link-chip" href="/api/v1/mcp/tools" target="_blank">🔧 MCP Tools JSON</a>
-          <a class="link-chip" href="/health/db" target="_blank">🩺 DB Health</a>
-          <a class="link-chip" href="/api/v1/mitre/" target="_blank">⚔️ MITRE API</a>
-          <a class="link-chip" href="/ui/entities">📦 Entities</a>
-          <a class="link-chip" href="/ui/search">🔍 Search</a>
-          <a class="link-chip" href="/api/v1/admin/stats" target="_blank">📊 Stats JSON</a>
+    <form class="search-box" id="lookup-form">
+      <input class="search-input mono" type="text" name="query" placeholder="8.8.8.8 · example.org · https://target.tld · AS13335" id="search-input" autocomplete="off">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:0.75rem;align-items:center;">
+        <span class="type-chip" id="detected-type">paste an indicator</span>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <input class="form-input mono" style="min-width:16rem;" type="text" name="investigation_id" placeholder="optional investigation id">
+          <button class="button" type="submit">Run Lookup</button>
         </div>
       </div>
-    </div>
+      <label class="subtle" style="display:flex;gap:0.55rem;align-items:center;margin-top:0.15rem;">
+        <input type="checkbox" name="force_repoll" value="true">
+        Request repoll even if cached, limited to once every 30 minutes.
+      </label>
+      <p class="subtle" style="margin-top:-0.15rem;">Defanged indicators are normalized automatically, including inputs like <span class="mono">hxxps://target[.]tld</span> and <span class="mono">alice[@]corp[.]com</span>.</p>
+      <div id="lookup-status" class="status-bar"></div>
+    </form>
   </div>
 
-  <!-- Recent jobs -->
-  <div class="full-col">
+  <div class="stack">
     <div class="card">
-      <div class="card-header">
-        <h2>Recent Ingest Jobs</h2>
-        <a href="#" onclick="loadJobs();return false">↺ Refresh</a>
-      </div>
-      <div class="card-body" id="jobs-list">
-        <span class="empty">Loading…</span>
+      <div class="section-title">Quick Routes</div>
+      <div class="grid-2" style="margin-top:1rem;">
+        <a class="button-muted" href="/ip">/ip</a>
+        <a class="button-muted" href="/ua">/ua</a>
+        <a class="button-muted" href="/headers">/headers</a>
+        <a class="button-muted" href="/fp">/fp</a>
       </div>
     </div>
-  </div>
-
-  <!-- MCP tools -->
-  <div class="full-col">
     <div class="card">
-      <div class="card-header">
-        <h2>Available MCP Tools</h2>
-        <span id="tool-count" style="font-size:12px;color:var(--muted)"></span>
-      </div>
-      <div class="card-body">
-        <div id="mcp-tools" class="tool-grid"><span class="empty">Loading…</span></div>
-      </div>
+      <div class="section-title">Pipeline Notes</div>
+      <ul class="subtle" style="margin-top:0.9rem;display:grid;gap:0.65rem;">
+        <li>Fresh cached lookups are reused instead of re-running immediately.</li>
+        <li>Enrichment jobs run in the background via the provider registry.</li>
+        <li>Discovered pivots become first-class graph nodes automatically.</li>
+      </ul>
     </div>
   </div>
-</main>
+</section>
 
-<script>
-function getKey() { return localStorage.getItem('sk_api_key') || ''; }
-
-function saveKey() {
-  const k = document.getElementById('api-key-input').value.trim();
-  if (k) { localStorage.setItem('sk_api_key', k); loadAll(); }
-}
-
-function authHeaders() {
-  const k = getKey();
-  return k ? { 'X-API-Key': k, 'Content-Type': 'application/json' }
-           : { 'Content-Type': 'application/json' };
-}
-
-function setIndicator(state) {
-  const el = document.getElementById('key-indicator');
-  el.className = state; // 'ok' | 'err' | ''
-}
-
-async function apiFetch(path) {
-  const r = await fetch(path, { headers: authHeaders() });
-  if (!r.ok) throw new Error(r.status);
-  return r.json();
-}
-
-async function loadHealth() {
-  try {
-    const h = await apiFetch('/health/db');
-    document.getElementById('s-health').textContent = h.status === 'ok' ? '✅' : '⚠️';
-    document.getElementById('s-db').textContent = 'db ' + (h.db || h.status);
-    setIndicator('ok');
-  } catch {
-    document.getElementById('s-health').textContent = '❌';
-    document.getElementById('s-db').textContent = 'unreachable';
-  }
-}
-
-async function loadStats() {
-  try {
-    const s = await apiFetch('/api/v1/admin/stats');
-    document.getElementById('s-users').textContent = s.user_count ?? '—';
-    document.getElementById('s-enrichment').textContent = s.enrichment_cache_size ?? '—';
-  } catch {
-    document.getElementById('s-users').textContent = '🔒';
-    setIndicator('err');
-  }
-}
-
-async function loadJobs() {
-  try {
-    const jobs = await apiFetch('/api/v1/ingest/jobs?limit=10');
-    const el = document.getElementById('jobs-list');
-    document.getElementById('s-jobs').textContent = jobs.length;
-    const pending = jobs.filter(j => j.status === 'pending').length;
-    document.getElementById('s-jobs-sub').textContent = `${pending} pending`;
-    if (!jobs.length) { el.innerHTML = '<span class="empty">No jobs yet.</span>'; return; }
-    el.innerHTML = jobs.map(j => {
-      const cls = { pending:'pill-pending', done:'pill-done', failed:'pill-failed', running:'pill-running' }[j.status] || 'pill-pending';
-      return `<div class="job-row">
-        <span class="pill ${cls}">${j.status}</span>
-        <span class="job-url" title="${j.source_url || ''}">${j.source_url || j.id}</span>
-        <span style="color:var(--muted);font-size:11px;white-space:nowrap">${j.created_at ? j.created_at.slice(0,16).replace('T',' ') : ''}</span>
-      </div>`;
-    }).join('');
-  } catch {
-    document.getElementById('jobs-list').innerHTML = '<span class="empty">No key set or endpoint unavailable.</span>';
-  }
-}
-
-async function loadMCPTools() {
-  try {
-    const d = await apiFetch('/api/v1/mcp/tools');
-    const tools = d.tools || [];
-    document.getElementById('tool-count').textContent = tools.length + ' tools';
-    document.getElementById('mcp-tools').innerHTML =
-      tools.map(t => `<span class="tool-tag">${t}</span>`).join('');
-  } catch {
-    document.getElementById('mcp-tools').innerHTML = '<span class="empty">Set a valid API key to load tools.</span>';
-  }
-}
-
-async function submitIngest() {
-  const url = document.getElementById('ingest-url').value.trim();
-  const type = document.getElementById('ingest-type').value;
-  const res = document.getElementById('ingest-result');
-  if (!url) { res.innerHTML = '<span class="msg-err">Enter a URL.</span>'; return; }
-  try {
-    const r = await fetch('/api/v1/ingest/', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ source_url: url, source_type: type })
-    });
-    const d = await r.json();
-    if (r.ok) {
-      res.innerHTML = `<span class="msg-ok">✓ Queued — job_id: <code>${d.job_id}</code></span>`;
-      document.getElementById('ingest-url').value = '';
-      setTimeout(loadJobs, 500);
-    } else {
-      res.innerHTML = `<span class="msg-err">Error ${r.status}: ${JSON.stringify(d.detail || d)}</span>`;
-    }
-  } catch(err) { res.innerHTML = `<span class="msg-err">${err}</span>`; }
-}
-
-function loadAll() { loadHealth(); loadStats(); loadJobs(); loadMCPTools(); }
-
-document.addEventListener('DOMContentLoaded', () => {
-  const k = getKey();
-  if (k) document.getElementById('api-key-input').value = k;
-  loadAll();
-  document.getElementById('api-key-input').addEventListener('keydown', e => { if (e.key === 'Enter') saveKey(); });
-});
-</script>
-</body>
-</html>
-    nav.top { background: #1a1a2e; padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1.5rem; }
-    nav.top a { color: #e0e0e0; text-decoration: none; font-size: 0.9rem; }
-    nav.top a:hover { color: #fff; }
-    nav.top .brand { font-weight: bold; font-size: 1rem; color: #fff; margin-right: auto; }
-    #key-bar { background: #111122; padding: 0.5rem 1.5rem; display: flex; align-items: center; gap: 0.75rem; border-bottom: 1px solid #333; }
-    #key-bar label { color: #aaa; font-size: 0.8rem; white-space: nowrap; }
-    #key-bar input { font-family: monospace; font-size: 0.8rem; flex: 1; max-width: 480px; padding: 0.25rem 0.5rem; background: #1e1e3a; border: 1px solid #444; color: #ddd; border-radius: 4px; }
-    #key-bar button { padding: 0.25rem 0.75rem; font-size: 0.8rem; cursor: pointer; }
-    #key-status { font-size: 0.8rem; color: #aaa; }
-    .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
-    .stat-card { background: #1e1e3a; border: 1px solid #333; border-radius: 8px; padding: 1rem; text-align: center; }
-    .stat-card .value { font-size: 2rem; font-weight: bold; color: #7eb8f7; }
-    .stat-card .label { font-size: 0.8rem; color: #aaa; margin-top: 0.25rem; }
-    .section-title { font-size: 1rem; font-weight: 600; color: #ccc; margin: 1.5rem 0 0.75rem; border-bottom: 1px solid #333; padding-bottom: 0.4rem; }
-    .tool-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-    .tool-badge { background: #1e2a1e; border: 1px solid #2e5; color: #8f8; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 12px; font-family: monospace; }
-    .job-row { font-size: 0.85rem; padding: 0.4rem 0; border-bottom: 1px solid #222; display: flex; gap: 1rem; }
-    .job-row .status { font-family: monospace; color: #7eb8f7; min-width: 70px; }
-    .job-row .url { color: #aaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-    .alert { background: #2a1a1a; border: 1px solid #a44; color: #f88; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.85rem; margin: 0.5rem 0; }
-    [data-theme="dark"] body { background: #0d0d1a; }
-    body { background: #0d0d1a; color: #ddd; }
-    main.container { padding-top: 1.5rem; }
-    a { color: #7eb8f7; }
-    h1 { font-size: 1.4rem; color: #fff; margin-bottom: 0.25rem; }
-    p.subtitle { color: #888; font-size: 0.9rem; margin-top: 0; }
-  </style>
-</head>
-<body data-theme="dark">
-<nav class="top">
-  <span class="brand">🦀 Security Knowledge</span>
-  <a href="/ui/">Dashboard</a>
-  <a href="/ui/entities">Entities</a>
-  <a href="/ui/search">Search</a>
-  <a href="/ui/graph">Graph</a>
-  <a href="/docs" target="_blank">API Docs ↗</a>
-</nav>
-<div id="key-bar">
-  <label for="api-key-input">API Key:</label>
-  <input type="password" id="api-key-input" placeholder="X-API-Key …" />
-  <button onclick="saveKey()">Save</button>
-  <span id="key-status"></span>
-</div>
-<main class="container">
-  <h1>Dashboard</h1>
-  <p class="subtitle">Security knowledge base · enrichment · MCP engine</p>
-
-  <div id="stats-area">
-    <div class="section-title">Status</div>
-    <div class="stat-grid" id="stats-grid">
-      <div class="stat-card"><div class="value" id="s-health">…</div><div class="label">Service</div></div>
-      <div class="stat-card"><div class="value" id="s-users">…</div><div class="label">Users</div></div>
-      <div class="stat-card"><div class="value" id="s-entities">…</div><div class="label">Entities</div></div>
-      <div class="stat-card"><div class="value" id="s-enrichment">…</div><div class="label">Enrichment Cache</div></div>
+<section class="panel" style="margin-top:1.5rem;">
+  <div class="grid-2">
+    <div class="card">
+      <div class="section-title">Bulk Lookup</div>
+      <p class="subtle" style="margin-top:0.75rem;">Paste one indicator per line to fan out a batch into queued lookups. Defanged inputs are cleaned before dedupe and classification.</p>
+      <form id="bulk-lookup-form" class="stack" style="margin-top:1rem;">
+        <textarea class="form-textarea mono" name="query_blob" rows="8" placeholder="8.8.8.8&#10;example.org&#10;https://z.je/fp"></textarea>
+        <input class="form-input mono" type="text" name="investigation_id" placeholder="optional investigation id">
+        <button class="button" type="submit">Dispatch Batch</button>
+      </form>
+      <div id="bulk-lookup-status" class="status-bar"></div>
+      <div id="bulk-lookup-results" class="result-list" style="margin-top:1rem;"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">Path Finder</div>
+      <p class="subtle" style="margin-top:0.75rem;">Resolve the shortest pivot path between two entities.</p>
+      <form id="path-form" class="stack" style="margin-top:1rem;">
+        <input class="form-input mono" type="text" name="source_entity_id" placeholder="source entity id">
+        <input class="form-input mono" type="text" name="target_entity_id" placeholder="target entity id">
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <button class="button" type="submit">Find Path</button>
+        </div>
+      </form>
+      <div id="path-status" class="status-bar"></div>
+      <div id="path-results" class="result-list" style="margin-top:1rem;"></div>
     </div>
   </div>
+</section>
 
-  <div class="section-title">MCP Tools</div>
-  <div id="mcp-tools" class="tool-list"><span style="color:#888;font-size:0.85rem">Loading…</span></div>
-
-  <div class="section-title">Ingestion</div>
-  <form id="ingest-form" onsubmit="submitIngest(event)">
-    <div style="display:flex;gap:0.75rem;align-items:flex-end">
-      <div style="flex:1">
-        <label style="font-size:0.85rem;color:#aaa">Source URL</label>
-        <input type="url" id="ingest-url" placeholder="https://example.com/report.html" required style="margin:0">
-      </div>
-      <div style="min-width:140px">
-        <label style="font-size:0.85rem;color:#aaa">Type</label>
-        <select id="ingest-type" style="margin:0">
-          <option>generic</option><option>nvd</option><option>misp</option><option>github_advisory</option>
-        </select>
-      </div>
-      <button type="submit" style="margin-bottom:0.1rem">Queue Job</button>
+<section id="results-panel" class="results-layout" hidden>
+  <div class="stack">
+    <div class="panel">
+      <div class="section-title">Entity Summary</div>
+      <div id="entity-summary" style="margin-top:1rem;"></div>
     </div>
-  </form>
-  <div id="ingest-result" style="margin-top:0.5rem"></div>
-
-  <div class="section-title">Recent Ingest Jobs</div>
-  <div id="jobs-list"><span style="color:#888;font-size:0.85rem">Loading…</span></div>
-
-  <div class="section-title">Quick Links</div>
-  <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:0.9rem">
-    <a href="/docs" target="_blank">📖 Swagger API Docs</a>
-    <a href="/api/v1/mcp/tools" target="_blank">🔧 MCP Tool List (JSON)</a>
-    <a href="/health/db" target="_blank">🩺 DB Health</a>
-    <a href="/api/v1/mitre/" target="_blank">⚔️ MITRE ATT&amp;CK API</a>
+    <div class="panel">
+      <div class="section-title">Relationships</div>
+      <table class="table" style="margin-top:1rem;">
+        <thead><tr><th>Relation</th><th>Target</th><th>Source</th></tr></thead>
+        <tbody id="relationship-list"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="section-title">Enrichment Results</div>
+      <div id="enrichment-list" class="result-list" style="margin-top:1rem;"></div>
+    </div>
   </div>
-</main>
-
-<script>
-const BASE = '';
-
-function getKey() { return localStorage.getItem('sk_api_key') || ''; }
-function saveKey() {
-  const k = document.getElementById('api-key-input').value.trim();
-  if (k) { localStorage.setItem('sk_api_key', k); document.getElementById('key-status').textContent = '✓ saved'; loadAll(); }
-}
-
-function authHeaders() {
-  const k = getKey();
-  return k ? {'X-API-Key': k, 'Content-Type': 'application/json'} : {'Content-Type': 'application/json'};
-}
-
-async function apiFetch(path) {
-  const r = await fetch(BASE + path, {headers: authHeaders()});
-  if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-  return r.json();
-}
-
-async function loadHealth() {
-  try {
-    const h = await apiFetch('/health/db');
-    document.getElementById('s-health').textContent = h.status === 'ok' ? '✅' : '⚠️';
-  } catch { document.getElementById('s-health').textContent = '❌'; }
-}
-
-async function loadStats() {
-  try {
-    const s = await apiFetch('/api/v1/admin/stats');
-    document.getElementById('s-users').textContent = s.user_count ?? '—';
-    document.getElementById('s-enrichment').textContent = s.enrichment_cache_size ?? '—';
-  } catch { document.getElementById('s-users').textContent = '🔒'; }
-}
-
-async function loadEntities() {
-  try {
-    const e = await apiFetch('/api/v1/entities/?limit=1');
-    // Use length if paginated, otherwise just show 'see list'
-    document.getElementById('s-entities').textContent = Array.isArray(e) ? e.length + '+' : '→';
-  } catch { document.getElementById('s-entities').textContent = '🔒'; }
-}
-
-async function loadMCPTools() {
-  try {
-    const d = await apiFetch('/api/v1/mcp/tools');
-    const tools = d.tools || [];
-    const el = document.getElementById('mcp-tools');
-    el.innerHTML = tools.map(t => `<span class="tool-badge">${t}</span>`).join('');
-  } catch (e) {
-    document.getElementById('mcp-tools').innerHTML = `<span style="color:#f88">Error: ${e.message} — check API key</span>`;
-  }
-}
-
-async function loadJobs() {
-  try {
-    const jobs = await apiFetch('/api/v1/ingest/jobs?limit=10');
-    const el = document.getElementById('jobs-list');
-    if (!Array.isArray(jobs) || jobs.length === 0) { el.innerHTML = '<span style="color:#888;font-size:0.85rem">No jobs yet.</span>'; return; }
-    el.innerHTML = jobs.map(j => `<div class="job-row"><span class="status">${j.status}</span><span class="url" title="${j.source_url}">${j.source_url}</span></div>`).join('');
-  } catch { document.getElementById('jobs-list').innerHTML = '<span style="color:#888;font-size:0.85rem">No jobs endpoint or no key.</span>'; }
-}
-
-async function submitIngest(e) {
-  e.preventDefault();
-  const url = document.getElementById('ingest-url').value;
-  const type = document.getElementById('ingest-type').value;
-  const res = document.getElementById('ingest-result');
-  try {
-    const r = await fetch(BASE + '/api/v1/ingest/', {
-      method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({source_url: url, source_type: type})
-    });
-    const d = await r.json();
-    if (r.ok) {
-      res.innerHTML = `<span style="color:#8f8">✓ Queued: job_id=${d.job_id} status=${d.status}</span>`;
-      loadJobs();
-    } else {
-      res.innerHTML = `<span class="alert">Error ${r.status}: ${JSON.stringify(d)}</span>`;
-    }
-  } catch(err) { res.innerHTML = `<span class="alert">${err}</span>`; }
-}
-
-function loadAll() {
-  loadHealth(); loadStats(); loadEntities(); loadMCPTools(); loadJobs();
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-  const k = getKey();
-  if (k) { document.getElementById('api-key-input').value = k; document.getElementById('key-status').textContent = '✓'; }
-  loadAll();
-});
-</script>
-</body>
-</html>
+  <div class="stack">
+    <div class="panel">
+      <div class="section-title">Pivot Graph</div>
+      <div id="graph-stage" class="graph-stage" style="margin-top:1rem;height:480px;"></div>
+    </div>
+  </div>
+</section>
+<div id="global-status" class="status-bar"></div>
+{% endblock %}

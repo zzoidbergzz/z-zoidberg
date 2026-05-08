@@ -1,4 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
+import app.enrichment.providers  # noqa: F401 — side-effect: registers all providers
 from app.enrichment.registry import get_provider, list_providers
 from app.enrichment.budget import check_budget, increment_usage
 from app.models.enrichment import EnrichmentCache

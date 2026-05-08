@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}z.je | Register{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="panel">
+    <p class="tiny-pill">ACCOUNT REQUEST</p>
+    <h1 class="headline" style="margin-top:1rem;">Register for analyst access.</h1>
+    <p class="subtle" style="margin-top:1rem;">Accounts require manual approval. On approval, z.je activates your session access and issues your first API key.</p>
+  </div>
+
+  <div class="panel">
+    <div class="section-title">Registration</div>
+    <form class="stack" id="register-form" style="margin-top:1rem;">
+      <input class="form-input" type="text" name="full_name" placeholder="Full name" required>
+      <input class="form-input" type="email" name="email" placeholder="Email" required>
+      <input class="form-input" type="password" name="password" placeholder="Password" required minlength="10">
+      <button class="button" type="submit">Create Account</button>
+      <div id="auth-status" class="status-bar"></div>
+    </form>
+    <p class="subtle" style="margin-top:1rem;">Already have an account? <a href="/login">Login</a>.</p>
+    <pre id="one-time-api-key" class="json-view" hidden style="margin-top:1rem;"></pre>
+  </div>
+</section>
+<script>
+  document.getElementById("register-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const status = document.getElementById("auth-status");
+    const data = Object.fromEntries(new FormData(e.currentTarget).entries());
+    status.textContent = "Submitting…";
+    try {
+      const res = await fetch("/api/v1/auth/register", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        credentials: "same-origin",
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.detail || "Registration failed");
+      status.textContent = "Account created — awaiting approval.";
+      status.dataset.kind = "success";
+      window.location.href = "/pending";
+    } catch (err) {
+      status.textContent = err.message;
+      status.dataset.kind = "error";
+    }
+  });
+</script>
+{% endblock %}

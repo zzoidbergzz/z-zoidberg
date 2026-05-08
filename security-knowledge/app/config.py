@@ -115,5 +115,21 @@ class Settings(BaseSettings):
     MITRE_ATTACK_DATA_DIR: str = ""  # defaults to ~/.cache/sk-mitre-data if empty
     MITRE_ATTACK_DEFAULT_DOMAIN: str = "enterprise"
 
+    # Session / UI auth
+    SESSION_COOKIE_NAME: str = "sk_session"
+    SESSION_COOKIE_SECURE: bool = True
+    ACCESS_TOKEN_EXPIRE_HOURS: int = 168  # 7 days for browser sessions
+
+    # Bootstrap admin (set in .env only — never commit values)
+    BOOTSTRAP_ADMIN_EMAIL: str = ""
+    BOOTSTRAP_ADMIN_PASSWORD: str = ""
+    BOOTSTRAP_ADMIN_NAME: str = "Admin"
+    BOOTSTRAP_ADMIN_TENANT: str = "z.je"
+
+    # Lookup / investigation settings
+    LOOKUP_FRESH_CACHE_MINUTES: int = 30
+    LOOKUP_DISPATCH_DEBOUNCE_MINUTES: int = 5
+    LOOKUP_FORCE_REPOLL_MINUTES: int = 30
+
 
 settings = Settings()

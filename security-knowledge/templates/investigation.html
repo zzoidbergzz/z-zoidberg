@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}z.je | Investigations{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="panel">
+    <p class="tiny-pill">WORKSPACE</p>
+    <h1 class="headline" style="margin-top:1rem;">Group entities into investigations.</h1>
+    <p class="subtle" style="margin-top:1rem;">Use investigations to keep related infrastructure, identities, and history tied to a case.</p>
+  </div>
+  <div class="panel">
+    <div class="section-title">Create Investigation</div>
+    <form id="investigation-form" class="stack" style="margin-top:1rem;">
+      <input class="form-input" type="text" name="name" placeholder="Case name" required>
+      <textarea class="form-textarea" name="description" rows="5" placeholder="Working notes"></textarea>
+      <button class="button" type="submit">Create</button>
+    </form>
+    <div id="investigation-status" class="status-bar"></div>
+  </div>
+</section>
+<section class="panel" style="margin-top:1.5rem;">
+  <div class="section-title">My Investigations</div>
+  <div id="investigation-list" class="result-list" style="margin-top:1rem;"></div>
+</section>
+<script>
+  async function loadInvestigations() {
+    const list = document.getElementById("investigation-list");
+    try {
+      const res = await fetch("/api/v1/lookup/investigations", {credentials:"same-origin"});
+      if (!res.ok) { list.innerHTML = "<div class='empty-state'>Could not load investigations.</div>"; return; }
+      const items = await res.json();
+      list.innerHTML = items.length ? items.map((item) => `
+        <article class="result-card">
+          <div class="section-title">${item.name || item.id}</div>
+          <p class="subtle" style="margin-top:0.55rem;">${item.description || "No description."}</p>
+          <p class="subtle mono" style="margin-top:0.75rem;">${item.id}</p>
+        </article>
+      `).join("") : "<div class='empty-state'>No investigations yet.</div>";
+    } catch (error) {
+      list.innerHTML = `<div class='empty-state'>${error.message}</div>`;
+    }
+  }
+  document.getElementById("investigation-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const status = document.getElementById("investigation-status");
+    const body = Object.fromEntries(new FormData(event.currentTarget).entries());
+    try {
+      const res = await fetch("/api/v1/lookup/investigations", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      if (!res.ok) { const j = await res.json(); throw new Error(j.detail || "Failed"); }
+      status.textContent = "Investigation created.";
+      status.dataset.kind = "success";
+      event.currentTarget.reset();
+      loadInvestigations();
+    } catch (error) { status.textContent = error.message; status.dataset.kind = "error"; }
+  });
+  window.addEventListener("DOMContentLoaded", loadInvestigations);
+</script>
+{% endblock %}

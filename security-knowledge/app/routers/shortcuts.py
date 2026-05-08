@@ -90,3 +90,11 @@ async def fingerprint_collect(
     await db.commit()
     combined["event_id"] = event_id
     return combined
+
+
+@router.get("/investigation", response_class=HTMLResponse, include_in_schema=False)
+@router.get("/investigation/", response_class=HTMLResponse, include_in_schema=False)
+async def investigation_page(request: Request):
+    if _templates is not None:
+        return _templates.TemplateResponse(request, "investigation.html", {"current_user": None, "request": request})
+    return HTMLResponse("<html><body><p>Templates not found</p></body></html>", 503)
