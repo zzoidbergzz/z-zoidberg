@@ -1,13 +1,38 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from app.models.enrichment import EnrichmentUsage
 import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.enrichment import EnrichmentUsage
 
 logger = structlog.get_logger(__name__)
+
+# Map provider name → config attribute name for daily budget.
+# Looked up lazily so we don't import settings at module level (avoids
+# circular imports during startup).
+_BUDGET_ATTR: dict[str, str] = {
+    "virustotal": "VIRUSTOTAL_DAILY_BUDGET",
+    "shodan": "SHODAN_DAILY_BUDGET",
+    "greynoise": "GREYNOISE_DAILY_BUDGET",
+    "crowdstrike": "CROWDSTRIKE_DAILY_BUDGET",
+    "bgp_he": "BGP_HE_DAILY_BUDGET",
+    "abuseipdb": "ABUSEIPDB_DAILY_BUDGET",
+}
+_DEFAULT_BUDGET = 1000
+
+
+def _daily_budget(provider: str) -> int:
+    """Return the configured daily budget for *provider*, falling back to 1000."""
+    from app.config import settings
+
+    attr = _BUDGET_ATTR.get(provider)
+    if attr:
+        return int(getattr(settings, attr, _DEFAULT_BUDGET))
+    return _DEFAULT_BUDGET
 
 
 async def check_budget(db: AsyncSession, provider: str, tenant_id: str) -> bool:
     from datetime import date
+
     today = date.today().isoformat()
     result = await db.execute(
         select(EnrichmentUsage).where(
@@ -24,6 +49,7 @@ async def check_budget(db: AsyncSession, provider: str, tenant_id: str) -> bool:
 
 async def increment_usage(db: AsyncSession, provider: str, tenant_id: str) -> None:
     from datetime import date
+
     today = date.today().isoformat()
     result = await db.execute(
         select(EnrichmentUsage).where(
@@ -34,7 +60,13 @@ async def increment_usage(db: AsyncSession, provider: str, tenant_id: str) -> No
     )
     usage = result.scalar_one_or_none()
     if usage is None:
-        usage = EnrichmentUsage(provider=provider, tenant_id=tenant_id, date=today, count=1)
+        usage = EnrichmentUsage(
+            provider=provider,
+            tenant_id=tenant_id,
+            date=today,
+            count=1,
+            budget=_daily_budget(provider),  # use configured value, not hardcoded 1000
+        )
         db.add(usage)
     else:
         usage.count += 1

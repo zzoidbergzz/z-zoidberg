@@ -1,9 +1,26 @@
-{% extends "base.html" %}
-{% block title %}z.je | Pending{% endblock %}
-{% block content %}
-<section class="panel" style="margin-top:1.5rem;">
-  <p class="tiny-pill warn">PENDING REVIEW</p>
-  <h1 class="headline" style="margin-top:1rem;">Your account is awaiting approval.</h1>
-  <p class="subtle" style="margin-top:1rem;">Once an administrator approves the account, z.je will activate your session access and issue your first API key.</p>
-</section>
-{% endblock %}
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>z.je | Pending Approval</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@700&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--accent:#6bf2c7;--muted:#8fb2c7;--line:rgba(123,161,181,0.18);}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{min-height:100vh;background:linear-gradient(180deg,#081017 0%,#0d1720 60%,#071016 100%);color:#dce8ef;font-family:"Space Grotesk",sans-serif;display:flex;align-items:center;justify-content:center;}
+    .card{width:100%;max-width:24rem;padding:2.5rem 2rem;border:1px solid var(--line);border-radius:1.5rem;background:rgba(13,23,31,0.88);text-align:center;backdrop-filter:blur(20px);}
+    .brand{font-family:"IBM Plex Mono",monospace;font-size:1.4rem;font-weight:700;color:var(--accent);margin-bottom:1rem;}
+    p{color:var(--muted);margin-top:0.75rem;font-size:0.95rem;line-height:1.5;}
+    a{color:var(--accent);text-decoration:none;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">z.je</div>
+    <p>Your account request has been received.</p>
+    <p>Access is granted manually. You'll receive credentials once approved.</p>
+    <p style="margin-top:1.5rem;"><a href="/login">← Back to login</a></p>
+  </div>
+</body>
+</html>

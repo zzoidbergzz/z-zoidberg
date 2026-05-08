@@ -1,5 +1,8 @@
 # Downstream LLM Prompt - Security Knowledge Service Roadmap
 
+> **ARCHIVED** — This file is superseded by [AGENT_QUICKSTART.md](./AGENT_QUICKSTART.md).
+> The composite ordering below is historical. Refer to TODO.md for current work.
+
 <!-- Prompt file index: docs/prompts.md
      This file: persona/system prompt for the coding-agent LLM.
      See also: bootstrap.md (corpus onboarding), deep-research-prompt.md (corpus generation). -->

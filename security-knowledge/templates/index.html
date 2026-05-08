@@ -3,45 +3,47 @@
 {% block content %}
 <section class="hero">
   <div class="panel">
-    <p class="tiny-pill">OSINT RESEARCH PLATFORM</p>
-    <h1 class="headline" style="margin-top:1rem;">Paste one indicator. Let the graph do the rest.</h1>
-    <p class="subtle" style="margin-top:1rem;max-width:46rem;">IP, domain, URL, email, hash, ASN, phone, or username. z.je classifies the input, caches enrichment, extracts pivots, and keeps re-checking for changes over time.</p>
+    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+      <p class="tiny-pill" style="margin:0;">OSINT</p>
+      <h1 class="hero-title">Indicator Lookup</h1>
+    </div>
 
-    <form class="search-box" id="lookup-form">
-      <input class="search-input mono" type="text" name="query" placeholder="8.8.8.8 · example.org · https://target.tld · AS13335" id="search-input" autocomplete="off">
-      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:0.75rem;align-items:center;">
+    <form class="search-box" id="lookup-form" data-lookup-form style="margin-top:1rem;">
+      <input class="search-input mono" type="text" name="query" id="search-input"
+        placeholder="8.8.8.8 · example.org · hxxps://target[.]tld · AS13335"
+        autocomplete="off">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:0.6rem;align-items:center;">
         <span class="type-chip" id="detected-type">paste an indicator</span>
-        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-          <input class="form-input mono" style="min-width:16rem;" type="text" name="investigation_id" placeholder="optional investigation id">
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+          <input class="form-input mono" style="width:12rem;" type="text" name="investigation_id" placeholder="investigation id (opt)">
           <button class="button" type="submit">Run Lookup</button>
         </div>
       </div>
-      <label class="subtle" style="display:flex;gap:0.55rem;align-items:center;margin-top:0.15rem;">
+      <label class="subtle" style="display:flex;gap:0.55rem;align-items:center;font-size:0.8rem;">
         <input type="checkbox" name="force_repoll" value="true">
-        Request repoll even if cached, limited to once every 30 minutes.
+        Force repoll (max once per 30 min)
       </label>
-      <p class="subtle" style="margin-top:-0.15rem;">Defanged indicators are normalized automatically, including inputs like <span class="mono">hxxps://target[.]tld</span> and <span class="mono">alice[@]corp[.]com</span>.</p>
       <div id="lookup-status" class="status-bar"></div>
     </form>
   </div>
 
   <div class="stack">
+    <!-- IOC / Defanger card -->
+    <div class="card">
+      <div class="section-title">IOC Parser &amp; Defanger</div>
+      <p class="subtle" style="margin-top:0.5rem;font-size:0.82rem;">Paste a blob of text — IPs, domains, hashes, emails, CVEs, defanged URLs.</p>
+      <textarea class="form-textarea mono" id="ioc-blob" rows="4" placeholder="Paste raw intel, logs, or report text here…" style="margin-top:0.65rem;font-size:0.82rem;"></textarea>
+      <button class="button" id="ioc-parse-btn" type="button" style="margin-top:0.55rem;">Parse &amp; Extract</button>
+      <div id="ioc-results" class="result-list" style="margin-top:0.65rem;"></div>
+    </div>
     <div class="card">
       <div class="section-title">Quick Routes</div>
-      <div class="grid-2" style="margin-top:1rem;">
+      <div class="grid-2" style="margin-top:0.65rem;">
         <a class="button-muted" href="/ip">/ip</a>
         <a class="button-muted" href="/ua">/ua</a>
         <a class="button-muted" href="/headers">/headers</a>
         <a class="button-muted" href="/fp">/fp</a>
       </div>
-    </div>
-    <div class="card">
-      <div class="section-title">Pipeline Notes</div>
-      <ul class="subtle" style="margin-top:0.9rem;display:grid;gap:0.65rem;">
-        <li>Fresh cached lookups are reused instead of re-running immediately.</li>
-        <li>Enrichment jobs run in the background via the provider registry.</li>
-        <li>Discovered pivots become first-class graph nodes automatically.</li>
-      </ul>
     </div>
   </div>
 </section>
@@ -50,27 +52,25 @@
   <div class="grid-2">
     <div class="card">
       <div class="section-title">Bulk Lookup</div>
-      <p class="subtle" style="margin-top:0.75rem;">Paste one indicator per line to fan out a batch into queued lookups. Defanged inputs are cleaned before dedupe and classification.</p>
-      <form id="bulk-lookup-form" class="stack" style="margin-top:1rem;">
-        <textarea class="form-textarea mono" name="query_blob" rows="8" placeholder="8.8.8.8&#10;example.org&#10;https://z.je/fp"></textarea>
-        <input class="form-input mono" type="text" name="investigation_id" placeholder="optional investigation id">
-        <button class="button" type="submit">Dispatch Batch</button>
+      <p class="subtle" style="margin-top:0.6rem;font-size:0.9rem;">One indicator per line. Defanged inputs are cleaned before dedupe and classification.</p>
+      <form id="bulk-lookup-form" data-bulk-lookup-form class="stack" style="margin-top:0.75rem;">
+        <textarea class="form-textarea mono" name="query_blob" rows="7" placeholder="8.8.8.8&#10;example.org&#10;hxxps://target[.]tld"></textarea>
+        <input class="form-input mono" type="text" name="investigation_id" placeholder="investigation id (optional)">
+        <button class="button" data-bulk-submit type="submit">Dispatch Batch</button>
       </form>
       <div id="bulk-lookup-status" class="status-bar"></div>
-      <div id="bulk-lookup-results" class="result-list" style="margin-top:1rem;"></div>
+      <div id="bulk-lookup-results" class="result-list" style="margin-top:0.75rem;"></div>
     </div>
     <div class="card">
       <div class="section-title">Path Finder</div>
-      <p class="subtle" style="margin-top:0.75rem;">Resolve the shortest pivot path between two entities.</p>
-      <form id="path-form" class="stack" style="margin-top:1rem;">
+      <p class="subtle" style="margin-top:0.6rem;font-size:0.9rem;">Resolve the shortest pivot path between two entities in the graph.</p>
+      <form id="path-form" data-path-form class="stack" style="margin-top:0.75rem;">
         <input class="form-input mono" type="text" name="source_entity_id" placeholder="source entity id">
         <input class="form-input mono" type="text" name="target_entity_id" placeholder="target entity id">
-        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-          <button class="button" type="submit">Find Path</button>
-        </div>
+        <button class="button" type="submit">Find Path</button>
       </form>
       <div id="path-status" class="status-bar"></div>
-      <div id="path-results" class="result-list" style="margin-top:1rem;"></div>
+      <div id="path-results" class="result-list" style="margin-top:0.75rem;"></div>
     </div>
   </div>
 </section>
@@ -78,8 +78,13 @@
 <section id="results-panel" class="results-layout" hidden>
   <div class="stack">
     <div class="panel">
-      <div class="section-title">Entity Summary</div>
-      <div id="entity-summary" style="margin-top:1rem;"></div>
+      <div id="entity-summary"></div>
+      <div id="intel-summary" style="margin-top:0.75rem;"></div>
+      <div id="export-links" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.9rem;"></div>
+    </div>
+    <div class="panel">
+      <div class="section-title">Enrichment Results</div>
+      <div id="enrichment-list" class="result-list" style="margin-top:0.85rem;"></div>
     </div>
     <div class="panel">
       <div class="section-title">Relationships</div>
@@ -88,17 +93,61 @@
         <tbody id="relationship-list"></tbody>
       </table>
     </div>
-    <div class="panel">
-      <div class="section-title">Enrichment Results</div>
-      <div id="enrichment-list" class="result-list" style="margin-top:1rem;"></div>
-    </div>
   </div>
   <div class="stack">
     <div class="panel">
       <div class="section-title">Pivot Graph</div>
-      <div id="graph-stage" class="graph-stage" style="margin-top:1rem;height:480px;"></div>
+      <div id="graph-stage" class="graph-stage" style="margin-top:1rem;height:520px;"></div>
     </div>
   </div>
 </section>
+
 <div id="global-status" class="status-bar"></div>
+
+<script>
+// ── IOC Parser ──────────────────────────────────────────────────────────────
+document.getElementById("ioc-parse-btn")?.addEventListener("click", () => {
+  const blob = document.getElementById("ioc-blob").value;
+  const results = document.getElementById("ioc-results");
+  if (!blob.trim()) { results.innerHTML = ""; return; }
+
+  const lines = blob.split(/[\n,;\s]+/).map(s => s.trim()).filter(Boolean);
+  const seen = new Set();
+  const parsed = [];
+
+  for (const raw of lines) {
+    if (!window.ZjeIndicator) break;
+    const r = window.ZjeIndicator.classify(raw);
+    if (r.type === "empty" || r.type === "unknown") continue;
+    const key = r.type + ":" + r.value;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    parsed.push({ original: raw, ...r });
+  }
+
+  if (!parsed.length) {
+    results.innerHTML = "<div class='empty-state'>No recognisable indicators found.</div>";
+    return;
+  }
+
+  const grouped = {};
+  for (const item of parsed) {
+    (grouped[item.type] = grouped[item.type] || []).push(item);
+  }
+
+  results.innerHTML = Object.entries(grouped).map(([type, items]) => `
+    <div class="result-card">
+      <div class="section-title" style="font-size:0.8rem;margin-bottom:0.5rem;">${type.toUpperCase()} <span class="subtle">(${items.length})</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        ${items.map(i => `
+          <button class="tiny-pill" style="cursor:pointer;" title="${i.original !== i.value ? 'Original: '+i.original : ''}"
+            onclick="document.getElementById('search-input').value='${i.value}';document.getElementById('search-input').dispatchEvent(new Event('input'));document.getElementById('lookup-form').scrollIntoView({behavior:'smooth'});">
+            ${i.value}${i.original !== i.value ? ' ✓' : ''}
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+});
+</script>
 {% endblock %}

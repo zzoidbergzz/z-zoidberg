@@ -9,9 +9,9 @@ Security design:
 - If decryption fails (wrong key, corrupted data) we return None so callers fall back
   to the system-wide provider key gracefully.
 """
+
 import base64
 import hashlib
-from typing import Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
@@ -43,7 +43,7 @@ def encrypt_key(plaintext: str) -> str:
     return _get_fernet().encrypt(plaintext.encode()).decode()
 
 
-def decrypt_key(token: str) -> Optional[str]:
+def decrypt_key(token: str) -> str | None:
     """Decrypt a stored key. Returns None on failure (wrong encryption key / corruption)."""
     try:
         return _get_fernet().decrypt(token.encode()).decode()
@@ -59,3 +59,41 @@ def key_hint(plaintext: str) -> str:
 def value_hash(value: str) -> str:
     """Canonical SHA-256 hash for IOC values and provider key lookups."""
     return hashlib.sha256(value.strip().lower().encode()).hexdigest()
+
+
+# Providers that currently honour user-supplied BYOK overrides. Keep this
+# list in sync with the provider modules that accept an ``api_key`` arg
+# and with the settings UI under templates/settings.html.
+BYOK_PROVIDERS: tuple[str, ...] = ("virustotal", "greynoise", "ipinfo", "shodan", "anthropic", "abuseipdb")
+
+
+async def resolve_user_provider_key(db, user_id, provider: str) -> str | None:
+    """Return the decrypted BYOK for ``user_id``+``provider`` or None.
+
+    Safe to call with ``user_id=None`` (returns None). Decryption failures
+    are swallowed so callers fall back to the system-wide key.
+    """
+    if not user_id:
+        return None
+    if provider not in BYOK_PROVIDERS:
+        return None
+    import uuid as _uuid
+
+    from sqlalchemy import select
+
+    from app.models.auth import UserProviderKey
+
+    try:
+        uid = _uuid.UUID(str(user_id))
+    except (ValueError, TypeError):
+        return None
+    result = await db.execute(
+        select(UserProviderKey).where(
+            UserProviderKey.user_id == uid,
+            UserProviderKey.provider == provider,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        return None
+    return decrypt_key(row.encrypted_key)

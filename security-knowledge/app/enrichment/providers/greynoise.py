@@ -12,16 +12,18 @@ from app.enrichment.registry import register
 class GreyNoiseProvider(BaseEnrichmentProvider):
     name = "greynoise"
     kind = "ip"
+    supported_kinds = {"ip", "ip_address", "indicator"}
 
     _BASE = "https://api.greynoise.io/v3"
 
     async def enrich(self, entity_kind: str, entity_value: str) -> dict:
-        if not settings.GREYNOISE_API_KEY:
+        api_key = self.api_key_override or settings.GREYNOISE_API_KEY
+        if not api_key:
             return {}
-        if entity_kind not in ("ip", "indicator"):
+        if entity_kind not in ("ip", "ip_address", "indicator"):
             return {}
 
-        headers = {"key": settings.GREYNOISE_API_KEY}
+        headers = {"key": api_key}
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.get(
                 f"{self._BASE}/community/{entity_value}",

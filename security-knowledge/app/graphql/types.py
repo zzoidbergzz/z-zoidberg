@@ -1,6 +1,4 @@
 import strawberry
-from typing import Optional
-import uuid
 
 
 @strawberry.type
@@ -8,8 +6,8 @@ class EntityType:
     id: strawberry.ID
     name: str
     kind: str
-    description: Optional[str] = None
-    confidence: Optional[int] = None
+    description: str | None = None
+    confidence: int | None = None
     tenant_id: strawberry.ID
 
 

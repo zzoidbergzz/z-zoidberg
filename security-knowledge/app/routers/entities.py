@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
 import uuid
 from app.database import get_db
 from app.auth.dependencies import require_read, require_write
@@ -21,6 +21,8 @@ class EntityOut(BaseModel):
     canonical_name: str
     kind: str
     tenant_id: uuid.UUID
+    mitre_attack_id: Optional[str] = None
+    external_refs: dict[str, Any] = {}
     model_config = {"from_attributes": True}
 
     @property
@@ -34,7 +36,7 @@ async def list_entities(
     limit: int = Query(20, le=200),
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_read),
+    auth = Depends(require_read),
 ):
     q = select(Entity).where(Entity.tenant_id == auth.tenant_id).limit(limit).offset(offset)
     if kind:
@@ -47,7 +49,7 @@ async def list_entities(
 async def create_entity(
     body: EntityCreate,
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_write),
+    auth = Depends(require_write),
 ):
     entity = Entity(
         tenant_id=auth.tenant_id,
@@ -64,7 +66,7 @@ async def create_entity(
 async def get_entity(
     entity_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_read),
+    auth = Depends(require_read),
 ):
     result = await db.execute(
         select(Entity).where(Entity.id == entity_id, Entity.tenant_id == auth.tenant_id)

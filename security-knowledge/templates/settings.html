@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Settings · z.je{% endblock %}
+{% block content %}
+<main class="page-shell">
+  <header class="page-header">
+    <h1>User settings</h1>
+    <p class="page-sub">Profile, password, and bring-your-own provider API keys.</p>
+  </header>
+
+  <section class="card">
+    <h2>Change password</h2>
+    <p class="muted">Min 12 characters, mixed case, at least one digit. You will be logged out after a successful change.</p>
+    <form id="pw-form" autocomplete="off">
+      <label>Current password<br>
+        <input type="password" name="current_password" required minlength="1" autocomplete="current-password">
+      </label>
+      <br><br>
+      <label>New password<br>
+        <input type="password" name="new_password" required minlength="12" autocomplete="new-password">
+      </label>
+      <br><br>
+      <label>Confirm new password<br>
+        <input type="password" name="confirm_password" required minlength="12" autocomplete="new-password">
+      </label>
+      <br><br>
+      <button type="submit" class="button">Update password</button>
+      <span id="pw-status" class="tiny-pill" style="margin-left:0.6rem"></span>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Provider API keys (BYOK)</h2>
+    <p class="muted">
+      Store your own API keys for VirusTotal, GreyNoise, IPinfo and Shodan. When set, lookups
+      you trigger will use your key instead of the system-wide key. Keys are encrypted at rest
+      with Fernet (AES-128-CBC + HMAC-SHA256). Only the last 4 characters are ever shown again.
+    </p>
+    <table class="data-table" id="keys-table">
+      <thead>
+        <tr><th>Provider</th><th>Status</th><th>New key</th><th></th></tr>
+      </thead>
+      <tbody id="keys-body">
+        <tr><td colspan="4" class="muted">Loading…</td></tr>
+      </tbody>
+    </table>
+    <p id="keys-status" class="tiny-pill"></p>
+  </section>
+
+  <section class="card">
+    <h2>Session</h2>
+    <p class="muted">Sign out of this browser session.</p>
+    <button class="button-muted" id="logout-btn">Logout</button>
+  </section>
+</main>
+
+<script>
+(function(){
+  const SUPPORTED = ["virustotal","greynoise","ipinfo","shodan","abuseipdb","anthropic"];
+
+  async function refreshKeys() {
+    const body = document.getElementById("keys-body");
+    body.innerHTML = '<tr><td colspan="4" class="muted">Loading…</td></tr>';
+    try {
+      const resp = await fetch("/api/v1/auth/provider-keys", {credentials:"same-origin"});
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const rows = await resp.json();
+      const byProvider = {};
+      rows.forEach(r => byProvider[r.provider] = r);
+      body.innerHTML = "";
+      SUPPORTED.forEach(p => {
+        const existing = byProvider[p];
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${p}</strong></td>
+          <td>${existing ? '<span class="tiny-pill">set ' + (existing.key_hint||'') + '</span>' : '<span class="muted">not set</span>'}</td>
+          <td><input type="password" data-provider="${p}" placeholder="paste key…" style="width:14rem"></td>
+          <td>
+            <button class="button" data-action="save" data-provider="${p}">Save</button>
+            ${existing ? '<button class="button-muted" data-action="delete" data-provider="' + p + '">Delete</button>' : ''}
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    } catch (e) {
+      body.innerHTML = '<tr><td colspan="4" class="muted">Failed to load: ' + e.message + '</td></tr>';
+    }
+  }
+
+  document.addEventListener("click", async (ev) => {
+    const action = ev.target.dataset.action;
+    const provider = ev.target.dataset.provider;
+    if (!action || !provider) return;
+    const status = document.getElementById("keys-status");
+    if (action === "save") {
+      const input = document.querySelector(`input[data-provider="${provider}"]`);
+      const value = (input.value || "").trim();
+      if (!value) { status.textContent = "Enter a key first"; return; }
+      status.textContent = "Saving…";
+      const resp = await fetch(`/api/v1/auth/provider-keys/${provider}`, {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({api_key: value}),
+      });
+      if (resp.ok) {
+        input.value = "";
+        status.textContent = `Saved ${provider}`;
+        refreshKeys();
+      } else {
+        const err = await resp.json().catch(() => ({detail: "error"}));
+        status.textContent = `Save failed: ${err.detail || resp.status}`;
+      }
+    } else if (action === "delete") {
+      if (!confirm(`Delete your ${provider} key? Lookups will fall back to the system key.`)) return;
+      const resp = await fetch(`/api/v1/auth/provider-keys/${provider}`, {
+        method: "DELETE", credentials: "same-origin",
+      });
+      if (resp.ok) {
+        status.textContent = `Deleted ${provider}`;
+        refreshKeys();
+      } else {
+        status.textContent = `Delete failed: ${resp.status}`;
+      }
+    }
+  });
+
+  document.getElementById("pw-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const status = document.getElementById("pw-status");
+    const form = ev.target;
+    const current_password = form.current_password.value;
+    const new_password = form.new_password.value;
+    const confirm_password = form.confirm_password.value;
+    if (new_password !== confirm_password) {
+      status.textContent = "New passwords do not match";
+      return;
+    }
+    status.textContent = "Updating…";
+    const resp = await fetch("/api/v1/auth/change-password", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({current_password, new_password}),
+    });
+    if (resp.ok) {
+      status.textContent = "Updated. Redirecting to login…";
+      setTimeout(() => window.location = "/login", 800);
+    } else {
+      const err = await resp.json().catch(() => ({detail: "error"}));
+      status.textContent = `Failed: ${err.detail || resp.status}`;
+    }
+  });
+
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    fetch("/api/v1/auth/logout", {method:"POST", credentials:"same-origin"})
+      .then(() => window.location = "/login");
+  });
+
+  refreshKeys();
+})();
+</script>
+{% endblock %}

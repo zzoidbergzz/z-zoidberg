@@ -8,6 +8,9 @@ provider at startup. Providers that lack credentials self-disable inside
 """
 
 from . import (  # noqa: F401  (import-for-side-effects)
+    abuseipdb,
+    bgp_he,
+    crowdstrike,
     greynoise,
     ipinfo,
     misp,

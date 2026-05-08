@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.auth.dependencies import get_auth_optional, AuthContext
+from app.ui.deps import get_template_user
 from app.database import get_db
 from app.fingerprint import request_ip, server_side_fingerprint
 from datetime import datetime, timezone
@@ -50,7 +51,7 @@ async def fingerprint_page(request: Request, auth: AuthContext | None = Depends(
     server_data = server_side_fingerprint(request)
     context = {
         "server": server_data,
-        "current_user": {"user_id": auth.user_id, "email": auth.user_email} if auth else None,
+        "current_user": get_template_user(request),
     }
     if _templates is not None:
         try:
@@ -96,5 +97,5 @@ async def fingerprint_collect(
 @router.get("/investigation/", response_class=HTMLResponse, include_in_schema=False)
 async def investigation_page(request: Request):
     if _templates is not None:
-        return _templates.TemplateResponse(request, "investigation.html", {"current_user": None, "request": request})
+        return _templates.TemplateResponse(request, "investigation.html", {"current_user": get_template_user(request), "request": request})
     return HTMLResponse("<html><body><p>Templates not found</p></body></html>", 503)
