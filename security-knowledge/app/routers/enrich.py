@@ -24,7 +24,10 @@ async def enrich_entity(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_write),
 ):
-    service = EnrichmentService(db, str(auth.tenant_id))
+    service = EnrichmentService(
+        db, str(auth.tenant_id),
+        user_id=str(auth.user_id) if auth.user_id else None,
+    )
     providers = list_providers()
     results = {}
     for prov in providers:
@@ -69,12 +72,13 @@ async def stream_enrichment(
     Use ``?providers=virustotal,shodan`` to restrict to specific providers.
     """
     tenant_id = str(auth.tenant_id)
+    user_id = str(auth.user_id) if auth.user_id else None
     provider_filter = [p.strip() for p in providers.split(",")] if providers else None
     all_providers = list_providers()
     selected = [p for p in all_providers if not provider_filter or p in provider_filter]
 
     async def event_generator():
-        service = EnrichmentService(db, tenant_id)
+        service = EnrichmentService(db, tenant_id, user_id=user_id)
         completed = 0
 
         for prov_name in selected:
