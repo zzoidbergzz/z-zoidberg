@@ -140,6 +140,20 @@
 
     const extRefs = e.external_refs || {};
 
+    // Friendly description from catalog (if backfilled) or AKA
+    if (extRefs.description) {
+      document.getElementById("description-block").style.display = "";
+      let descHtml = `<p style="line-height:1.55;margin:0 0 0.4rem 0;">${esc(extRefs.description)}</p>`;
+      if (extRefs.aka && extRefs.aka.length) {
+        const akas = Array.isArray(extRefs.aka) ? extRefs.aka : [extRefs.aka];
+        descHtml += `<p class="subtle" style="font-size:0.85rem;margin:0;">Also known as: ${akas.map(esc).join(", ")}</p>`;
+      }
+      if (extRefs.url) {
+        descHtml += `<p style="font-size:0.85rem;margin-top:0.4rem;"><a href="${esc(extRefs.url)}" target="_blank" rel="noopener">Reference ↗</a></p>`;
+      }
+      document.getElementById("description-text").innerHTML = descHtml;
+    }
+
     const badges = document.getElementById("entity-badges");
     badges.innerHTML = `<span class="tiny-pill">${esc(kind)}</span>`;
     // CVE CVSS from external_refs
@@ -153,19 +167,89 @@
     }
     document.getElementById("entity-header").style.display = "";
 
-    // Meta grid
+    // Meta grid — show EVERY field we have
     const meta = document.getElementById("meta-grid");
     const fields = [
       ["ID", e.id],
       ["Kind", kind],
-      ["MITRE ID", e.mitre_attack_id],
-      ["CVE", extRefs.cve],
-      ["CVSS", extRefs.cvss],
+      ["Canonical name", name],
+      ["Aliases", (e.aliases||[]).join(", ")],
+      ["MITRE ATT&CK ID", e.mitre_attack_id],
+      ["Tenant", e.tenant_id],
+      ["Created", e.created_at ? new Date(e.created_at).toLocaleString() : null],
+      ["Updated", e.updated_at ? new Date(e.updated_at).toLocaleString() : null],
     ].filter(([,v]) => v != null && v !== "");
     meta.innerHTML = fields.map(([k,v]) =>
-      `<span class="subtle" style="font-size:0.82rem;">${esc(k)}</span><span class="mono" style="font-size:0.82rem;">${esc(v)}</span>`
+      `<span class="subtle" style="font-size:0.82rem;">${esc(k)}</span><span class="mono" style="font-size:0.82rem;word-break:break-all;">${esc(v)}</span>`
     ).join("");
+
+    // External refs — render as labelled rows with link explanations
+    const refs = extRefs;
+    const refKeys = Object.keys(refs).filter(k => refs[k] !== null && refs[k] !== "" && refs[k] !== false);
+    if (refKeys.length) {
+      const REF_LABELS = {
+        cve: "CVE id this entity refers to",
+        cvss: "CVSS v3 base score (0–10)",
+        nvd_link: "Open in NIST NVD",
+        gcve_link: "Open in GCVE / CIRCL",
+        mitre_link: "Open in MITRE ATT&CK",
+        kev: "CISA Known-Exploited-Vulnerabilities catalogue entry",
+        epss: "EPSS exploitation-probability score (0–1)",
+        stub: "This is a stub entity — created by knowledge-graph bootstrap before full data was ingested",
+        knowledge_id: "Internal knowledge-base id used by bootstrap fixtures",
+        source: "Originating ingestion source",
+        url: "Origin URL",
+        published: "Original publication timestamp",
+      };
+      const refHtml = refKeys.map(k => {
+        const v = refs[k];
+        const label = REF_LABELS[k] || "";
+        let valueHtml;
+        if (typeof v === "string" && /^https?:\/\//.test(v)) {
+          valueHtml = `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)} ↗</a>`;
+        } else if (typeof v === "object") {
+          valueHtml = `<code style="white-space:pre-wrap">${esc(JSON.stringify(v, null, 2))}</code>`;
+        } else {
+          valueHtml = `<span class="mono">${esc(String(v))}</span>`;
+        }
+        return `<div style="margin-bottom:0.5rem;">
+          <div style="display:flex;gap:0.5rem;align-items:baseline;">
+            <strong style="font-size:0.85rem;">${esc(k)}</strong>
+            ${valueHtml}
+          </div>
+          ${label ? `<div class="subtle" style="font-size:0.78rem;margin-left:0.2rem;">${esc(label)}</div>` : ""}
+        </div>`;
+      }).join("");
+      meta.insertAdjacentHTML("afterend",
+        `<div style="margin-top:1rem;">
+          <div class="section-title" style="font-size:0.8rem;margin-bottom:0.5rem;">External references</div>
+          ${refHtml}
+        </div>`);
+    }
+
+    // Stub-entity banner
+    if (refs.stub === true) {
+      document.getElementById("description-block").style.display = "";
+      document.getElementById("description-text").innerHTML =
+        '<strong>Stub entity.</strong> This was placed by the knowledge-graph bootstrap (an internal fixture) ' +
+        'so other records can reference it. No external feed has filled in details yet. It will be enriched ' +
+        'automatically when a matching CVE/IOC/document arrives, or you can <a href="/admin">trigger enrichment</a> ' +
+        'manually from the admin panel.';
+    }
+
     document.getElementById("details-card").style.display = "";
+
+    // Raw JSON dump — always available
+    const rawCard = document.createElement("section");
+    rawCard.className = "card";
+    rawCard.style.marginTop = "1rem";
+    rawCard.innerHTML = `
+      <details>
+        <summary style="cursor:pointer;font-weight:600;">Raw entity JSON</summary>
+        <pre class="mono" style="margin-top:0.6rem;font-size:0.78rem;background:#0f1117;padding:0.8rem;border-radius:6px;overflow:auto;max-height:480px;">${esc(JSON.stringify(e, null, 2))}</pre>
+      </details>
+    `;
+    document.getElementById("details-card").after(rawCard);
 
     // Graph + Ask AI
     document.getElementById("graph-link").href = `/graph?entity_id=${encodeURIComponent(entityId)}`;
@@ -178,6 +262,25 @@
     if (enrichData) {
       renderEnrichments(kind, name, extRefs, enrichData);
     }
+    // If nothing rendered, show a helpful explanation card
+    setTimeout(() => {
+      const enrShown = document.getElementById("enrichments-card").style.display !== "none";
+      const vulnShown = document.getElementById("vuln-card").style.display !== "none";
+      if (!enrShown && !vulnShown) {
+        const note = document.createElement("section");
+        note.className = "card";
+        note.style.marginTop = "1rem";
+        const enrichable = ["cve","cve_id","ip","ip_address","domain","url","hash","file_hash","technique","subtechnique","attack_pattern"].includes(kind);
+        note.innerHTML = `
+          <div class="section-title">No enrichment data yet</div>
+          <p class="subtle" style="font-size:0.9rem;line-height:1.6;margin-top:0.5rem;">
+            ${enrichable
+              ? `This <strong>${esc(kind)}</strong> entity has no cached enrichment results. Background workers enrich entities on first appearance and on any user lookup. If this is unexpected, check that the relevant provider is configured (Settings → Provider keys) or run <code>scripts/enrich_backfill.py</code>.`
+              : `Entities of kind <strong>${esc(kind)}</strong> are not auto-enriched. They typically appear when other records reference them (relationships, claims, evidence). Try the <a href="/graph?entity_id=${encodeURIComponent(entityId)}">graph view</a> to see context.`}
+          </p>`;
+        document.getElementById("ask-ai-card").before(note);
+      }
+    }, 600);
 
     loadRelationships();
   }
@@ -281,9 +384,30 @@
   // ── Relationships ─────────────────────────────────────────────────────
   async function loadRelationships() {
     try {
-      const resp = await fetch(`/api/v1/lookup/entity/${entityId}/graph`, { credentials: "same-origin" });
-      if (!resp.ok) return;
-      const g = await resp.json();
+      // Prefer dedicated relationships endpoint (works for any entity, no graph deps)
+      const resp = await fetch(`/api/v1/entities/${entityId}/relationships?limit=200`, { credentials: "same-origin" });
+      if (resp.ok) {
+        const edges = await resp.json();
+        if (edges.length) {
+          const tbody = document.getElementById("rels-body");
+          tbody.innerHTML = edges.map(edge => {
+            const peer = edge.peer || {};
+            const arrow = edge.direction === "out" ? "→" : "←";
+            const icon = KIND_ICONS[peer.kind] || "📦";
+            return `<tr>
+              <td><span class="tiny-pill">${arrow} ${esc(edge.kind)}</span></td>
+              <td><a href="/entities/${esc(peer.id)}">${icon} ${esc(peer.canonical_name || peer.id)}</a></td>
+              <td><span class="tiny-pill">${esc(peer.kind)}</span></td>
+            </tr>`;
+          }).join("");
+          document.getElementById("rels-card").style.display = "";
+          return;
+        }
+      }
+      // Fallback to legacy graph endpoint
+      const gresp = await fetch(`/api/v1/lookup/entity/${entityId}/graph`, { credentials: "same-origin" });
+      if (!gresp.ok) return;
+      const g = await gresp.json();
       const edges = g.edges || [];
       const nodes = g.nodes || [];
       if (!edges.length) return;
@@ -341,7 +465,6 @@
   loadAll();
 })();
 </script>
-{% endblock %}
 <main class="page-shell">
   <div id="status" class="status-bar"></div>
 

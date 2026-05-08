@@ -451,3 +451,146 @@ async def delete_provider_key(
         await db.delete(row)
         await db.flush()
     return Response(status_code=204)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Personal API keys (the keys this user uses to call the API / MCP)
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class ApiKeyMetadata(BaseModel):
+    id: str
+    name: str
+    scopes: str
+    active: bool
+    created_at: datetime | None = None
+    last_used_at: datetime | None = None
+    expires_at: datetime | None = None
+    key_hint: str  # last 4 chars of key_hash, for visual disambiguation only
+
+
+class ApiKeyCreated(ApiKeyMetadata):
+    api_key: str  # plaintext — shown ONCE at creation/rotation
+
+
+def _api_key_metadata(k: ApiKey) -> ApiKeyMetadata:
+    return ApiKeyMetadata(
+        id=str(k.id),
+        name=k.name,
+        scopes=k.scopes or "",
+        active=k.active,
+        created_at=k.created_at,
+        last_used_at=k.last_used_at,
+        expires_at=k.expires_at,
+        key_hint=(k.key_hash or "")[-4:],
+    )
+
+
+@router.get("/api-keys", response_model=list[ApiKeyMetadata])
+async def list_my_api_keys(
+    auth: AuthContext = Depends(get_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="User context required")
+    result = await db.execute(
+        select(ApiKey)
+        .where(ApiKey.user_id == uuid.UUID(auth.user_id))
+        .order_by(ApiKey.created_at.desc())
+    )
+    return [_api_key_metadata(k) for k in result.scalars().all()]
+
+
+class ApiKeyCreateRequest(BaseModel):
+    name: str = "personal"
+    scopes: str = "read write enrichment watch"
+
+
+@router.post("/api-keys", response_model=ApiKeyCreated, status_code=201)
+async def create_my_api_key(
+    body: ApiKeyCreateRequest,
+    auth: AuthContext = Depends(get_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new personal API key. Plaintext returned once — store it now."""
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="User context required")
+
+    from app.auth.api_key import generate_api_key
+
+    raw, key_hash = generate_api_key()
+    key = ApiKey(
+        tenant_id=uuid.UUID(auth.tenant_id),
+        user_id=uuid.UUID(auth.user_id),
+        name=body.name[:255] or "personal",
+        scopes=body.scopes or "read",
+        key_hash=key_hash,
+        active=True,
+    )
+    db.add(key)
+    await db.flush()
+    await db.refresh(key)
+    meta = _api_key_metadata(key)
+    return ApiKeyCreated(api_key=raw, **meta.model_dump())
+
+
+@router.post("/api-keys/{key_id}/rotate", response_model=ApiKeyCreated)
+async def rotate_my_api_key(
+    key_id: str,
+    auth: AuthContext = Depends(get_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rotate a key: deactivate the old one and issue a new one with the same name+scopes."""
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="User context required")
+    try:
+        kid = uuid.UUID(key_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid key id")
+
+    result = await db.execute(
+        select(ApiKey).where(ApiKey.id == kid, ApiKey.user_id == uuid.UUID(auth.user_id))
+    )
+    old = result.scalar_one_or_none()
+    if not old:
+        raise HTTPException(status_code=404, detail="key not found")
+
+    from app.auth.api_key import generate_api_key
+
+    raw, key_hash = generate_api_key()
+    new = ApiKey(
+        tenant_id=old.tenant_id,
+        user_id=old.user_id,
+        name=old.name,
+        scopes=old.scopes,
+        key_hash=key_hash,
+        active=True,
+    )
+    old.active = False
+    db.add(new)
+    await db.flush()
+    await db.refresh(new)
+    meta = _api_key_metadata(new)
+    return ApiKeyCreated(api_key=raw, **meta.model_dump())
+
+
+@router.delete("/api-keys/{key_id}", status_code=204)
+async def revoke_my_api_key(
+    key_id: str,
+    auth: AuthContext = Depends(get_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="User context required")
+    try:
+        kid = uuid.UUID(key_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid key id")
+    result = await db.execute(
+        select(ApiKey).where(ApiKey.id == kid, ApiKey.user_id == uuid.UUID(auth.user_id))
+    )
+    key = result.scalar_one_or_none()
+    if key:
+        key.active = False
+        await db.flush()
+    return Response(status_code=204)
