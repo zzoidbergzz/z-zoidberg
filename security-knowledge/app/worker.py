@@ -133,8 +133,13 @@ _AUTO_ENRICHMENT_PROVIDERS: dict[str, tuple[str, ...]] = {
     "cve_id": ("nvd",),
     "attack_pattern": ("mitre_attack",),
     "technique": ("mitre_attack",),
+    "subtechnique": ("mitre_attack",),
     "url": ("urlscan",),
-    "ip_address": ("urlscan", "ipinfo"),
+    "ip": ("greynoise", "ipinfo", "abuseipdb"),
+    "ip_address": ("greynoise", "ipinfo", "abuseipdb"),
+    "domain": ("virustotal",),
+    "hash": ("virustotal",),
+    "file_hash": ("virustotal",),
 }
 
 

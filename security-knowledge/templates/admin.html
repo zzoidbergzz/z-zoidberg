@@ -28,9 +28,8 @@
       <select id="user-status-filter">
         <option value="">all</option>
         <option value="pending">pending</option>
-        <option value="active" selected>active</option>
+        <option value="approved" selected>approved</option>
         <option value="rejected">rejected</option>
-        <option value="suspended">suspended</option>
       </select>
       <button class="button-muted" id="user-refresh">Refresh</button>
     </div>
@@ -98,7 +97,7 @@
     const users = await r.json();
     if (!users.length) { tbody.innerHTML = `<tr><td colspan="4" class="muted">No users.</td></tr>`; return; }
     tbody.innerHTML = users.map(u =>
-      `<tr><td>${escape(u.email)}</td><td><span class="tiny-pill ${u.status === 'active' ? '' : (u.status === 'pending' ? 'warn' : 'danger')}">${escape(u.status)}</span></td><td>${(u.roles || []).map(escape).join(", ") || "—"}</td><td>${fmt(u.created_at)}</td></tr>`
+      `<tr><td>${escape(u.email)}</td><td><span class="tiny-pill ${u.status === 'approved' ? '' : (u.status === 'pending' ? 'warn' : 'danger')}">${escape(u.status)}</span></td><td>${escape(u.role || '')}</td><td>${fmt(u.created_at)}</td></tr>`
     ).join("");
   }
 
@@ -135,7 +134,13 @@
       body: JSON.stringify({action}),
     });
     if (r.ok) {
-      status.textContent = `${action}d.`;
+      const data = await r.json().catch(() => ({}));
+      if (action === "approve" && data.api_key) {
+        status.textContent = `Approved. API key issued.`;
+        alert(`Approved ${data.id}.\n\nAuto-generated API key (shown ONCE — copy now):\n\n${data.api_key}`);
+      } else {
+        status.textContent = `${action}d.`;
+      }
       loadPending(); loadStats(); loadUsers(document.getElementById("user-status-filter").value);
     } else {
       const err = await r.json().catch(() => ({detail: "error"}));
