@@ -1,7 +1,251 @@
 # z-zoidberg AGENT_QUICKSTART
 
 > Single-file onboarding. Read top-to-bottom once; use as a reference thereafter.
-> **File:** `/home/z/z-zoidberg/AGENT_QUICKSTART.md` — TODO item **A1**.
+> **File:** `/home/z/z-zoidberg/AGENT_QUICKSTART.md`
+
+---
+
+## 0. TL;DR
+
+- **What this repo is:** `z-zoidberg/` is a Zoidberg agent workspace (persona, memory, tools, heartbeat). Nested inside is `security-knowledge/` — a FastAPI + PostgreSQL service for cybersecurity knowledge ingestion, enrichment, MITRE ATT&CK querying, STIX export, MCP-assisted agent queries, and an OSINT research UI.
+- **One truth-source endpoint:** `GET /api/v1/capabilities` — **live** as of 2026-05-08. Returns version, all routes, registered/configured providers, and feature flags.
+- **Production URL:** https://z.je (Apache proxies to port 8010).
+- **Admin account:** `m@z.je` / password in `.env` as `BOOTSTRAP_ADMIN_PASSWORD`.
+
+---
+
+## 1. Service Up (5 minutes)
+
+```bash
+cd /home/z/z-zoidberg/security-knowledge
+
+# 1. Python env
+python -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev]"
+
+# 2. Config — copy .env.example, fill credentials
+cp .env.example .env
+
+# 3. Infrastructure
+make docker-up          # postgres + redis
+
+# 4. Schema
+make migrate            # alembic upgrade head
+
+# 5. Start service (port 8010)
+nohup .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8010 > /tmp/sk.log 2>&1 &
+
+# Bootstrap admin m@z.je is created automatically on startup.
+```
+
+**Smoke checks:**
+
+```bash
+# Health (no auth needed)
+curl http://localhost:8010/health
+
+# Capabilities (no auth needed)
+curl http://localhost:8010/api/v1/capabilities | jq '{version, providers}'
+
+# Login (returns JWT + sets session cookie)
+curl -X POST http://localhost:8010/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"m@z.je","password":"<BOOTSTRAP_ADMIN_PASSWORD>"}'
+```
+
+---
+
+## 2. Auth
+
+Three accepted auth methods (checked in order):
+
+| Method | Header/Cookie | When to use |
+|--------|--------------|-------------|
+| API key | `X-API-Key: <raw_key>` | Agent/programmatic clients |
+| Bearer JWT | `Authorization: Bearer <token>` | CLI / curl |
+| Session cookie | `sk_session=<jwt>` | Browser UI (set by `/api/v1/auth/login`) |
+
+**Get a token:**
+```bash
+# API token (60-min expiry)
+curl -X POST http://localhost:8010/api/v1/auth/token -F username=m@z.je -F password=<BOOTSTRAP_ADMIN_PASSWORD>
+
+# Browser session (7-day cookie)
+curl -X POST http://localhost:8010/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"m@z.je","password":"<BOOTSTRAP_ADMIN_PASSWORD>"}'
+```
+
+---
+
+## 3. Capability Discovery
+
+```bash
+TOKEN="<bearer token>"
+
+# Live capability inventory (version, routes, providers, feature flags)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8010/api/v1/capabilities | jq .
+
+# MCP tool list (33 tools: enrich_entity + 32 MITRE tools)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8010/api/v1/mcp/tools | jq '.tools | length'
+
+# Swagger UI
+open http://localhost:8010/docs
+
+# Browser OSINT UI (requires login)
+open https://z.je
+```
+
+**Active providers (as of 2026-05-08):**
+
+| Provider | Configured | Covers |
+|----------|-----------|--------|
+| ipinfo | ✅ | IP geo, ASN, org, abuse |
+| greynoise | ✅ | IP noise classification |
+| mitre_attack | ✅ | Local MITRE ATT&CK (enterprise + mobile + ICS) |
+| nvd | ✅ | CVE data (no key required) |
+| virustotal | ❌ needs key | Hash, URL, domain reputation |
+| shodan | ❌ needs key | Port/banner scanning |
+| misp | ❌ needs key | Threat intel sharing |
+| opencti | ❌ needs key | Threat intel platform |
+
+---
+
+## 4. Five Recipes
+
+All commands assume `TOKEN` is exported.
+
+### 4.1 Look up ATT&CK technique by ID
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"tool_name":"get_object_by_attack_id","parameters":{"attack_id":"T1059","domain":"enterprise"}}' \
+  http://localhost:8010/api/v1/mcp/call | jq '.result.name'
+# expect: "Command and Scripting Interpreter"
+```
+
+### 4.2 IOC Lookup with enrichment (stream)
+
+```bash
+# Stream enrichment results as SSE
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8010/api/v1/enrich/ip_address/8.8.8.8/stream"
+# Returns JSON event per provider: greynoise, ipinfo, mitre_attack, nvd, ...
+```
+
+### 4.3 Bulk lookup (IOC list)
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query_blob":"8.8.8.8\n1.1.1.1\ngoogle.com"}' \
+  http://localhost:8010/api/v1/lookup/bulk
+```
+
+### 4.4 Create an entity
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"kind":"ip_address","value":"198.51.100.1","title":"Test IP"}' \
+  http://localhost:8010/api/v1/entities/ | jq '{id,kind,value}'
+```
+
+### 4.5 Export STIX bundle
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8010/api/v1/export/stix?limit=50" -o export.stix2.json
+```
+
+---
+
+## 5. Dev Loop
+
+```bash
+cd security-knowledge
+make test       # pytest -q
+make lint       # ruff check app tests
+make fmt        # ruff format app tests
+make migrate    # alembic upgrade head
+make mcp-manifest  # regenerate mcp-tool-manifest.json from live endpoint
+```
+
+---
+
+## 6. Known Stubs / Gaps
+
+| ID | Area | Status |
+|----|------|--------|
+| **A1** | AGENT_QUICKSTART | ✅ done |
+| **A2** | `GET /api/v1/capabilities` | ✅ live |
+| **A3** | mcp-tool-manifest.json auto-generated | ✅ done (`make mcp-manifest`) |
+| **B1** | `enrich_entity` wired to EnrichmentService | ✅ fixed |
+| **B2** | providers registry populated | ✅ fixed |
+| **B3** | IPinfo + GreyNoise providers | ✅ implemented |
+| **C3** | FTS search | ✅ migrations exist; service uses ILIKE for now |
+| **C1** | `process_ingest_job` worker | ❌ stub |
+| **C4** | GraphQL resolvers | ❌ stub |
+| **D1** | End-to-end ingest pipeline | ❌ highest priority remaining |
+
+---
+
+## 7. MCP Integration
+
+```bash
+TOKEN="<bearer>"
+
+# List tools
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8010/api/v1/mcp/tools
+
+# Call a tool
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"tool_name":"enrich_entity","parameters":{"entity_kind":"ip_address","entity_value":"8.8.8.8"}}' \
+  http://localhost:8010/api/v1/mcp/call
+```
+
+> `/api/v1/mcp/` is a **custom HTTP RPC**, not the MCP SDK.
+
+---
+
+## 8. Project File Map
+
+### Root (`/home/z/z-zoidberg/`)
+
+| Path | Purpose |
+|------|---------|
+| `AGENTS.md` | Agent startup rules |
+| `IDENTITY.md` | Persona (Zoidberg 🦞) |
+| `SOUL.md` | Agent values |
+| `USER.md` | User identity |
+| `README.md` | Project overview |
+| `TOOLS.md` | SearXNG + CrowdStrike notes |
+| `TODO.md` | Improvement roadmap |
+| `AGENT_QUICKSTART.md` | **This file** |
+| `memory/` | Daily logs + heartbeat state |
+
+### Service (`security-knowledge/`)
+
+| Path | Purpose |
+|------|---------|
+| `app/main.py` | FastAPI app; bootstrap admin; static files |
+| `app/routers/` | 25+ routers including lookup, shortcuts, capabilities |
+| `app/lookup/` | normalizer, classifier, diffing |
+| `app/pivot/` | graph engine, BFS pivot expansion |
+| `app/fingerprint.py` | Server-side fingerprint + IP extraction |
+| `app/enrichment/providers/` | ipinfo, greynoise, virustotal, shodan, misp, opencti, nvd, mitre_attack |
+| `app/ui/routes.py` | Browser UI routes (prefix `""` — serves at `/`) |
+| `templates/` | Jinja2: base, index, login, register, fingerprint, investigation |
+| `static/css/site.css` | Full dark/light theme CSS |
+| `static/js/` | app.js, indicator.js, search.js, graph.js, fingerprint.js |
+| `alembic/` | 15 migrations |
+| `mcp-tool-manifest.json` | 33 MCP tools (auto-generated) |
+
+---
+
+*Cross-references: [`README.md`](README.md) · [`TODO.md`](TODO.md) · [`bootstrap.md`](bootstrap.md)*
 
 ---
 

@@ -1117,3 +1117,55 @@ against `/api/v1/capabilities` (Item A2) before relying on it.
 - No external credentials required for test suite. (Plausible; verify.)
 - No secrets in logs, traces, fixtures, docs, or committed config. (Verify
   with the secret-grep proposed in Item A5.)
+
+
+---
+
+## Section G — BUGFIX backlog (added 2026-05-08)
+
+Cross-reference the parity plan at `.copilot/session-state/<id>/plan.md`
+section 7 for the full rationale. Summary:
+
+### BUG-1 — Logout button never renders for logged-in users
+`templates/base.html` correctly gates the button on `current_user`, but
+every UI route in `app/ui/routes.py` and the HTML routes in
+`routers/shortcuts.py` pass `current_user: None`. Same bug also hides
+the Admin nav. Fix: shared `app.ui.deps.get_current_user_for_template`
+that decodes the `sk_session` cookie; thread through every UI route.
+Acceptance: GET `/` after login returns HTML containing `>Logout<`.
+
+### BUG-2 — User settings: change password + BYO provider keys
+The `user_provider_keys` table, `UserProviderKey` model, and
+`app/auth/byok.py` Fernet helpers already exist (alembic 0002). What is
+missing:
+
+API:
+- `POST /api/v1/auth/change-password` (current + new, bcrypt-verify,
+  rotate, invalidate session).
+- `GET /api/v1/auth/provider-keys` (list `{provider, key_hint,
+  created_at}` — never plaintext).
+- `PUT /api/v1/auth/provider-keys/{provider}` (encrypt + upsert).
+- `DELETE /api/v1/auth/provider-keys/{provider}`.
+- Allowed providers: `virustotal`, `greynoise`, `ipinfo`, `shodan`.
+
+Provider plumbing:
+- `EnrichmentService._resolve_provider_key()` checks
+  `user_provider_keys` first (decrypt + flag `used_byok=true` in
+  `enrichment_usage`), falls back to `settings`.
+- VT/Shodan/IPinfo/GreyNoise providers receive the resolved key
+  instead of reading `settings` directly.
+
+UI:
+- New `templates/settings.html` extending `base.html` with two
+  sections: change-password form and per-provider key add/remove rows.
+- New `GET /settings` UI route (auth required; redirect to `/login`).
+- New "Settings" nav-pill in `base.html` (only when `current_user`).
+
+Acceptance: see plan.md §7 BUG-2.
+
+### BUG-3 — Surface new endpoints in `/api/v1/capabilities`
+After BUG-1 and BUG-2, ensure capabilities lists the new routes.
+
+### Execution slot
+Run after Section A items (A1-A5) and before Section B per-kind work
+(P-K1 et al.) — see plan.md §3 for the updated master order.
