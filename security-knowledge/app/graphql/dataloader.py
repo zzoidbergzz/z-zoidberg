@@ -1,6 +1,7 @@
-from typing import Any
-from strawberry.dataloader import DataLoader
 import uuid
+from typing import Any
+
+from strawberry.dataloader import DataLoader
 
 
 async def load_entities_by_ids(keys: list[uuid.UUID]) -> list[Any]:

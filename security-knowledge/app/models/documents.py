@@ -1,7 +1,9 @@
 import uuid
-from sqlalchemy import String, Text, Integer, ForeignKey, JSON
+
+from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
@@ -21,8 +23,13 @@ class ParsedDocument(Base, UUIDMixin, TimestampMixin):
 class DocumentSection(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "document_sections"
 
-    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("parsed_documents.id"), nullable=False, index=True)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("parsed_documents.id"), nullable=False, index=True
+    )
     section_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     heading: Mapped[str] = mapped_column(String(512), nullable=False, default="")
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    byte_offset_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    byte_offset_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
     document: Mapped["ParsedDocument"] = relationship("ParsedDocument", back_populates="sections")
