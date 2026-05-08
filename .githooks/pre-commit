@@ -6,8 +6,11 @@
 # Checks:
 #   1. Block obvious secret patterns landing in MEMORY.md or memory/.
 #   2. Block edits to existing alembic migration files (immutable history).
+#   3. Enforce ruff format --check on staged Python files in security-knowledge/.
+#   4. Enforce ruff check (lint) on staged Python files in security-knowledge/.
 #
 # Exit 0 = OK, non-zero = block commit.
+# Bypass (emergency only):   git commit --no-verify
 
 set -euo pipefail
 
@@ -36,6 +39,35 @@ if [[ -n "${modified_migrations}" ]]; then
   echo "${modified_migrations}" | sed 's/^/    /' >&2
   echo "  Migrations are immutable. Add a new revision instead." >&2
   fail=1
+fi
+
+# ---- 3. ruff format --check on staged security-knowledge Python files -------
+staged_py=$(git diff --cached --name-only --diff-filter=AM \
+  | grep -E '^security-knowledge/.+\.py$' || true)
+
+if [[ -n "${staged_py}" ]]; then
+  if ! command -v ruff >/dev/null 2>&1; then
+    echo "⚠ pre-commit: ruff not on PATH — skipping format check (warn-only)" >&2
+  else
+    if ! ruff format --check ${staged_py} 2>&1; then
+      echo "✗ pre-commit: refused — ruff format issues detected." >&2
+      echo "  Run: make fmt   (or: ruff format ${staged_py})" >&2
+      fail=1
+    fi
+  fi
+fi
+
+# ---- 4. ruff check (lint) on staged security-knowledge Python files ---------
+if [[ -n "${staged_py}" ]]; then
+  if ! command -v ruff >/dev/null 2>&1; then
+    echo "⚠ pre-commit: ruff not on PATH — skipping lint check (warn-only)" >&2
+  else
+    if ! ruff check ${staged_py} 2>&1; then
+      echo "✗ pre-commit: refused — ruff lint errors detected." >&2
+      echo "  Fix the errors above, then re-stage and retry." >&2
+      fail=1
+    fi
+  fi
 fi
 
 exit "${fail}"
