@@ -303,7 +303,10 @@ def _build_corpus_result(row: Any) -> dict[str, Any]:
         "severity": "",
         "nvd_link": None,
         "mitre_link": None,
-        "detail_url": f"/cve/{ext_id}" if corpus in ("cve", "gcve") else None,
+        "detail_url": (
+            f"/cve/{ext_id}" if corpus in ("cve", "gcve")
+            else (f"/exploit/{ext_id.replace('EDB-', '')}" if corpus == "exploitdb" else None)
+        ),
     }
 
     if corpus in ("cve", "gcve") and _CVE_RE.match(ext_id):
