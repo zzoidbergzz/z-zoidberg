@@ -12,7 +12,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / 
 
 ui_router = APIRouter(tags=["UI"])
 
-PROTECTED = ["/", "/graph", "/entities", "/search", "/admin", "/investigation", "/fp", "/settings"]
+PROTECTED = ["/", "/graph", "/entities", "/search", "/admin", "/investigation", "/fp", "/settings", "/claims", "/digests"]
 
 
 def _authed(request: Request) -> bool:
@@ -70,6 +70,20 @@ async def ui_ingest(request: Request):
     if not _authed(request):
         return _login_redirect("/ingest")
     return templates.TemplateResponse(request, "ingest.html", {"current_user": get_template_user(request)})
+
+
+@ui_router.get("/claims", response_class=HTMLResponse)
+async def ui_claims(request: Request):
+    if not _authed(request):
+        return _login_redirect("/claims")
+    return templates.TemplateResponse(request, "claims.html", {"current_user": get_template_user(request)})
+
+
+@ui_router.get("/digests", response_class=HTMLResponse)
+async def ui_digests(request: Request):
+    if not _authed(request):
+        return _login_redirect("/digests")
+    return templates.TemplateResponse(request, "digests.html", {"current_user": get_template_user(request)})
 
 
 @ui_router.get("/settings", response_class=HTMLResponse)

@@ -1,16 +1,215 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Security Knowledge - admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
-</head>
-<body>
-<main class="container">
-  <h1>Security Knowledge</h1>
-  <p>Page: admin</p>
+{% extends "base.html" %}
+{% block content %}
+<main class="page-shell">
+  <header class="page-header">
+    <h1>Admin</h1>
+    <p class="muted">Tenant administration: users, sources, audit, system stats.</p>
+  </header>
+
+  <section class="card">
+    <h3>System overview</h3>
+    <div id="stats-grid" class="stats-grid">
+      <span class="muted">Loading…</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Pending user approvals</h3>
+    <div id="pending-status" class="muted"></div>
+    <table class="data-table" id="pending-users-table">
+      <thead><tr><th>Email</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody><tr><td colspan="3" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h3>Users</h3>
+    <div class="row" style="gap:0.5rem; margin-bottom:0.5rem;">
+      <select id="user-status-filter">
+        <option value="">all</option>
+        <option value="pending">pending</option>
+        <option value="active" selected>active</option>
+        <option value="rejected">rejected</option>
+        <option value="suspended">suspended</option>
+      </select>
+      <button class="button-muted" id="user-refresh">Refresh</button>
+    </div>
+    <table class="data-table" id="users-table">
+      <thead><tr><th>Email</th><th>Status</th><th>Roles</th><th>Created</th></tr></thead>
+      <tbody><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h3>Feed sources</h3>
+    <div id="sources-status" class="muted"></div>
+    <div class="row" style="gap:0.5rem; margin-bottom:0.5rem;">
+      <input id="source-search" type="search" placeholder="filter by URL substring…" />
+      <button class="button-muted" id="source-refresh">Refresh</button>
+    </div>
+    <table class="data-table" id="sources-table">
+      <thead><tr><th>URL</th><th>Active</th><th>Last fetched</th><th>Last status</th><th>Actions</th></tr></thead>
+      <tbody><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h3>Recent audit events</h3>
+    <table class="data-table" id="audit-table">
+      <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Resource</th><th>Status</th></tr></thead>
+      <tbody><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </section>
 </main>
-</body>
-</html>
+
+<script>
+(() => {
+  const fmt = (s) => s ? new Date(s).toLocaleString() : "—";
+  const escape = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+
+  async function loadStats() {
+    const grid = document.getElementById("stats-grid");
+    try {
+      const r = await fetch("/api/v1/admin/stats", {credentials:"same-origin"});
+      if (!r.ok) { grid.innerHTML = `<span class="tiny-pill danger">stats failed: ${r.status}</span>`; return; }
+      const s = await r.json();
+      const items = [
+        ["Users", s.user_count, s.pending_users ? `${s.pending_users} pending` : null],
+        ["Sources", s.source_count, `${s.source_active} active`],
+        ["Documents", s.document_count],
+        ["Entities", s.entity_count],
+        ["Audit events", s.audit_count],
+        ["Sightings", s.sighting_count],
+        ["Watches", s.watch_count],
+        ["Enrichment cache", s.enrichment_cache_size],
+      ];
+      grid.innerHTML = items.map(([k, v, sub]) =>
+        `<div class="stat-tile"><div class="stat-label">${escape(k)}</div><div class="stat-value">${escape(v)}</div>${sub ? `<div class="muted small">${escape(sub)}</div>` : ""}</div>`
+      ).join("");
+    } catch (e) { grid.innerHTML = `<span class="tiny-pill danger">${escape(e.message)}</span>`; }
+  }
+
+  async function loadUsers(status) {
+    const tbody = document.querySelector("#users-table tbody");
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">Loading…</td></tr>`;
+    const url = status ? `/api/v1/admin/users?status=${encodeURIComponent(status)}` : "/api/v1/admin/users";
+    const r = await fetch(url, {credentials:"same-origin"});
+    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="4" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
+    const users = await r.json();
+    if (!users.length) { tbody.innerHTML = `<tr><td colspan="4" class="muted">No users.</td></tr>`; return; }
+    tbody.innerHTML = users.map(u =>
+      `<tr><td>${escape(u.email)}</td><td><span class="tiny-pill ${u.status === 'active' ? '' : (u.status === 'pending' ? 'warn' : 'danger')}">${escape(u.status)}</span></td><td>${(u.roles || []).map(escape).join(", ") || "—"}</td><td>${fmt(u.created_at)}</td></tr>`
+    ).join("");
+  }
+
+  async function loadPending() {
+    const tbody = document.querySelector("#pending-users-table tbody");
+    const r = await fetch("/api/v1/admin/users?status=pending", {credentials:"same-origin"});
+    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="3" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
+    const users = await r.json();
+    if (!users.length) { tbody.innerHTML = `<tr><td colspan="3" class="muted">No pending approvals.</td></tr>`; return; }
+    tbody.innerHTML = users.map(u =>
+      `<tr data-id="${u.id}">
+         <td>${escape(u.email)}</td>
+         <td>${fmt(u.created_at)}</td>
+         <td>
+           <button class="button" data-act="approve" data-id="${u.id}">Approve</button>
+           <button class="button-danger" data-act="reject" data-id="${u.id}">Reject</button>
+         </td>
+       </tr>`
+    ).join("");
+  }
+
+  document.querySelector("#pending-users-table").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button[data-act]");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.act;
+    btn.disabled = true;
+    const status = document.getElementById("pending-status");
+    status.textContent = `${action} ${id}…`;
+    const r = await fetch(`/api/v1/admin/users/${id}/approve`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action}),
+    });
+    if (r.ok) {
+      status.textContent = `${action}d.`;
+      loadPending(); loadStats(); loadUsers(document.getElementById("user-status-filter").value);
+    } else {
+      const err = await r.json().catch(() => ({detail: "error"}));
+      status.textContent = `${action} failed: ${err.detail || r.status}`;
+      btn.disabled = false;
+    }
+  });
+
+  async function loadSources() {
+    const tbody = document.querySelector("#sources-table tbody");
+    tbody.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
+    const r = await fetch("/api/v1/sources/status", {credentials:"same-origin"});
+    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="5" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
+    const sources = await r.json();
+    const filter = document.getElementById("source-search").value.toLowerCase();
+    const filtered = filter ? sources.filter(s => (s.url || "").toLowerCase().includes(filter)) : sources;
+    document.getElementById("sources-status").textContent =
+      `${filtered.length} of ${sources.length} sources (${sources.filter(s => s.active).length} active)`;
+    if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="5" class="muted">No sources match.</td></tr>`; return; }
+    tbody.innerHTML = filtered.slice(0, 200).map(s => {
+      const okPill = s.active
+        ? `<span class="tiny-pill">active</span>`
+        : `<span class="tiny-pill warn">inactive</span>`;
+      const lastStatus = s.last_outcome ? s.last_outcome.status : "—";
+      const overdue = s.is_overdue ? ` <span class="tiny-pill warn">overdue</span>` : "";
+      return `<tr>
+        <td><span class="mono small">${escape(s.url)}</span>${overdue}</td>
+        <td>${okPill}</td>
+        <td>${fmt(s.last_fetched_at)}</td>
+        <td>${escape(lastStatus)}</td>
+        <td><button class="button-muted" data-toggle="${s.id}" data-active="${s.active}">${s.active ? 'Disable' : 'Enable'}</button></td>
+      </tr>`;
+    }).join("");
+  }
+
+  document.querySelector("#sources-table").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button[data-toggle]");
+    if (!btn) return;
+    const id = btn.dataset.toggle;
+    const newActive = btn.dataset.active === "true" ? false : true;
+    btn.disabled = true;
+    const r = await fetch(`/api/v1/admin/sources/${id}/toggle`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({active: newActive}),
+    });
+    if (r.ok) { loadSources(); loadStats(); }
+    else { btn.disabled = false; alert(`toggle failed: ${r.status}`); }
+  });
+
+  async function loadAudit() {
+    const tbody = document.querySelector("#audit-table tbody");
+    const r = await fetch("/api/v1/audit/?limit=25", {credentials:"same-origin"});
+    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="5" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
+    const events = await r.json();
+    if (!events.length) { tbody.innerHTML = `<tr><td colspan="5" class="muted">No audit events.</td></tr>`; return; }
+    tbody.innerHTML = events.map(e =>
+      `<tr>
+        <td>${fmt(e.created_at || e.timestamp)}</td>
+        <td>${escape(e.actor_email || e.actor_id || "system")}</td>
+        <td>${escape(e.action)}</td>
+        <td>${escape(e.resource_type || "")} ${escape(e.resource_id || "")}</td>
+        <td><span class="tiny-pill ${e.status === 'success' ? '' : 'warn'}">${escape(e.status || '—')}</span></td>
+       </tr>`
+    ).join("");
+  }
+
+  document.getElementById("user-refresh").addEventListener("click", () => loadUsers(document.getElementById("user-status-filter").value));
+  document.getElementById("user-status-filter").addEventListener("change", () => loadUsers(document.getElementById("user-status-filter").value));
+  document.getElementById("source-refresh").addEventListener("click", loadSources);
+  document.getElementById("source-search").addEventListener("input", () => loadSources());
+
+  loadStats(); loadPending(); loadUsers("active"); loadSources(); loadAudit();
+})();
+</script>
+{% endblock %}
