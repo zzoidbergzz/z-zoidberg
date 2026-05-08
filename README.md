@@ -71,6 +71,30 @@ alembic upgrade head
 uvicorn app.main:app --host 0.0.0.0 --port 8010
 ```
 
+### Cloning to a fresh box (loopback / dev / replica)
+
+`security-knowledge/scripts/install.sh` is a one-shot bootstrap. On the source machine run `dump_db.sh` first to capture the live DB (entities, relationships, claims, the full ~395k corpus_documents — CVE/GCVE/Exploit-DB), then ship the dump to the target and let `install.sh` restore it.
+
+```bash
+# 1. on the source (z.je)
+cd security-knowledge && scripts/dump_db.sh
+# → writes dumps/sk_<utc>.dump (custom-format, compressed, ~hundreds of MB)
+scp dumps/sk_*.dump newhost:/tmp/
+
+# 2. on the target machine (loopback only, then later open up as needed)
+git clone git@github.com:mzje/z-zoidberg.git && cd z-zoidberg/security-knowledge
+scripts/install.sh --dump /tmp/sk_*.dump
+# → installs deps, creates pg role+db, restores dump, starts on 127.0.0.1:8000
+```
+
+Empty install (no prod data, just migrations + seed pack):
+```bash
+scripts/install.sh
+```
+
+Env knobs (all optional, sensible defaults):  
+`PG_USER PG_PASS PG_DB PG_HOST PG_PORT REDIS_URL BIND_ADDR BIND_PORT`. Default bind is `127.0.0.1:8000` so the box is loopback-only until you front it with a reverse proxy.
+
 ## Project Files
 
 | File | Purpose |

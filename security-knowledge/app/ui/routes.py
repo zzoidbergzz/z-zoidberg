@@ -48,6 +48,39 @@ async def ui_entities(request: Request):
 async def ui_entity_detail(request: Request, entity_id: str):
     if not _authed(request):
         return _login_redirect(f"/entities/{entity_id}")
+
+    # Smart redirect: an id passed here may actually point at a corpus_documents
+    # row (CVE/GCVE/Exploit-DB) or a claim — both common when search results
+    # link the wrong UUID. Look it up and 302 to the right detail page so the
+    # user never sees a bare 404. Entity rows pass straight through to the
+    # template (which handles missing entities itself).
+    import re as _re
+    if _re.fullmatch(r"[0-9a-fA-F-]{36}", entity_id):
+        try:
+            from app.database import AsyncSessionLocal
+            from sqlalchemy import text as _text
+            async with AsyncSessionLocal() as db:
+                row = (await db.execute(_text(
+                    "SELECT id::text FROM entities WHERE id = :id LIMIT 1"
+                ), {"id": entity_id})).first()
+                if row is None:
+                    cd = (await db.execute(_text(
+                        "SELECT corpus, external_id FROM corpus_documents WHERE id = :id LIMIT 1"
+                    ), {"id": entity_id})).first()
+                    if cd:
+                        corpus, ext = cd
+                        if corpus in ("cve", "gcve"):
+                            return RedirectResponse(url=f"/cve/{ext}", status_code=302)
+                        if corpus == "exploitdb":
+                            return RedirectResponse(url=f"/exploit/{ext.replace('EDB-', '')}", status_code=302)
+                    cl = (await db.execute(_text(
+                        "SELECT entity_id::text FROM claims WHERE id = :id AND entity_id IS NOT NULL LIMIT 1"
+                    ), {"id": entity_id})).first()
+                    if cl and cl[0]:
+                        return RedirectResponse(url=f"/entities/{cl[0]}", status_code=302)
+        except Exception:
+            pass
+
     return templates.TemplateResponse(request, "entity_detail.html", {"current_user": get_template_user(request)})
 
 
