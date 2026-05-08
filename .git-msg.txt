@@ -1,6 +1,0 @@
-feat: add GET /api/v1/capabilities endpoint
-
-Live machine-readable service inventory showing registered/configured
-providers, all API endpoints, feature flags, and git SHA version.
-
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

@@ -7,7 +7,7 @@
     <h1 class="headline" style="margin-top:1rem;">Paste one indicator. Let the graph do the rest.</h1>
     <p class="subtle" style="margin-top:1rem;max-width:46rem;">IP, domain, URL, email, hash, ASN, phone, or username. Defanged inputs are normalised automatically — including <span class="mono">hxxps://</span>, <span class="mono">[.]</span>, and <span class="mono">[@]</span> variants.</p>
 
-    <form class="search-box" id="lookup-form">
+    <form class="search-box" id="lookup-form" data-lookup-form>
       <input class="search-input mono" type="text" name="query" id="search-input"
         placeholder="8.8.8.8 · example.org · hxxps://target[.]tld · AS13335"
         autocomplete="off">
@@ -52,10 +52,10 @@
     <div class="card">
       <div class="section-title">Bulk Lookup</div>
       <p class="subtle" style="margin-top:0.6rem;font-size:0.9rem;">One indicator per line. Defanged inputs are cleaned before dedupe and classification.</p>
-      <form id="bulk-lookup-form" class="stack" style="margin-top:0.75rem;">
+      <form id="bulk-lookup-form" data-bulk-lookup-form class="stack" style="margin-top:0.75rem;">
         <textarea class="form-textarea mono" name="query_blob" rows="7" placeholder="8.8.8.8&#10;example.org&#10;hxxps://target[.]tld"></textarea>
         <input class="form-input mono" type="text" name="investigation_id" placeholder="investigation id (optional)">
-        <button class="button" type="submit">Dispatch Batch</button>
+        <button class="button" data-bulk-submit type="submit">Dispatch Batch</button>
       </form>
       <div id="bulk-lookup-status" class="status-bar"></div>
       <div id="bulk-lookup-results" class="result-list" style="margin-top:0.75rem;"></div>
@@ -63,7 +63,7 @@
     <div class="card">
       <div class="section-title">Path Finder</div>
       <p class="subtle" style="margin-top:0.6rem;font-size:0.9rem;">Resolve the shortest pivot path between two entities in the graph.</p>
-      <form id="path-form" class="stack" style="margin-top:0.75rem;">
+      <form id="path-form" data-path-form class="stack" style="margin-top:0.75rem;">
         <input class="form-input mono" type="text" name="source_entity_id" placeholder="source entity id">
         <input class="form-input mono" type="text" name="target_entity_id" placeholder="target entity id">
         <button class="button" type="submit">Find Path</button>

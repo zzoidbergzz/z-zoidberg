@@ -23,6 +23,9 @@ window.ZjeIndicator = (() => {
     if (/^([a-z0-9]([a-z0-9\-]*[a-z0-9])?\.)+[a-z]{2,}$/i.test(normalizedDomain)) {
       return { type: "domain", value: normalizedDomain };
     }
+    if (/^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/.test(value) || /^[0-9a-f:]+\/?\d*$/i.test(value) && value.includes(":")) {
+      return { type: "ip/cidr", value };
+    }
     if (/^\+?\d{7,15}$/.test(value.replace(/[\s\-().]/g, ""))) {
       return { type: "phone", value: value.replace(/[\s\-().]/g, "") };
     }

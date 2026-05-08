@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Ingest · z.je{% endblock %}
+{% block content %}
+<main class="page-shell">
+  <header class="page-header">
+    <h1>Ingest</h1>
+    <p class="page-sub">Submit feeds and URLs for ingestion into the threat intelligence knowledge base.</p>
+  </header>
+
+  <!-- Submit Feed / URL -->
+  <section class="card">
+    <div class="section-title">Submit Feed / URL</div>
+    <form id="ingest-form" style="margin-top:0.75rem;display:flex;flex-direction:column;gap:0.6rem;">
+      <input class="form-input mono" type="url" id="source-url" placeholder="https://example.com/feed.json" required style="width:100%;">
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+        <select class="form-input" id="source-type" style="min-width:10rem;">
+          <option value="rss">RSS</option>
+          <option value="txt">TXT</option>
+          <option value="jsonl">JSONL</option>
+          <option value="misp">MISP</option>
+          <option value="osint">OSINT</option>
+          <option value="stix">STIX</option>
+        </select>
+        <button class="button" type="submit">Submit</button>
+        <span id="submit-status" class="tiny-pill"></span>
+      </div>
+    </form>
+  </section>
+
+  <!-- Recent Jobs -->
+  <section class="card" style="margin-top:1rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+      <div class="section-title">Recent Jobs</div>
+      <button class="button-muted" id="refresh-jobs-btn" style="font-size:0.8rem;">Refresh</button>
+    </div>
+    <div id="jobs-status" class="status-bar" style="margin-top:0.4rem;"></div>
+    <table class="table" style="margin-top:0.75rem;">
+      <thead><tr><th>ID</th><th>Source URL</th><th>Status</th><th>Created</th><th>Error</th></tr></thead>
+      <tbody id="jobs-body">
+        <tr><td colspan="5" class="muted">Loading…</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Feed Sources -->
+  <section class="card" style="margin-top:1rem;">
+    <div class="section-title">Feed Sources</div>
+    <div id="sources-status" class="status-bar" style="margin-top:0.4rem;"></div>
+    <table class="table" style="margin-top:0.75rem;" id="sources-table">
+      <thead><tr><th>Name</th><th>URL</th><th>Type</th><th>Status</th><th>Last Run</th></tr></thead>
+      <tbody id="sources-body">
+        <tr><td colspan="5" class="muted">Loading…</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+(function () {
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // Submit form
+  document.getElementById("ingest-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const url = document.getElementById("source-url").value.trim();
+    const type = document.getElementById("source-type").value;
+    const stat = document.getElementById("submit-status");
+    stat.textContent = "Submitting…";
+    try {
+      const resp = await fetch("/api/v1/ingest/", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_url: url, source_type: type }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: "error" }));
+        throw new Error(err.detail || "HTTP " + resp.status);
+      }
+      const job = await resp.json();
+      stat.textContent = `Accepted · job ${job.id || ""}`;
+      document.getElementById("source-url").value = "";
+      loadJobs();
+    } catch (err) {
+      stat.textContent = "Error: " + err.message;
+    }
+  });
+
+  // Jobs
+  async function loadJobs() {
+    const tbody = document.getElementById("jobs-body");
+    const stat = document.getElementById("jobs-status");
+    try {
+      const resp = await fetch("/api/v1/ingest/jobs", { credentials: "same-origin" });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const jobs = await resp.json();
+      const items = Array.isArray(jobs) ? jobs : (jobs.items || []);
+      stat.textContent = "";
+      if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No jobs yet.</div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = items.map(j => {
+        const created = j.created_at ? new Date(j.created_at).toLocaleString() : "—";
+        const statusPill = `<span class="tiny-pill">${esc(j.status || "")}</span>`;
+        const shortId = String(j.id || "").slice(0, 8);
+        return `<tr>
+          <td class="mono" style="font-size:0.8rem;">${esc(shortId)}</td>
+          <td class="subtle" style="font-size:0.82rem;word-break:break-all;">${esc(j.source_url || "")}</td>
+          <td>${statusPill}</td>
+          <td class="subtle" style="font-size:0.82rem;">${esc(created)}</td>
+          <td class="subtle" style="font-size:0.82rem;color:var(--danger,#e05);">${esc(j.error || "")}</td>
+        </tr>`;
+      }).join("");
+    } catch (err) {
+      stat.textContent = "Error loading jobs: " + err.message;
+    }
+  }
+
+  // Sources
+  async function loadSources() {
+    const tbody = document.getElementById("sources-body");
+    const stat = document.getElementById("sources-status");
+    try {
+      const [srcResp, statusResp] = await Promise.all([
+        fetch("/api/v1/sources/", { credentials: "same-origin" }),
+        fetch("/api/v1/sources/status", { credentials: "same-origin" }),
+      ]);
+      const sources = srcResp.ok ? await srcResp.json() : [];
+      const statuses = statusResp.ok ? await statusResp.json() : [];
+      const statusMap = {};
+      (Array.isArray(statuses) ? statuses : []).forEach(s => { statusMap[s.source_id || s.id] = s; });
+      const items = Array.isArray(sources) ? sources : (sources.items || []);
+      stat.textContent = "";
+      if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">No sources configured.</div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = items.map(src => {
+        const ss = statusMap[src.id] || {};
+        const lastRun = ss.last_run_at ? new Date(ss.last_run_at).toLocaleString() : "—";
+        const health = ss.status || ss.health || "—";
+        return `<tr>
+          <td>${esc(src.name || src.id)}</td>
+          <td class="subtle" style="font-size:0.82rem;word-break:break-all;">${esc(src.url || src.source_url || "")}</td>
+          <td><span class="tiny-pill">${esc(src.source_type || src.type || "")}</span></td>
+          <td><span class="tiny-pill">${esc(health)}</span></td>
+          <td class="subtle" style="font-size:0.82rem;">${esc(lastRun)}</td>
+        </tr>`;
+      }).join("");
+    } catch (err) {
+      stat.textContent = "Error loading sources: " + err.message;
+    }
+  }
+
+  document.getElementById("refresh-jobs-btn").addEventListener("click", loadJobs);
+
+  // Initial load
+  loadJobs();
+  loadSources();
+
+  // Auto-refresh jobs every 5s
+  setInterval(loadJobs, 5000);
+})();
+</script>
+{% endblock %}

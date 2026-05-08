@@ -65,6 +65,13 @@ async def ui_admin(request: Request):
     return templates.TemplateResponse(request, "admin.html", {"current_user": get_template_user(request)})
 
 
+@ui_router.get("/ingest", response_class=HTMLResponse)
+async def ui_ingest(request: Request):
+    if not _authed(request):
+        return _login_redirect("/ingest")
+    return templates.TemplateResponse(request, "ingest.html", {"current_user": get_template_user(request)})
+
+
 @ui_router.get("/settings", response_class=HTMLResponse)
 async def ui_settings(request: Request):
     if not _authed(request):
