@@ -2,15 +2,177 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Security Knowledge - entity_detail</title>
+  <title>Security Knowledge · Entity</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0c18; --surface: #12132a; --surface2: #1a1b35; --border: #2a2b4a;
+      --accent: #5b8df6; --green: #3ecf8e; --red: #f25f5c;
+      --text: #e2e4f0; --muted: #7c7f9e; --radius: 10px;
+    }
+    html, body { min-height: 100%; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+    .topbar {
+      position: sticky; top: 0; z-index: 100; background: var(--surface);
+      border-bottom: 1px solid var(--border); display: flex; align-items: center;
+      padding: 0 24px; height: 56px; gap: 0;
+    }
+    .topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--text); text-decoration: none; margin-right: 32px; }
+    .topbar .brand span { color: var(--accent); }
+    .topbar nav { display: flex; gap: 4px; }
+    .topbar nav a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; transition: all .15s; }
+    .topbar nav a:hover { color: var(--text); background: var(--surface2); }
+    .page { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+    .breadcrumb { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+    .breadcrumb a { color: var(--accent); text-decoration: none; }
+    .entity-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 28px; }
+    .entity-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+    .entity-header h1 { font-size: 24px; font-weight: 700; line-height: 1.2; margin-bottom: 6px; }
+    .badge { display: inline-block; background: var(--surface2); border: 1px solid var(--border); color: var(--accent); font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+    .badge-green { color: var(--green); border-color: #1a4a35; background: #0d1f18; }
+    .badge-muted { color: var(--muted); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+    .card-body { padding: 16px 20px; }
+    .meta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+    .meta-item .label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 4px; }
+    .meta-item .val { font-size: 13px; word-break: break-all; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--surface2); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .empty { color: var(--muted); font-size: 13px; padding: 16px; }
+    .json-val { font-family: monospace; font-size: 12px; color: var(--muted); }
+    .aliases { display: flex; flex-wrap: wrap; gap: 6px; }
+    .kind-icon { font-size: 14px; }
+  </style>
 </head>
 <body>
-<main class="container">
-  <h1>Security Knowledge</h1>
-  <p>Page: entity_detail</p>
+<header class="topbar">
+  <a class="brand" href="/ui/">🦀 <span>Security</span>&nbsp;Knowledge</a>
+  <nav>
+    <a href="/ui/">Dashboard</a>
+    <a href="/ui/entities">Entities</a>
+    <a href="/ui/graph">Graph</a>
+    <a href="/ui/search">Search</a>
+    <a href="/docs" target="_blank">API ↗</a>
+  </nav>
+</header>
+<main class="page">
+  <div class="breadcrumb"><a href="/ui/entities">← Entities</a></div>
+  <div id="content"><div class="empty">Loading…</div></div>
 </main>
+<script>
+const ENTITY_ID = window.location.pathname.split('/').pop();
+const API_KEY = localStorage.getItem('sk_api_key') || '';
+const HDR = API_KEY ? {'X-API-Key': API_KEY} : {};
+
+const KIND_ICONS = {
+  cve: '🔴', malware: '🦠', actor: '🕵️', tool: '🔧', technique: '⚡',
+  tactic: '🎯', framework: '📐', control: '🛡️', mitigation: '🔒',
+  detection: '👁️', data_source: '📡', concept: '💡', learning_objective: '🎓',
+  lab: '🧪', vulnerability: '🔓', domain: '🌐', ip_address: '📍',
+  hash: '#️⃣', campaign: '⚔️', report: '📄', other: '◦',
+};
+
+function humanName(e) {
+  const raw = e.canonical_name || '';
+  const kid = e.external_refs && e.external_refs.knowledge_id;
+  if (kid && raw === kid) return raw.replace(/^ent_[a-z_]+?_/, '').replace(/_/g, ' ');
+  return raw;
+}
+
+async function load() {
+  const [entityR, graphR] = await Promise.all([
+    fetch(`/api/v1/entities/${ENTITY_ID}`, {headers: HDR}),
+    fetch(`/api/v1/graph/?entity_id=${ENTITY_ID}&depth=1&fmt=vis`, {headers: HDR}),
+  ]);
+  if (!entityR.ok) { document.getElementById('content').innerHTML = `<div class="empty" style="color:var(--red)">Entity not found (${entityR.status})</div>`; return; }
+  const entity = await entityR.json();
+  const graph = graphR.ok ? await graphR.json() : {nodes: [], edges: []};
+
+  const name = humanName(entity);
+  const icon = KIND_ICONS[entity.kind] || '◦';
+  const kid = entity.external_refs && entity.external_refs.knowledge_id;
+
+  // Build external refs rows
+  const extRefs = entity.external_refs || {};
+  const extRows = Object.entries(extRefs).filter(([k]) => k !== 'stub').map(([k,v]) => {
+    const isUrl = typeof v === 'string' && v.startsWith('http');
+    return `<tr><td class="json-val">${k}</td><td>${isUrl ? `<a href="${v}" target="_blank">${v}</a>` : `<span class="json-val">${JSON.stringify(v)}</span>`}</td></tr>`;
+  }).join('');
+
+  // Build relationship rows from graph data
+  const nodeMap = {};
+  graph.nodes.forEach(n => { nodeMap[n.id] = n; });
+  const outEdges = graph.edges.filter(e => e.from === ENTITY_ID);
+  const inEdges = graph.edges.filter(e => e.to === ENTITY_ID);
+
+  function relRow(edge, direction) {
+    const otherId = direction === 'out' ? edge.to : edge.from;
+    const other = nodeMap[otherId];
+    const otherName = other ? other.label.replace(/^ent_[a-z_]+?_/, '').replace(/_/g, ' ') : otherId;
+    const arrow = direction === 'out' ? `→` : `←`;
+    return `<tr>
+      <td><a href="/ui/entities/${otherId}">${otherName}</a></td>
+      <td><span class="badge">${edge.label}</span></td>
+      <td style="color:var(--muted)">${arrow} ${direction === 'out' ? 'to' : 'from'}</td>
+    </tr>`;
+  }
+
+  const relRows = [...outEdges.map(e => relRow(e, 'out')), ...inEdges.map(e => relRow(e, 'in'))].join('');
+
+  document.getElementById('content').innerHTML = `
+    <div class="entity-header">
+      <div class="entity-icon">${icon}</div>
+      <div>
+        <h1>${name}</h1>
+        <span class="badge">${entity.kind}</span>
+        ${entity.mitre_attack_id ? `<span class="badge badge-green" style="margin-left:6px">${entity.mitre_attack_id}</span>` : ''}
+        ${kid && kid !== entity.canonical_name ? `<span style="color:var(--muted);font-size:12px;font-family:monospace;margin-left:8px">${kid}</span>` : ''}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Details</div>
+      <div class="card-body">
+        <div class="meta-grid">
+          <div class="meta-item"><div class="label">ID</div><div class="val json-val">${entity.id}</div></div>
+          <div class="meta-item"><div class="label">Kind</div><div class="val"><span class="badge">${entity.kind}</span></div></div>
+          <div class="meta-item"><div class="label">Created</div><div class="val">${(entity.created_at||'').slice(0,10) || '—'}</div></div>
+          ${entity.aliases && entity.aliases.length ? `
+          <div class="meta-item" style="grid-column:1/-1">
+            <div class="label">Aliases</div>
+            <div class="aliases">${entity.aliases.map(a => `<span class="badge badge-muted">${a}</span>`).join('')}</div>
+          </div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    ${extRows ? `
+    <div class="card">
+      <div class="card-header">External References</div>
+      <table><tbody>${extRows}</tbody></table>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-header">Relationships (${outEdges.length + inEdges.length})</div>
+      ${relRows ? `<table><thead><tr><th>Entity</th><th>Relationship</th><th>Direction</th></tr></thead><tbody>${relRows}</tbody></table>`
+                : '<div class="empty">No relationships found.</div>'}
+    </div>
+
+    <div style="margin-top:12px">
+      <a href="/ui/graph" style="font-size:13px;color:var(--muted)">View in graph ↗</a>
+    </div>
+  `;
+  document.title = `${name} · Security Knowledge`;
+}
+
+window.addEventListener('DOMContentLoaded', load);
+</script>
 </body>
 </html>

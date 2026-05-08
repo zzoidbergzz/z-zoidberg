@@ -2,15 +2,231 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Security Knowledge - graph</title>
+  <title>Security Knowledge · Graph</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+  <script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0c18; --surface: #12132a; --surface2: #1a1b35; --border: #2a2b4a;
+      --accent: #5b8df6; --green: #3ecf8e; --red: #f25f5c;
+      --text: #e2e4f0; --muted: #7c7f9e; --radius: 10px;
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; display: flex; flex-direction: column; }
+    .topbar {
+      flex-shrink: 0; background: var(--surface);
+      border-bottom: 1px solid var(--border); display: flex; align-items: center;
+      padding: 0 24px; height: 56px; gap: 0; z-index: 100;
+    }
+    .topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--text); text-decoration: none; margin-right: 32px; }
+    .topbar .brand span { color: var(--accent); }
+    .topbar nav { display: flex; gap: 4px; flex: 1; }
+    .topbar nav a { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; transition: all .15s; }
+    .topbar nav a:hover, .topbar nav a.active { color: var(--text); background: var(--surface2); }
+    .controls {
+      flex-shrink: 0; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px; padding: 10px 24px; flex-wrap: wrap;
+    }
+    .controls input, .controls select {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+      padding: 7px 12px; color: var(--text); font-size: 13px; outline: none; transition: border-color .15s;
+    }
+    .controls input:focus, .controls select:focus { border-color: var(--accent); }
+    .controls input::placeholder { color: var(--muted); }
+    .btn { background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 7px 14px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; white-space: nowrap; }
+    .btn:hover { opacity: .85; }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .label { color: var(--muted); font-size: 12px; }
+    #graph-container { flex: 1; position: relative; }
+    #network { width: 100%; height: 100%; }
+    #info-panel {
+      position: absolute; top: 16px; right: 16px; width: 280px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; display: none; z-index: 10; max-height: calc(100% - 32px); overflow-y: auto;
+    }
+    #info-panel h3 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: var(--text); word-break: break-all; }
+    #info-panel .field { margin-bottom: 8px; }
+    #info-panel .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 2px; }
+    #info-panel .field-val { font-size: 13px; word-break: break-all; }
+    .badge { display: inline-block; background: var(--surface2); border: 1px solid var(--border); color: var(--accent); font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+    #stats { color: var(--muted); font-size: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .rel-item { font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 6px; margin-top: 6px; }
+    .rel-kind { color: var(--accent); font-size: 11px; }
+  </style>
 </head>
 <body>
-<main class="container">
-  <h1>Security Knowledge</h1>
-  <p>Page: graph</p>
-</main>
+<header class="topbar">
+  <a class="brand" href="/ui/">🦀 <span>Security</span>&nbsp;Knowledge</a>
+  <nav>
+    <a href="/ui/">Dashboard</a>
+    <a href="/ui/entities">Entities</a>
+    <a href="/ui/graph" class="active">Graph</a>
+    <a href="/ui/search">Search</a>
+    <a href="/docs" target="_blank">API ↗</a>
+  </nav>
+</header>
+<div class="controls">
+  <input type="text" id="entity-search" placeholder="Focus on entity…" style="width:220px" oninput="filterNodes()">
+  <span class="label">Depth</span>
+  <input type="range" id="depth" min="1" max="4" value="2" style="width:80px;padding:0;border:none;background:transparent" oninput="document.getElementById('depth-val').textContent=this.value">
+  <span id="depth-val" class="label">2</span>
+  <select id="layout">
+    <option value="barnesHut">Force</option>
+    <option value="hierarchicalUD">Hierarchical ↓</option>
+    <option value="repulsion">Repulsion</option>
+  </select>
+  <button class="btn btn-ghost" onclick="loadGraph()">↺ Reload</button>
+  <button class="btn btn-ghost" onclick="network && network.fit()">⊞ Fit</button>
+  <span id="stats"></span>
+</div>
+<div id="graph-container">
+  <div id="network"></div>
+  <div id="info-panel">
+    <h3 id="info-name"></h3>
+    <div id="info-fields"></div>
+    <div id="info-rels"></div>
+    <a id="info-link" href="#" style="display:none;font-size:12px;margin-top:10px;display:block">Open entity detail ↗</a>
+  </div>
+</div>
+<script>
+const API_KEY = localStorage.getItem('sk_api_key') || '';
+const HDR = API_KEY ? {'X-API-Key': API_KEY} : {};
+
+const KIND_COLORS = {
+  cve: '#e74c3c', malware: '#c0392b', actor: '#8e44ad', tool: '#2980b9',
+  ip_address: '#27ae60', domain: '#16a085', url: '#1abc9c', hash: '#f39c12',
+  campaign: '#d35400', vulnerability: '#e74c3c', technique: '#2c3e50',
+  subtechnique: '#34495e', tactic: '#4a69bd', framework: '#6c5ce7',
+  control: '#00b894', mitigation: '#00cec9', detection: '#0984e3',
+  data_source: '#74b9ff', log_source: '#a29bfe', event_id: '#fd79a8',
+  concept: '#636e72', learning_objective: '#b2bec3', lab: '#81ecec',
+  etw_provider: '#55efc4', debugger: '#6c5ce7', windows_object: '#a29bfe',
+  product: '#fdcb6e', vendor: '#e17055', report: '#bdc3c7', other: '#636e72',
+};
+const DEFAULT_COLOR = '#636e72';
+
+let network, allNodes, allEdges, rawData;
+
+async function loadGraph() {
+  const depth = document.getElementById('depth').value;
+  document.getElementById('stats').textContent = 'Loading…';
+  try {
+    const r = await fetch(`/api/v1/graph/?fmt=vis&depth=${depth}`, {headers: HDR});
+    if (!r.ok) { document.getElementById('stats').textContent = `Error ${r.status}`; return; }
+    rawData = await r.json();
+    renderGraph(rawData);
+  } catch(e) {
+    document.getElementById('stats').textContent = 'Load failed: ' + e;
+  }
+}
+
+function humanLabel(label) {
+  // Strip ent_ prefix and kind segment from knowledge IDs
+  return label.replace(/^ent_[a-z_]+?_/, '').replace(/_/g, ' ');
+}
+
+function renderGraph(data) {
+  const layout = document.getElementById('layout').value;
+  const nodes = data.nodes.map(n => ({
+    id: n.id,
+    label: humanLabel(n.label),
+    rawLabel: n.label,
+    group: n.group,
+    color: { background: KIND_COLORS[n.group] || DEFAULT_COLOR, border: '#0b0c18', highlight: {background: '#5b8df6', border: '#fff'} },
+    font: { color: '#e2e4f0', size: 11 },
+    shape: 'dot',
+    size: 12,
+  }));
+  const edges = data.edges.map(e => ({
+    id: e.id,
+    from: e.from,
+    to: e.to,
+    label: e.label,
+    font: { color: '#7c7f9e', size: 9, strokeWidth: 0 },
+    color: { color: '#2a2b4a', highlight: '#5b8df6' },
+    arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+    smooth: { type: 'continuous' },
+  }));
+  allNodes = new vis.DataSet(nodes);
+  allEdges = new vis.DataSet(edges);
+
+  const container = document.getElementById('network');
+  const options = {
+    physics: layout === 'barnesHut' ? {
+      enabled: true,
+      barnesHut: { gravitationalConstant: -3000, springLength: 120, springConstant: 0.04 }
+    } : layout === 'repulsion' ? {
+      enabled: true,
+      repulsion: { nodeDistance: 150, springLength: 200 }
+    } : { enabled: false },
+    layout: layout === 'hierarchicalUD' ? {
+      hierarchical: { direction: 'UD', sortMethod: 'directed', levelSeparation: 120 }
+    } : {},
+    interaction: { hover: true, tooltipDelay: 100 },
+  };
+
+  if (network) network.destroy();
+  network = new vis.Network(container, { nodes: allNodes, edges: allEdges }, options);
+  network.on('click', onNodeClick);
+
+  document.getElementById('stats').textContent = `${nodes.length} nodes · ${edges.length} edges`;
+}
+
+function onNodeClick(params) {
+  if (!params.nodes.length) { document.getElementById('info-panel').style.display = 'none'; return; }
+  const id = params.nodes[0];
+  const node = allNodes.get(id);
+  const panel = document.getElementById('info-panel');
+  document.getElementById('info-name').textContent = node.label;
+
+  // Build edges info
+  const outEdges = allEdges.get({ filter: e => e.from === id });
+  const inEdges = allEdges.get({ filter: e => e.to === id });
+
+  let fields = `
+    <div class="field"><div class="field-label">Kind</div><div class="field-val"><span class="badge">${node.group}</span></div></div>
+    <div class="field"><div class="field-label">ID</div><div class="field-val" style="font-size:11px;font-family:monospace">${node.rawLabel}</div></div>
+  `;
+  if (outEdges.length) {
+    fields += `<div class="field"><div class="field-label">Outbound (${outEdges.length})</div>`;
+    outEdges.slice(0, 5).forEach(e => {
+      const target = allNodes.get(e.to);
+      fields += `<div class="rel-item"><span class="rel-kind">${e.label}</span> → ${target ? target.label : e.to}</div>`;
+    });
+    fields += '</div>';
+  }
+  if (inEdges.length) {
+    fields += `<div class="field"><div class="field-label">Inbound (${inEdges.length})</div>`;
+    inEdges.slice(0, 5).forEach(e => {
+      const src = allNodes.get(e.from);
+      fields += `<div class="rel-item">${src ? src.label : e.from} <span class="rel-kind">${e.label}</span> →</div>`;
+    });
+    fields += '</div>';
+  }
+
+  document.getElementById('info-fields').innerHTML = fields;
+  const link = document.getElementById('info-link');
+  link.href = `/ui/entities/${id}`;
+  link.style.display = 'block';
+  panel.style.display = 'block';
+}
+
+function filterNodes() {
+  if (!allNodes) return;
+  const q = document.getElementById('entity-search').value.toLowerCase();
+  if (!q) { allNodes.forEach(n => allNodes.update({id: n.id, hidden: false})); return; }
+  allNodes.forEach(n => {
+    const match = n.label.toLowerCase().includes(q) || n.rawLabel.toLowerCase().includes(q);
+    allNodes.update({id: n.id, hidden: !match, opacity: match ? 1 : 0.1});
+  });
+}
+
+document.getElementById('layout').addEventListener('change', () => rawData && renderGraph(rawData));
+
+window.addEventListener('DOMContentLoaded', loadGraph);
+</script>
 </body>
 </html>

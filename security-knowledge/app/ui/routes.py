@@ -28,6 +28,11 @@ async def ui_search(request: Request):
     return templates.TemplateResponse(request, "search.html")
 
 
+@ui_router.get("/entities/{entity_id}", response_class=HTMLResponse)
+async def ui_entity_detail(request: Request, entity_id: str):
+    return templates.TemplateResponse(request, "entity_detail.html")
+
+
 @ui_router.get("/admin", response_class=HTMLResponse)
 async def ui_admin(request: Request):
     return templates.TemplateResponse(request, "admin.html")
