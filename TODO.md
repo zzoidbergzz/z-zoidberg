@@ -1,9 +1,438 @@
-# Security Knowledge Service TODO
+# Z-Zoidberg / Security-Knowledge Improvement Plan
 
-> **STATUS: ALL 22 ITEMS COMPLETE ✅** — implemented 2026-05-07, 85/85 tests passing.
-> `security-knowledge/` exists with 179 Python source files, 29 DB tables, 40+ endpoints.
+> Reset 2026-05-08. The previous TODO declared "all 22 items complete ✅". The
+> `README.md` (reviewed 2026-05-07) and a code walk show that scaffolding exists
+> but several spine paths are stubs. Trust the code, not old roadmap prose.
+> Old item-by-item roadmap kept as section "Legacy Roadmap (status reference
+> only)" at the bottom — do not treat its ✅ marks as load-bearing.
 
-This file replaces `PLAN.md` and `PLAN-EXTENSIONS.md`. It is written as an implementation brief for a lower-capability LLM. Follow it literally, keep changes small, and verify each item before moving on.
+This plan focuses on three goals:
+
+1. **Make the project usable by LLM agents in one read.** Today an agent has to
+   stitch context from `AGENTS.md`, `README.md`, `bootstrap.md`,
+   `AGENT_INSTRUCTIONS.md`, `mcp-tool-manifest.json`, and the live MCP
+   endpoint. Several of those disagree.
+2. **Close the real MCP and knowledge gaps** (ingest worker, enrichment
+   providers, manifest drift, missing thin MCP wrappers around capabilities
+   that already exist as REST).
+3. **Slim and slick the workspace** — drop stale claims, generate manifests
+   from code, archive dead files.
+
+---
+
+## Section A — Agent Operating Method (target end-state)
+
+Every LLM agent (this Zoidberg session, the bootstrapped corpus host, future
+hosts) follows the same loop:
+
+```
+1. Read AGENTS.md (rules, memory, red lines)        — ~40 lines
+2. Read AGENT_QUICKSTART.md (NEW, see Item A1)      — single page
+3. GET  /api/v1/capabilities  (NEW, see Item A2)    — live, machine-readable
+4. GET  /api/v1/mcp/tools                            — live tool list
+5. Use the workflow recipes from AGENT_QUICKSTART.md to call tools.
+6. Append session notes to memory/YYYY-MM-DD.md.
+```
+
+No agent should ever read `mcp-tool-manifest.json` as a primary source — it is
+a static fallback for offline introspection only and must be regenerated from
+the live service (Item A3).
+
+### Item A1 — Create `AGENT_QUICKSTART.md` at repo root
+
+Single page that contains, in order:
+
+- Service-up checklist (`docker compose up -d`, `alembic upgrade head`,
+  `seed_data`, uvicorn, arq worker). Two boxes: ✅ = healthy, ❌ = with the
+  exact failing symptom and pointer to fix.
+- Auth: where the seeded admin key lives (`.runtime/seed-admin-*.log`,
+  mode 0600). Never paste it into chat.
+- Capability discovery: one curl to `/api/v1/capabilities`, one to
+  `/api/v1/mcp/tools`.
+- Five canonical recipes (copy-paste curl):
+  1. "I have an ATT&CK ID, give me everything" → `mcp/call`
+     `get_object_by_attack_id` → `get_groups_using_technique` →
+     `get_datacomponents_detecting_technique`.
+  2. "I have an indicator, enrich it" → `enrich/{kind}/{value}` (preferred)
+     and the planned `enrich_entity` MCP tool once Item B1 lands.
+  3. "I have a research corpus directory" → bootstrap.md Mode A; the
+     importer endpoint planned in Item C2.
+  4. "I want to know what changed" → `/changes?since=...`,
+     `/api/v1/digests/...`.
+  5. "I want to publish to STIX/TAXII" → `/api/v1/export/stix`, TAXII
+     discovery URL.
+- Honest "Known stubs" callout block: ingest worker, `enrich_entity` MCP
+  tool, GraphQL resolvers, missing providers (IPinfo, GreyNoise,
+  CrowdStrike), `ILIKE` search. Same list as README — single source.
+
+Acceptance: a fresh agent that reads only `AGENT_QUICKSTART.md` plus the live
+endpoints can make a successful MITRE call and a successful entity-create
+call within five tool turns.
+
+### Item A2 — Add `GET /api/v1/capabilities`
+
+Live, machine-readable inventory. Returns:
+
+```json
+{
+  "version": "<git sha or pyproject version>",
+  "endpoints": ["/api/v1/entities/", ...],         // generated from app.routes
+  "mcp_tools": [...],                               // same payload as /mcp/tools
+  "providers": {
+     "registered": ["mitre","virustotal", ...],
+     "configured": ["mitre","virustotal"],          // creds present
+     "missing":   ["ipinfo","greynoise","crowdstrike"]
+  },
+  "feature_flags": {
+     "ingest_worker_pipeline": false,               // honest until Item C1 lands
+     "fts_search": false,
+     "graphql_resolvers": "stub"
+  },
+  "stale_paths": [
+     "POST /api/v1/ingest/  (queues job; worker stub)",
+     "POST /api/v1/mcp/call enrich_entity  (returns empty)"
+  ]
+}
+```
+
+The `feature_flags` and `stale_paths` arrays are the canonical truth. Update
+them in code as features land. Delete the README "Partial Or Stale" block and
+have it render from this endpoint instead (or at minimum link to it).
+
+### Item A3 — Auto-generate `mcp-tool-manifest.json`
+
+Add `python -m app.cli.dump_mcp_manifest` (and a `make manifest` target) that
+serialises the live `/mcp/tools` payload plus the static `mcp_servers`
+section. Run in CI; fail the build if the committed manifest drifts. Until
+the script exists, mark the file `EXPERIMENTAL — see /api/v1/mcp/tools` at
+the top.
+
+### Item A4 — Single agent-rules file
+
+Today: `AGENTS.md` (workspace rules) + `security-knowledge/AGENT_INSTRUCTIONS.md`
+(15 lines, mostly wrong: dev paths, missing live endpoints, no MCP guidance).
+Action: rewrite `security-knowledge/AGENT_INSTRUCTIONS.md` as a thin pointer
+to root `AGENT_QUICKSTART.md`, plus the dev-loop commands (`make test`, `make
+lint`, `alembic`). Three sections max.
+
+### Item A5 — Memory / continuity hygiene
+
+- Add `MEMORY.md` skeleton at repo root (currently absent — `AGENTS.md` says
+  "main session also reads MEMORY.md"). Sections: Project Facts, People,
+  Open Threads, Resolved.
+- Add a daily memory rotation note in `AGENTS.md`: when distilling
+  `memory/YYYY-MM-DD.md` into `MEMORY.md`, drop any line that just restates
+  current `README.md` or `/api/v1/capabilities` truth.
+- Forbid memory entries containing API keys, bearer tokens, JWTs, or
+  pingback secrets. Existing rule in SOUL.md but not enforced — add a
+  pre-commit grep for `KEY|TOKEN|SECRET=[^$]` in `memory/`.
+
+---
+
+## Section B — MCP Surface: Real Gaps
+
+### Item B1 — Wire `enrich_entity` MCP tool to `EnrichmentService`
+
+Currently `app/mcp/tools/enrich_entity.py` exists and the router dispatches to
+it, but it returns empty enrichment data because the provider registry is
+empty at startup (Item B2) and the tool does not call `EnrichmentService` end
+to end. Tasks:
+
+- In `enrich_entity_tool`, call `EnrichmentService.enrich(...)` for the
+  resolved entity, materialise claims/evidence, return normalized provider
+  output plus claim ids.
+- Add integration test using a mocked VirusTotal provider proving cache
+  miss → provider call → claim creation → second call hits cache.
+- Update tool input schema to accept `providers: list[str] | None` and
+  `force: bool = False`.
+
+### Item B2 — Populate provider registry on import
+
+`app/enrichment/providers/__init__.py` is empty. Providers self-register via
+the `@register` decorator only when their module is imported. Action:
+
+```python
+# app/enrichment/providers/__init__.py
+from . import virustotal, shodan, nvd, mitre_attack, misp, opencti  # noqa
+# Future, once Item B3 lands:
+# from . import ipinfo, greynoise, crowdstrike  # noqa
+```
+
+Plus: log registered providers at app startup (counter +
+`structlog.info("enrichment.providers.registered", names=list_providers())`)
+and surface them on `/api/v1/capabilities`.
+
+### Item B3 — Implement missing providers: IPinfo, GreyNoise, CrowdStrike
+
+Required by the prior roadmap and by `enrichment-policy.yaml` claims; not
+present. Each provider:
+
+- Module `app/enrichment/providers/<name>.py` subclassing
+  `BaseEnrichmentProvider`.
+- Capability declaration (entity kinds, batch yes/no, requires-paid-tier).
+- Source-policy entry for the provider domain in `source-policy.yaml`.
+- Env vars in `.env.example` and `app/config.py`.
+- Mocked tests under `tests/test_enrichment_<name>.py`.
+- README/`docs/enrichment.md` row.
+
+CrowdStrike note: a public **falcon-mcp** stdio MCP server already exists
+(see TOOLS.md, Item B7). Decide explicitly: do we proxy via that MCP server
+(no provider needed) or do we wrap FalconPy directly? Recommendation: ship
+the in-process provider so cached/policy-gated; keep the falcon-mcp stdio
+config for ad-hoc analyst use.
+
+### Item B4 — Promote existing services to first-class MCP tools
+
+Right now MCP exposes `enrich_entity` + 31 MITRE tools. Many other useful
+capabilities exist as REST but not as MCP, forcing agents to leave the MCP
+contract:
+
+| New MCP tool | Backed by |
+| --- | --- |
+| `search_knowledge` | `app/services/search.py` (FTS once Item C3 lands; ILIKE today) |
+| `get_entity` / `list_entities` | `routers/entities.py` |
+| `create_entity` / `create_claim` / `create_evidence` | corresponding routers (write scope) |
+| `lookup_cve` | NVD adapter + EUVD adapter |
+| `lookup_kev` | KEV adapter |
+| `get_changes_since` | `routers/changes.py` |
+| `export_stix_bundle` | `routers/stix.py` |
+| `analyse_binary` | Ghidra bridge (item 5) — mark experimental |
+| `searxng_search` | local SearXNG (TOOLS.md) — wraps `http://localhost:8888/search?format=json` |
+
+Each tool: thin wrapper, scope-checked, schema in `MITRE_TOOL_SCHEMAS`-style
+table, exercised by one mocked test, documented in `AGENT_QUICKSTART.md`.
+
+### Item B5 — Replace ad-hoc dispatch with tool registry
+
+`routers/mcp.py` currently has a giant `MITRE_TOOLS` dict and an `if
+body.tool == "enrich_entity"` branch. After Item B4 this becomes unwieldy.
+Refactor:
+
+- `app/mcp/registry.py`: `register_tool(name, fn, schema, scope, description)`.
+- Each tool module calls `register_tool(...)` at import time.
+- `routers/mcp.py` iterates the registry for both `/tools` and `/call`.
+- Add `description` per tool (currently missing) — agents need it for tool
+  selection.
+- Standardise error envelope `{"error": {"code": "...", "message": "..."}}`.
+
+### Item B6 — Stand up an actual MCP server endpoint (stdio + SSE)
+
+`/api/v1/mcp/call` is **not** the Model Context Protocol. It is a custom
+HTTP RPC. To be usable by MCP clients (Claude Desktop, Cursor, Copilot CLI
+with `mcp.json`):
+
+- Add `app/mcp/server.py` exposing the same registry (Item B5) over the real
+  MCP protocol via the official `mcp` Python SDK.
+- Two transports: stdio (for desktop hosts) and SSE/HTTP at
+  `/api/v1/mcp/sse` (for in-process agents).
+- Provide a sample `mcp.json` snippet in `AGENT_QUICKSTART.md`.
+
+### Item B7 — Document and ship the external MCP servers we depend on
+
+The static manifest references `falcon-mcp`. Add a discovery section to
+`AGENT_QUICKSTART.md` covering:
+
+- `falcon-mcp` (already configured) — prerequisites, run command.
+- Candidate add-ons to evaluate (track decisions, not blind adoption):
+  - **github-mcp-server** (already in this CLI) — keep as agent-side, don't
+    re-bundle.
+  - **virustotal-mcp / shodan-mcp** community servers — only if Item B3
+    in-process providers are insufficient.
+  - **memory-mcp** (e.g. `mcp-server-memory` or sqlite-backed) — would
+    replace ad-hoc `MEMORY.md` for cross-session recall. Open question:
+    worth it given current scale? Default decision: not yet.
+  - **fetch-mcp** — overlaps with our policy-gated fetcher; reject.
+  - **playwright-mcp** — already implicit via `browser_pool.py`; no MCP
+    wrapper needed.
+
+---
+
+## Section C — Knowledge Gaps (substantive)
+
+Same list as README "Partial Or Stale" but with concrete tasks.
+
+### Item C1 — Implement `process_ingest_job` end-to-end
+
+Worker function in `app/worker.py` is a stub. Required pipeline:
+
+1. Resolve source policy for URL; abort with reason if denied.
+2. Fetch via `app/fetcher.py` (httpx, Playwright fallback). Persist
+   `RawObject` with SHA-256.
+3. Parse: HTML → trafilatura/readability; PDF → pdfminer/pypdf with page
+   anchors; markdown passthrough. Persist `ParsedDocument`.
+4. Chunk into `DocumentSection` rows preserving heading path + char/page
+   offsets.
+5. Run `app/extractors/*` to materialise CVEs, hashes, CPEs, ATT&CK refs,
+   actors, malware → `Entity` + `Claim` + `Evidence` upserts.
+6. Enqueue embedding job (Item is already done if Item 3 lands properly).
+7. Emit audit event + webhook event.
+
+Acceptance: `POST /api/v1/ingest/` with a known fixture URL produces the
+full chain and is idempotent on re-run.
+
+### Item C2 — Bulk corpus importer (Mode A)
+
+Implement what `bootstrap.md` and `deep-research-prompt.md` already specify:
+
+- `python -m app.cli.import_corpus --package <dir> [--validate] [--import]`.
+- `POST /api/v1/import/corpus` (multipart tar.zst) for remote agents.
+- Idempotent upserts keyed as documented in `bootstrap.md` "Importer
+  Requirements".
+- Reject facts without evidence by default.
+- Emit audit batch + import summary.
+- Tests: tiny fixture corpus (3 sources, 5 facts) imported twice, second
+  run zero writes.
+
+### Item C3 — Replace `ILIKE` search with FTS + trigram
+
+Migrations 0004/0005 already add `search_vector` and `pg_trgm`. Action:
+
+- Switch `app/services/search.py` to ranked `to_tsvector @@ plainto_tsquery`
+  with `ts_rank_cd`, plus `pg_trgm` similarity fallback for short queries.
+- Add per-kind weights (entity name > claim statement > evidence quote).
+- Update tests in `tests/test_search_api.py`.
+
+### Item C4 — Implement GraphQL resolvers
+
+`app/graphql/schema.py` resolvers return None/[]. Wire to existing CRUD
+services with dataloader batching. Add depth/cost limit (already declared).
+At minimum: `entity(id)`, `entities(filter)`, `claim(id)`,
+`relationships(entity_id, depth)`.
+
+### Item C5 — Fill or delete the TBD docs
+
+`security-knowledge/docs/*.md` are largely TBD. Either:
+
+- Generate from code (`api_reference.md` from OpenAPI), or
+- Delete and let agents read the live OpenAPI at `/openapi.json`.
+
+Default: delete TBD files; keep `mitre_attack.md` (useful) and the new
+`AGENT_QUICKSTART.md`.
+
+### Item C6 — Source / page provenance fields
+
+`DocumentSection` and `Evidence` lack page numbers, byte offsets, and
+artifact ids needed by `bootstrap.md` Mode A imports. Add a non-destructive
+migration extending the schema (or storing in `properties` JSON for now,
+with a follow-up migration).
+
+---
+
+## Section D — Workspace Slickness
+
+### Item D1 — Truth in advertising
+
+- Drop the "STATUS: ALL 22 ITEMS COMPLETE ✅" header (done — this rewrite).
+- Strip all ✅ marks from the legacy roadmap section below; replace with
+  inline `[code: scaffolded | wired | stub | missing]` tags after a
+  one-pass code audit (track in `session_state` or a follow-up doc, not
+  here).
+- README "Partial Or Stale" section becomes a generated artefact from
+  `/api/v1/capabilities` (Item A2) — keep the prose pointer only.
+
+### Item D2 — Remove duplicate prompts
+
+`prompt.md` and `bootstrap.md` and `deep-research-prompt.md` overlap.
+Decision matrix:
+
+- `bootstrap.md` — keep, it is the canonical handoff for external corpus
+  agents. Add a top banner pointing to `AGENT_QUICKSTART.md`.
+- `deep-research-prompt.md` — keep, it defines the corpus schema. Move
+  under `docs/` or rename `CORPUS_SCHEMA.md`.
+- `prompt.md` — archive. It references the old item ordering and contradicts
+  the new "trust the code" stance.
+
+### Item D3 — Heartbeat is dead air
+
+`HEARTBEAT.md` is empty (correct per AGENTS.md), but no code reads it.
+Either implement the heartbeat poller (`memory/heartbeat-state.json`) or
+delete the file and the AGENTS.md section. Default: implement, since
+there's already cron infrastructure planned.
+
+### Item D4 — `.openclaw` artifact
+
+There is an `.openclaw` directory at repo root. Either documented or
+ignored. Add to `.gitignore` if local-only, or document in README under
+"Project Files" if it's a peer-tool config.
+
+### Item D5 — One Makefile, one entrypoint
+
+Add a root `Makefile` with the three commands an agent or human ever needs:
+
+```
+make agent-context  # prints AGENTS.md + AGENT_QUICKSTART.md + capabilities curl
+make up             # docker compose up -d, migrate, seed
+make test           # pytest -q in security-knowledge/
+```
+
+Currently the Makefile lives only inside `security-knowledge/`.
+
+### Item D6 — Pre-commit hooks
+
+- `ruff check && ruff format --check` (already runnable).
+- Block secrets in `memory/` (Item A5).
+- Block edits to existing alembic revisions (matches universal rule from
+  the legacy roadmap).
+
+---
+
+## Section E — What's Missing (informational)
+
+**Information missing from the project:**
+
+- A live "what works today vs. what's promised" oracle. (Closed by Item A2.)
+- Tool descriptions in MCP listings — agents currently get tool names + arg
+  shapes but no semantics. (Closed by Item B5.)
+- A canonical agent quickstart. (Closed by Item A1.)
+- A documented decision log for which external MCP servers we adopt.
+  (Closed by Item B7.)
+- MEMORY.md scaffold. (Closed by Item A5.)
+- An importer for the corpus format the project already specifies.
+  (Closed by Item C2.)
+- Page/offset provenance on evidence rows. (Closed by Item C6.)
+
+**MCP tools/servers missing:**
+
+- In-process: `search_knowledge`, `lookup_cve`, `lookup_kev`,
+  `get_changes_since`, `export_stix_bundle`, `searxng_search`,
+  CRUD wrappers for entities/claims/evidence. (Item B4.)
+- Real MCP-protocol transport (stdio + SSE). (Item B6.)
+- Provider implementations for IPinfo, GreyNoise, CrowdStrike. (Item B3.)
+- Optional external servers to evaluate: github-mcp-server (already in CLI
+  side; do not bundle), memory-mcp (defer), fetch-mcp (reject — overlaps
+  policy-gated fetcher), playwright-mcp (reject — already in-process).
+
+---
+
+## Section F — Execution Order
+
+Strict dependency order. Each item is small enough to land in one PR.
+
+```
+A1 (quickstart) -> A2 (capabilities endpoint) -> A3 (manifest dump) ->
+A4 (collapse agent docs) -> A5 (MEMORY skeleton + secret guard) ->
+B2 (provider registry import) -> B1 (enrich_entity wired) ->
+B5 (tool registry refactor) -> B4 (promote services to MCP tools) ->
+C3 (FTS search) -> C1 (ingest worker) -> C2 (bulk importer) ->
+C6 (provenance fields) -> B3 (missing providers) ->
+B6 (stdio + SSE MCP transport) -> C4 (GraphQL resolvers) ->
+C5 (docs cleanup) -> D1..D6 (slickness, can interleave)
+```
+
+Stop and ask the human if:
+
+- Adopting an external MCP server requires a new long-lived credential.
+- A migration in C1/C2/C3/C6 risks data loss in `seed_data` corpora.
+- The decision in B7 (proxy CrowdStrike via falcon-mcp vs. in-process
+  provider) becomes contested.
+
+---
+
+## Legacy Roadmap (status reference only)
+
+The original 22-item roadmap is preserved below for reference. Treat ✅ as
+"scaffolding exists in code", not "feature works end-to-end". The honest
+gap list is in Section C above.
 
 ## Current Repository Context
 
@@ -669,15 +1098,22 @@ QA:
 - Test empty digest skip behavior.
 - Test tenant quotas.
 
-## Final Roadmap Acceptance Criteria ✅ COMPLETE
+## Final Roadmap Acceptance Criteria (legacy — DO NOT TRUST ✅ MARKS)
 
-**Verified 2026-05-07 — all criteria met.**
+The original file claimed all of the below were verified 2026-05-07. The
+README review on the same day contradicts several of them. Re-verify each
+against `/api/v1/capabilities` (Item A2) before relying on it.
 
-- ✅ All 22 items implemented, tested, documented (225 files, 85 tests passing).
-- ✅ `PLAN.md` and `PLAN-EXTENSIONS.md` do not exist.
-- ✅ `TODO.md` is the only roadmap handoff file.
-- ✅ All required providers configured in `.env.example`, `source-policy.yaml`, `enrichment-policy.yaml`, and tests.
-- ✅ Fresh environment: `make docker-up && make migrate && make seed && make test` works.
-- ✅ Provider QA: VirusTotal, MISP, OpenCTI, Shodan, IPinfo.io, GreyNoise.io, CrowdStrike all have mocked integration tests.
-- ✅ No external credentials required for test suite (all HTTP mocked via `respx`/`fakeredis`).
-- ✅ No secrets in logs, traces, fixtures, docs, or committed config.
+- All 22 items implemented, tested, documented (claim: 225 files, 85 tests).
+- `PLAN.md` and `PLAN-EXTENSIONS.md` do not exist. (verified)
+- `TODO.md` is the only roadmap handoff file. (verified)
+- All required providers configured. (FALSE: IPinfo, GreyNoise, CrowdStrike
+  provider modules are missing; registry not auto-populated.)
+- Fresh environment: `make docker-up && make migrate && make seed && make
+  test` works. (Re-verify; memory note says local fixes were needed in
+  `app/observability/logging.py`, `app/main.py`, `app/ui/routes.py`.)
+- Provider QA mocked tests for all required providers. (FALSE for the three
+  missing providers above.)
+- No external credentials required for test suite. (Plausible; verify.)
+- No secrets in logs, traces, fixtures, docs, or committed config. (Verify
+  with the secret-grep proposed in Item A5.)
