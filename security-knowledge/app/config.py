@@ -4,6 +4,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
+    # Auto-enrichment of newly-extracted entities at ingest time.
+    # Set to true to skip the per-entity arq enqueue from process_ingest_job
+    # (e.g. for bulk back-fills where you want to run enrichment manually).
+    AUTO_ENRICHMENT_DISABLED: bool = False
+
     # Core
     DATABASE_URL: str = "postgresql+asyncpg://sk:sk@localhost/sk"
     REDIS_URL: str = "redis://localhost:6379"
@@ -65,6 +70,14 @@ class Settings(BaseSettings):
     BGP_HE_DAILY_BUDGET: int = 200  # scraping — be conservative
     ABUSEIPDB_DAILY_BUDGET: int = 1000  # free tier: 1000 checks/day
     URLSCAN_DAILY_BUDGET: int = 800  # search API: 1000/day, leave headroom
+
+    # Submit-and-rescan toggles + per-process daily caps for the *submit* path
+    # (kept separate from the lookup budget so a runaway rescan loop cannot
+    # drain the cheap search/lookup quotas).
+    URLSCAN_RESCAN_ENABLED: bool = True
+    VIRUSTOTAL_RESCAN_ENABLED: bool = True
+    URLSCAN_SUBMIT_DAILY_BUDGET: int = 900   # urlscan unlisted: 1000/day cap
+    VIRUSTOTAL_SUBMIT_DAILY_BUDGET: int = 400  # VT free: 500/day cap
 
     # TTLs (seconds)
     ENRICHMENT_TTL_VIRUSTOTAL: int = 86400

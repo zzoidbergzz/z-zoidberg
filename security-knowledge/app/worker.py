@@ -118,6 +118,76 @@ def _chunk_text(text: str) -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 
 
+# Map Entity.kind (post _KIND_MAP normalisation) → list of arq enrichment
+# providers to dispatch when a new entity is materialised at ingest time.
+_AUTO_ENRICHMENT_PROVIDERS: dict[str, tuple[str, ...]] = {
+    "cve": ("nvd",),
+    "cve_id": ("nvd",),
+    "attack_pattern": ("mitre_attack",),
+    "technique": ("mitre_attack",),
+    "url": ("urlscan",),
+    "ip_address": ("urlscan", "ipinfo"),
+}
+
+
+async def _enqueue_auto_enrichment(entities: list, tenant_id: str) -> None:
+    """Enqueue run_enrichment jobs for newly-created entities.
+
+    Each enqueue is wrapped in its own try/except so a single failure
+    cannot roll back the ingest transaction.  Returns silently if the
+    arq pool cannot be reached (jobs can be re-driven manually later).
+    """
+    if not entities:
+        return
+
+    try:
+        from arq import create_pool
+        from arq.connections import RedisSettings
+    except Exception as exc:  # pragma: no cover
+        logger.warning("auto_enrichment_arq_import_failed", error=str(exc))
+        return
+
+    pool = None
+    try:
+        pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+    except Exception as exc:
+        logger.warning("auto_enrichment_pool_failed", error=str(exc))
+        return
+
+    try:
+        for ent in entities:
+            providers = _AUTO_ENRICHMENT_PROVIDERS.get(ent.kind)
+            if not providers:
+                continue
+            for prov in providers:
+                try:
+                    await pool.enqueue_job(
+                        "run_enrichment",
+                        str(ent.id),
+                        tenant_id,
+                        provider=prov,
+                    )
+                    logger.info(
+                        "auto_enrichment_enqueued",
+                        entity_id=str(ent.id),
+                        kind=ent.kind,
+                        provider=prov,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "auto_enrichment_enqueue_failed",
+                        entity_id=str(ent.id),
+                        kind=ent.kind,
+                        provider=prov,
+                        error=str(exc),
+                    )
+    finally:
+        try:
+            await pool.aclose()
+        except Exception:
+            pass
+
+
 async def process_ingest_job(
     ctx: dict,
     job_id: str,
@@ -334,6 +404,7 @@ async def process_ingest_job(
                 anchor_section = sections[0] if sections else None
 
                 entity_count = 0
+                newly_created_entities: list[Entity] = []
                 for ent_data in unique_entities:
                     raw_kind = ent_data["kind"]
                     mapped_kind = _KIND_MAP.get(raw_kind, "other")
@@ -357,6 +428,7 @@ async def process_ingest_job(
                         )
                         db.add(entity)
                         await db.flush()
+                        newly_created_entities.append(entity)
 
                     # Create Claim linking entity to this document
                     claim = Claim(
@@ -387,6 +459,15 @@ async def process_ingest_job(
                     entity_count += 1
 
                 await db.flush()
+
+                # ----------------------------------------------------------
+                # 9b. Auto-enrichment — enqueue per-provider arq jobs for
+                #     newly-created entities.  Each enqueue is wrapped in
+                #     try/except so a transient redis failure (or one
+                #     bad provider) cannot roll back the whole ingest.
+                # ----------------------------------------------------------
+                if not getattr(settings, "AUTO_ENRICHMENT_DISABLED", False) and newly_created_entities:
+                    await _enqueue_auto_enrichment(newly_created_entities, str(tenant_id))
 
                 # ----------------------------------------------------------
                 # 10. Emit AuditEvent
