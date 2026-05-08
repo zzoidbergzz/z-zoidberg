@@ -2,9 +2,12 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+import bcrypt as _bcrypt
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app.config import settings
 from app.database import engine
@@ -23,6 +26,8 @@ from app.routers.evidence import router as evidence_router
 from app.routers.export import router as export_router
 from app.routers.capabilities import router as capabilities_router
 from app.routers.graph import router as graph_router
+from app.routers.shortcuts import router as shortcuts_router
+from app.routers.lookup import router as lookup_router
 from app.routers.health import router as health_router
 from app.routers.ingest import router as ingest_router
 from app.routers.mcp import router as mcp_router
@@ -41,6 +46,50 @@ if settings.OTEL_EXPORTER_OTLP_ENDPOINT:
     configure_tracing(settings.SERVICE_NAME, settings.OTEL_EXPORTER_OTLP_ENDPOINT)
 
 
+async def _bootstrap_admin() -> None:
+    """Create or ensure the bootstrap admin user exists (m@z.je)."""
+    if not settings.BOOTSTRAP_ADMIN_EMAIL or not settings.BOOTSTRAP_ADMIN_PASSWORD:
+        return
+    import uuid
+    from sqlalchemy import select
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.database import AsyncSessionLocal
+    from app.models.auth import User, UserStatus, UserRole, Tenant
+
+    async with AsyncSessionLocal() as db:
+        # Ensure tenant exists
+        tenant_res = await db.execute(select(Tenant).where(Tenant.slug == settings.BOOTSTRAP_ADMIN_TENANT))
+        tenant = tenant_res.scalar_one_or_none()
+        if not tenant:
+            tenant = Tenant(id=uuid.uuid4(), name=settings.BOOTSTRAP_ADMIN_NAME, slug=settings.BOOTSTRAP_ADMIN_TENANT, active=True)
+            db.add(tenant)
+            await db.flush()
+
+        # Upsert admin user
+        user_res = await db.execute(select(User).where(User.email == settings.BOOTSTRAP_ADMIN_EMAIL.lower()))
+        user = user_res.scalar_one_or_none()
+        pw_hash = _bcrypt.hashpw(settings.BOOTSTRAP_ADMIN_PASSWORD.encode(), _bcrypt.gensalt()).decode()
+        if not user:
+            user = User(
+                id=uuid.uuid4(),
+                tenant_id=tenant.id,
+                email=settings.BOOTSTRAP_ADMIN_EMAIL.lower(),
+                full_name=settings.BOOTSTRAP_ADMIN_NAME,
+                hashed_password=pw_hash,
+                status=UserStatus.approved,
+                role=UserRole.admin,
+                active=True,
+            )
+            db.add(user)
+        else:
+            # Always keep password in sync with .env for easy rotation
+            user.hashed_password = pw_hash
+            user.status = UserStatus.approved
+            user.role = UserRole.admin
+            user.active = True
+        await db.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import asyncio
@@ -49,6 +98,7 @@ async def lifespan(app: FastAPI):
     from app.services import mitre_attack
     asyncio.create_task(mitre_attack.preload_if_cached())
     await browser_pool.start()  # no-op if PLAYWRIGHT_ENABLED=false
+    await _bootstrap_admin()
     yield
     await browser_pool.stop()
     await engine.dispose()
@@ -69,10 +119,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Templates ──────────────────────────────────────────────────────────────────
+_templates_dir = Path(__file__).parent.parent / "templates"
+_templates = Jinja2Templates(directory=str(_templates_dir)) if _templates_dir.exists() else None
+
+# ── Public browser pages ───────────────────────────────────────────────────────
+PUBLIC_PATHS = {"/login", "/register", "/health", "/api", "/fp", "/ip", "/ua", "/headers", "/static", "/favicon.ico"}
+
+
+def _is_public(path: str) -> bool:
+    return any(path == p or path.startswith(p + "/") for p in PUBLIC_PATHS)
+
 
 @app.get("/", include_in_schema=False)
-async def root():
-    return RedirectResponse(url="/ui/")
+async def root(request: Request):
+    """Redirect root: authenticated users → /ui/, others → /login."""
+    cookie = request.cookies.get(settings.SESSION_COOKIE_NAME)
+    if cookie:
+        return RedirectResponse(url="/ui/")
+    return RedirectResponse(url="/login")
+
+
+@app.get("/login", include_in_schema=False, response_class=HTMLResponse)
+async def login_page(request: Request, error: str = ""):
+    if _templates is None:
+        return HTMLResponse("<html><body><p>Templates not found</p></body></html>", status_code=503)
+    return _templates.TemplateResponse(request, "login.html", {"current_user": None, "error": error})
+
+
+@app.get("/register", include_in_schema=False, response_class=HTMLResponse)
+async def register_page(request: Request):
+    if _templates is None:
+        return HTMLResponse("<html><body><p>Templates not found</p></body></html>", status_code=503)
+    return _templates.TemplateResponse(request, "register.html", {"current_user": None})
+
+
+@app.get("/pending", include_in_schema=False, response_class=HTMLResponse)
+async def pending_page(request: Request):
+    if _templates is None:
+        return HTMLResponse("<html><body><p>Pending approval</p></body></html>")
+    return _templates.TemplateResponse(request, "pending.html", {"current_user": None})
 
 
 # Routers
@@ -101,9 +187,16 @@ app.include_router(mitre_router, prefix="/api/v1")
 app.include_router(export_router, prefix="/api/v1")
 app.include_router(capabilities_router, prefix="/api/v1")
 app.include_router(graphql_router, prefix="/graphql")
+app.include_router(shortcuts_router)
+app.include_router(lookup_router, prefix="/api/v1")
 
 # Static files (UI)
 templates_path = Path(__file__).parent.parent / "templates"
 if templates_path.exists():
     from app.ui.routes import ui_router
     app.include_router(ui_router)
+
+# Serve /static from mzje/z-style static directory if present
+_static_dir = Path(__file__).parent.parent / "static"
+if _static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
