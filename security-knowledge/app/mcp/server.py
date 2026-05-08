@@ -59,23 +59,31 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 
-def _build_auth():
-    """Build a minimal AuthContext for the stdio server from env vars."""
+def _build_auth(tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None,
+                api_key: str = ""):
+    """Build an AuthContext for an MCP request.
+
+    For SSE: ``tenant_id`` and ``user_id`` are taken from the validated
+    ``api_keys`` row so that BYOK lookups (``resolve_user_provider_key``)
+    can find the caller's per-user provider keys.
+    For stdio: falls back to the bootstrap admin tenant from env.
+    """
     from app.auth.dependencies import AuthContext, Scope
 
-    tenant_raw = os.environ.get("BOOTSTRAP_ADMIN_TENANT_ID") or os.environ.get(
-        "BOOTSTRAP_ADMIN_TENANT", "00000000-0000-0000-0000-000000000000"
-    )
-    try:
-        tid = uuid.UUID(tenant_raw)
-    except ValueError:
-        tid = uuid.UUID("00000000-0000-0000-0000-000000000000")
+    if tenant_id is None:
+        tenant_raw = os.environ.get("BOOTSTRAP_ADMIN_TENANT_ID") or os.environ.get(
+            "BOOTSTRAP_ADMIN_TENANT", "00000000-0000-0000-0000-000000000000"
+        )
+        try:
+            tenant_id = uuid.UUID(tenant_raw)
+        except ValueError:
+            tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
     return AuthContext(
-        tenant_id=tid,
-        user_id=None,
+        tenant_id=tenant_id,
+        user_id=user_id,
         scopes=[Scope.read, Scope.write],
-        api_key=os.environ.get("SK_API_KEY", ""),
+        api_key=api_key or os.environ.get("SK_API_KEY", ""),
     )
 
 
@@ -94,8 +102,14 @@ def _tool_to_mcp_schema(tool) -> dict[str, Any]:
     }
 
 
-async def _make_mcp_server():
-    """Build and return a configured MCP Server instance."""
+async def _make_mcp_server(tenant_id: uuid.UUID | None = None,
+                           user_id: uuid.UUID | None = None):
+    """Build and return a configured MCP Server instance.
+
+    ``tenant_id`` / ``user_id`` are baked into the per-tool AuthContext so
+    that downstream services (notably EnrichmentService → BYOK) can
+    resolve per-user provider keys.
+    """
     from mcp.server import Server
     from mcp.types import (
         TextContent,
@@ -126,7 +140,7 @@ async def _make_mcp_server():
         if tool is None:
             return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 
-        auth = _build_auth()
+        auth = _build_auth(tenant_id=tenant_id, user_id=user_id)
         async with AsyncSessionLocal() as db:
             try:
                 result = await tool.fn(args, db, auth)
@@ -213,6 +227,10 @@ def _auth_middleware(app):
                 )
             api_key.last_used_at = datetime.now(timezone.utc)
             await db.commit()
+            scope.setdefault("state", {})
+            scope["state"]["sk_tenant_id"] = api_key.tenant_id
+            scope["state"]["sk_user_id"] = api_key.user_id
+            scope["state"]["sk_api_key_id"] = api_key.id
             logger.info(
                 "mcp_auth_ok",
                 api_key_id=str(api_key.id),
@@ -237,7 +255,11 @@ def make_sse_app():
         # Starlette Route endpoints receive a Request; SseServerTransport
         # needs the raw ASGI triple, which is exposed via request.scope /
         # request.receive / request._send.
-        server = await _make_mcp_server()
+        state = request.scope.get("state") or {}
+        server = await _make_mcp_server(
+            tenant_id=state.get("sk_tenant_id"),
+            user_id=state.get("sk_user_id"),
+        )
         async with sse_transport.connect_sse(
             request.scope, request.receive, request._send
         ) as streams:
