@@ -1,5 +1,8 @@
 # Bootstrap: MCP-Aware Research Corpus Ingestion
 
+> **New agents start here → [AGENT_QUICKSTART.md](./AGENT_QUICKSTART.md)**
+> This file documents the corpus ingestion contract (Mode A/B). For coding tasks, use AGENT_QUICKSTART.md.
+
 <!-- Prompt file index: docs/prompts.md
      This file: corpus onboarding contract (Mode A/B) for an LLM host.
      See also: prompt.md (coding-agent system prompt), deep-research-prompt.md (corpus generation — being rewritten on feat/r1-deep-research-prompt-v2). -->
