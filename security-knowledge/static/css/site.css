@@ -68,9 +68,9 @@ body::before {
 .nav-links,
 .nav-user {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.25rem;
 }
 
 .nav-pill,
@@ -91,10 +91,62 @@ body::before {
   border: none;
 }
 
+/* Compact pills only inside the nav */
+.shell-nav .nav-pill {
+  font-size: 0.78rem;
+  padding: 0.38rem 0.68rem;
+  font-weight: 500;
+}
+
 .nav-pill {
   color: var(--muted);
   border: 1px solid transparent;
 }
+
+/* More dropdown */
+.nav-more {
+  position: relative;
+}
+.nav-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.38rem 0.68rem;
+  border-radius: 999px;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.nav-more-btn:hover { background: rgba(107,242,199,0.08); color: var(--text); }
+.nav-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: rgba(8,14,20,0.96);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.4rem 0;
+  min-width: 160px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  z-index: 200;
+}
+.nav-more:hover .nav-dropdown,
+.nav-more:focus-within .nav-dropdown { display: block; }
+.nav-dropdown a {
+  display: block;
+  padding: 0.55rem 1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 100ms, color 100ms;
+}
+.nav-dropdown a:hover { background: rgba(107,242,199,0.1); color: var(--text); }
 
 .nav-pill:hover,
 .button:hover,

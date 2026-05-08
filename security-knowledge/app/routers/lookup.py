@@ -153,8 +153,12 @@ async def _get_enrichment_results(db: AsyncSession, tenant_id: str, entity_kind:
     for row in rows:
         expired = row.expires_at is not None and row.expires_at < now
         out.append({
+            # JS renderResults() expects these field names:
+            "source": row.provider,
+            "data": row.normalized,
+            "query_duration_ms": None,
+            # additional metadata
             "provider": row.provider,
-            "normalized": row.normalized,
             "success": row.success,
             "cached_at": row.created_at.isoformat() if row.created_at else None,
             "expires_at": row.expires_at.isoformat() if row.expires_at else None,
@@ -194,13 +198,21 @@ async def lookup(
         await db.commit()
 
     enrichments = await _get_enrichment_results(db, auth.tenant_id, kind, canonical)
+    dispatch_mode = "in_process" if should_dispatch else ("debounced" if enrichments else "cached")
     return {
+        # JS-compatible fields
+        "message": f"Lookup accepted for {canonical!r}.",
         "entity_id": str(entity.id),
+        "entity_type": kind,
+        "entity_value": canonical,
+        "cached_results": enrichments,
+        "dispatch_mode": dispatch_mode,
+        "should_poll": should_dispatch,
+        # additional detail
         "kind": kind,
         "canonical_name": canonical,
         "classified_as": classified["type"],
         "enrichment_dispatched": should_dispatch,
-        "results": enrichments,
     }
 
 
@@ -248,7 +260,41 @@ async def entity_results(
 ):
     entity = await _get_entity_for_tenant(db, entity_id, auth.tenant_id)
     enrichments = await _get_enrichment_results(db, auth.tenant_id, entity.kind, entity.canonical_name)
-    return {"entity_id": entity_id, "results": enrichments}
+
+    # Build relationships list for renderResults() — use raw SQL to avoid ORM
+    # column mismatch (Relationship model has updated_at but DB table does not)
+    rels_raw = await db.execute(
+        text("""SELECT id, from_entity_id, to_entity_id, kind, confidence
+                FROM relationships
+                WHERE tenant_id = :tid
+                  AND (from_entity_id = :eid OR to_entity_id = :eid)
+                LIMIT 50"""),
+        {"tid": auth.tenant_id, "eid": entity_id},
+    )
+    relationships = []
+    for row in rels_raw.mappings().all():
+        target = str(row["to_entity_id"]) if str(row["from_entity_id"]) == entity_id else str(row["from_entity_id"])
+        relationships.append({
+            "relation_type": row["kind"],
+            "target_entity": target,
+            "discovered_via": "graph",
+        })
+
+    return {
+        # JS renderResults() expects this shape:
+        "entity": {
+            "id": str(entity.id),
+            "entity_type": entity.kind,
+            "entity_value": entity.canonical_name,
+            "notes": None,
+            "tags": [],
+        },
+        "enrichments": enrichments,
+        "relationships": relationships,
+        # keep legacy field for other consumers
+        "entity_id": entity_id,
+        "results": enrichments,
+    }
 
 
 @router.get("/lookup/entity/{entity_id}/graph")
@@ -259,20 +305,48 @@ async def entity_graph(
 ):
     entity = await _get_entity_for_tenant(db, entity_id, auth.tenant_id)
     rels = await db.execute(
-        select(Relationship).where(
-            Relationship.tenant_id == uuid.UUID(auth.tenant_id),
-            (Relationship.from_entity_id == entity.id) | (Relationship.to_entity_id == entity.id),
+        text("""SELECT from_entity_id, to_entity_id, kind, confidence
+                FROM relationships
+                WHERE tenant_id = :tid
+                  AND (from_entity_id = :eid OR to_entity_id = :eid)"""),
+        {"tid": auth.tenant_id, "eid": entity_id},
+    )
+
+    rel_rows = rels.mappings().all()
+    edges = []
+    related_ids: set[str] = set()
+    for row in rel_rows:
+        from_id = str(row["from_entity_id"])
+        to_id = str(row["to_entity_id"])
+        edges.append({
+            "from": from_id,
+            "to": to_id,
+            "label": row["kind"],
+            "kind": row["kind"],
+            "confidence": row["confidence"],
+        })
+        related_ids.add(from_id)
+        related_ids.add(to_id)
+
+    # Build nodes: the focal entity + all related entities
+    node_ids = related_ids | {entity_id}
+    entities_q = await db.execute(
+        select(Entity).where(
+            Entity.id.in_([uuid.UUID(eid) for eid in node_ids]),
+            Entity.tenant_id == uuid.UUID(auth.tenant_id),
         )
     )
-    edges = []
-    for rel in rels.scalars().all():
-        edges.append({
-            "from": str(rel.from_entity_id),
-            "to": str(rel.to_entity_id),
-            "kind": rel.kind,
-            "confidence": rel.confidence,
+    nodes = []
+    for e in entities_q.scalars().all():
+        nodes.append({
+            "id": str(e.id),
+            "label": e.canonical_name,
+            "type": e.kind,
+            "color": "#2dd4bf" if str(e.id) == entity_id else "#6366f1",
+            "size": 18 if str(e.id) == entity_id else 12,
         })
-    return {"entity_id": entity_id, "edges": edges}
+
+    return {"entity_id": entity_id, "nodes": nodes, "edges": edges}
 
 
 @router.get("/lookup/entity/{entity_id}/history")
