@@ -3,24 +3,25 @@
 {% block content %}
 <section class="hero">
   <div class="panel">
-    <p class="tiny-pill">OSINT RESEARCH PLATFORM</p>
-    <h1 class="headline" style="margin-top:1rem;">Paste one indicator. Let the graph do the rest.</h1>
-    <p class="subtle" style="margin-top:1rem;max-width:46rem;">IP, domain, URL, email, hash, ASN, phone, or username. Defanged inputs are normalised automatically — including <span class="mono">hxxps://</span>, <span class="mono">[.]</span>, and <span class="mono">[@]</span> variants.</p>
+    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+      <p class="tiny-pill" style="margin:0;">OSINT</p>
+      <h1 class="hero-title">Indicator Lookup</h1>
+    </div>
 
-    <form class="search-box" id="lookup-form" data-lookup-form>
+    <form class="search-box" id="lookup-form" data-lookup-form style="margin-top:1rem;">
       <input class="search-input mono" type="text" name="query" id="search-input"
         placeholder="8.8.8.8 · example.org · hxxps://target[.]tld · AS13335"
         autocomplete="off">
-      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:0.75rem;align-items:center;">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:0.6rem;align-items:center;">
         <span class="type-chip" id="detected-type">paste an indicator</span>
-        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-          <input class="form-input mono" style="min-width:14rem;" type="text" name="investigation_id" placeholder="investigation id (optional)">
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+          <input class="form-input mono" style="width:12rem;" type="text" name="investigation_id" placeholder="investigation id (opt)">
           <button class="button" type="submit">Run Lookup</button>
         </div>
       </div>
-      <label class="subtle" style="display:flex;gap:0.55rem;align-items:center;margin-top:0.15rem;">
+      <label class="subtle" style="display:flex;gap:0.55rem;align-items:center;font-size:0.8rem;">
         <input type="checkbox" name="force_repoll" value="true">
-        Force repoll even if cached (max once per 30 min)
+        Force repoll (max once per 30 min)
       </label>
       <div id="lookup-status" class="status-bar"></div>
     </form>
@@ -30,14 +31,14 @@
     <!-- IOC / Defanger card -->
     <div class="card">
       <div class="section-title">IOC Parser &amp; Defanger</div>
-      <p class="subtle" style="margin-top:0.6rem;font-size:0.9rem;">Paste a blob of text — IPs, domains, hashes, emails, CVEs, defanged URLs. Each indicator is extracted, cleaned, and classified.</p>
-      <textarea class="form-textarea mono" id="ioc-blob" rows="5" placeholder="Paste raw intel, logs, or report text here…" style="margin-top:0.75rem;font-size:0.85rem;"></textarea>
-      <button class="button" id="ioc-parse-btn" type="button" style="margin-top:0.65rem;">Parse &amp; Extract</button>
-      <div id="ioc-results" class="result-list" style="margin-top:0.75rem;"></div>
+      <p class="subtle" style="margin-top:0.5rem;font-size:0.82rem;">Paste a blob of text — IPs, domains, hashes, emails, CVEs, defanged URLs.</p>
+      <textarea class="form-textarea mono" id="ioc-blob" rows="4" placeholder="Paste raw intel, logs, or report text here…" style="margin-top:0.65rem;font-size:0.82rem;"></textarea>
+      <button class="button" id="ioc-parse-btn" type="button" style="margin-top:0.55rem;">Parse &amp; Extract</button>
+      <div id="ioc-results" class="result-list" style="margin-top:0.65rem;"></div>
     </div>
     <div class="card">
       <div class="section-title">Quick Routes</div>
-      <div class="grid-2" style="margin-top:0.75rem;">
+      <div class="grid-2" style="margin-top:0.65rem;">
         <a class="button-muted" href="/ip">/ip</a>
         <a class="button-muted" href="/ua">/ua</a>
         <a class="button-muted" href="/headers">/headers</a>
@@ -77,13 +78,13 @@
 <section id="results-panel" class="results-layout" hidden>
   <div class="stack">
     <div class="panel">
-      <div class="section-title">Entity Summary</div>
-      <div id="entity-summary" style="margin-top:1rem;"></div>
-      <div id="export-links" style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem;"></div>
+      <div id="entity-summary"></div>
+      <div id="intel-summary" style="margin-top:0.75rem;"></div>
+      <div id="export-links" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.9rem;"></div>
     </div>
     <div class="panel">
       <div class="section-title">Enrichment Results</div>
-      <div id="enrichment-list" class="result-list" style="margin-top:1rem;"></div>
+      <div id="enrichment-list" class="result-list" style="margin-top:0.85rem;"></div>
     </div>
     <div class="panel">
       <div class="section-title">Relationships</div>

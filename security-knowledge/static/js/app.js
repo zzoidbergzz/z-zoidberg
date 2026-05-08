@@ -351,6 +351,110 @@ window.ZjeApp = (() => {
     if (input) input.value = value || "";
   }
 
+  // ---------------------------------------------------------------------------
+  // Intel summary — aggregate threat signals from enrichment data
+  // ---------------------------------------------------------------------------
+
+  function _computeThreatSummary(allEnrichments) {
+    const signals = [];
+    const flags = [];
+    let threatLevel = "unknown"; // clean / low / medium / high / critical
+    let score = null;
+
+    for (const item of allEnrichments) {
+      const d = item.data || {};
+      if (!Object.keys(d).length) continue;
+
+      if (item.source === "virustotal") {
+        const mal = d.malicious ?? 0;
+        const sus = d.suspicious ?? 0;
+        const total = mal + sus;
+        if (total > 0) {
+          signals.push({ label: `${total} VT detections`, color: total >= 5 ? "#f44" : "#fb6", icon: "🦠" });
+          flags.push({ label: `VT: ${mal} malicious, ${sus} suspicious`, level: total >= 5 ? "high" : "medium" });
+        } else {
+          signals.push({ label: "VT: clean", color: "#4c4", icon: "🦠" });
+        }
+        if (d.reputation != null && d.reputation < -50) {
+          flags.push({ label: `Low VT reputation (${d.reputation})`, level: "medium" });
+        }
+      }
+      if (item.source === "abuseipdb") {
+        const sc = d.abuse_score ?? 0;
+        const reports = d.total_reports ?? 0;
+        if (sc > 0) {
+          const col = sc >= 75 ? "#f44" : sc >= 25 ? "#fb6" : "#fb6";
+          signals.push({ label: `AbuseIPDB: ${sc}%`, color: col, icon: "⚠️" });
+          flags.push({ label: `${reports} abuse reports (${sc}% confidence)`, level: sc >= 75 ? "high" : "medium" });
+        } else {
+          signals.push({ label: "AbuseIPDB: clean", color: "#4c4", icon: "⚠️" });
+        }
+        if (d.is_tor) flags.push({ label: "Tor exit node", level: "medium" });
+        if (d.is_proxy) flags.push({ label: "Proxy / datacenter", level: "low" });
+      }
+      if (item.source === "greynoise") {
+        const cls = d.classification;
+        if (cls === "malicious") {
+          signals.push({ label: "GN: malicious", color: "#f44", icon: "🔇" });
+          flags.push({ label: "GreyNoise classifies as malicious", level: "high" });
+        } else if (cls === "benign") {
+          signals.push({ label: "GN: benign", color: "#4c4", icon: "🔇" });
+        } else if (cls) {
+          signals.push({ label: `GN: ${cls}`, color: "#888", icon: "🔇" });
+        }
+        if (d.noise) flags.push({ label: "Internet noise (mass scanner)", level: "low" });
+      }
+    }
+
+    // Derive overall threat level from flags
+    const levels = flags.map(f => f.level);
+    if (levels.includes("critical")) threatLevel = "critical";
+    else if (levels.includes("high")) threatLevel = "high";
+    else if (levels.includes("medium")) threatLevel = "medium";
+    else if (levels.includes("low")) threatLevel = "low";
+    else if (signals.length > 0) threatLevel = "clean";
+
+    return { signals, flags, threatLevel };
+  }
+
+  function renderIntelSummary(entity, allEnrichments) {
+    const container = document.getElementById("intel-summary");
+    if (!container) return;
+    const rich = allEnrichments.filter(e => e.data && Object.keys(e.data).length > 0);
+    if (!rich.length) { container.innerHTML = ""; return; }
+
+    const { signals, flags, threatLevel } = _computeThreatSummary(rich);
+    const levelMeta = {
+      critical: { color: "#f44", label: "CRITICAL", bg: "rgba(255,68,68,.12)" },
+      high:     { color: "#f44", label: "HIGH RISK", bg: "rgba(255,68,68,.1)" },
+      medium:   { color: "#fb6", label: "MEDIUM RISK", bg: "rgba(255,187,102,.1)" },
+      low:      { color: "#8af", label: "LOW RISK", bg: "rgba(136,170,255,.1)" },
+      clean:    { color: "#4c4", label: "CLEAN", bg: "rgba(68,204,68,.08)" },
+      unknown:  { color: "#888", label: "UNKNOWN", bg: "rgba(136,136,136,.08)" },
+    }[threatLevel] || { color: "#888", label: "UNKNOWN", bg: "rgba(0,0,0,.1)" };
+
+    const signalChips = signals.map(s =>
+      `<span class="intel-chip" style="border-color:${s.color};color:${s.color};">${s.icon} ${escapeHtml(s.label)}</span>`
+    ).join("");
+
+    const flagList = flags.length
+      ? `<ul class="intel-flags">${flags.map(f => {
+          const c = f.level === "high" || f.level === "critical" ? "#f44" : f.level === "medium" ? "#fb6" : "#8af";
+          return `<li style="color:${c};">${escapeHtml(f.label)}</li>`;
+        }).join("")}</ul>`
+      : "";
+
+    container.innerHTML = `
+      <div class="intel-summary-bar" style="background:${levelMeta.bg};border-color:${levelMeta.color}20;">
+        <div class="intel-summary-left">
+          <span class="intel-threat-badge" style="background:${levelMeta.color}22;color:${levelMeta.color};border:1px solid ${levelMeta.color}55;">${levelMeta.label}</span>
+          <div class="intel-chips">${signalChips || '<span class="subtle" style="font-size:.82rem;">No threat signals detected.</span>'}</div>
+        </div>
+        ${flagList}
+      </div>
+    `;
+  }
+
   function renderResults(payload) {
     const resultsPanel = document.getElementById("results-panel");
     const summary = document.getElementById("entity-summary");
@@ -363,22 +467,27 @@ window.ZjeApp = (() => {
     const entity = payload.entity || {};
     state.currentEntity = entity;
     if (entity.id) state.entityId = entity.id;
+
+    const shortId = (entity.id || state.entityId || "pending");
+    const displayId = shortId.length > 18 ? shortId.slice(0, 8) + "…" + shortId.slice(-4) : shortId;
+    const tags = (entity.tags || []);
+
     summary.innerHTML = `
-      <div class="grid-2">
-        <div class="grid-card">
-          <div class="tiny-pill">${escapeHtml(entity.entity_type || "unknown")}</div>
-          <div class="metric" style="margin-top:0.75rem;">${escapeHtml(entity.entity_value || "pending")}</div>
-          <p class="subtle" style="margin-top:0.55rem;">Entity ID <span class="mono">${escapeHtml(entity.id || state.entityId || "pending")}</span></p>
+      <div class="entity-header">
+        <div class="entity-header-main">
+          <span class="tiny-pill">${escapeHtml(entity.entity_type || "unknown")}</span>
+          <span class="entity-value">${escapeHtml(entity.entity_value || "pending")}</span>
         </div>
-        <div class="grid-card">
-          <div class="section-title">Analyst Notes</div>
-          <p class="subtle" style="margin-top:0.55rem;">${escapeHtml(entity.notes || "No notes saved.")}</p>
-          <p class="subtle" style="margin-top:0.75rem;">Tags: ${escapeHtml((entity.tags || []).join(", ") || "none")}</p>
+        <div class="entity-header-meta">
+          <span class="subtle" style="font-size:.78rem;">ID&nbsp;<code class="mono" title="${escapeHtml(entity.id || "")}" style="font-size:.75rem;opacity:.7;">${escapeHtml(displayId)}</code></span>
+          ${tags.length ? `<span class="subtle" style="font-size:.78rem;">·</span>${tags.map(t=>`<span class="tiny-pill" style="font-size:.72rem;">${escapeHtml(t)}</span>`).join("")}` : ""}
+          ${entity.notes && entity.notes !== "No notes saved." ? `<span class="subtle" style="font-size:.78rem;">· ${escapeHtml(entity.notes.slice(0,60))}${entity.notes.length>60?"…":""}</span>` : ""}
         </div>
       </div>
     `;
 
     const allEnrichments = payload.enrichments || [];
+    renderIntelSummary(entity, allEnrichments);
     enrichments.innerHTML = renderEnrichmentTabs(allEnrichments);
 
     relationships.innerHTML = payload.relationships?.length
@@ -388,7 +497,7 @@ window.ZjeApp = (() => {
             (item) => `
               <tr>
                 <td>${escapeHtml(item.relation_type)}</td>
-                <td class="mono">${escapeHtml(item.target_entity)}</td>
+                <td class="mono" style="max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.target_entity)}</td>
                 <td>${escapeHtml(item.discovered_via || "n/a")}</td>
               </tr>
             `
@@ -399,10 +508,10 @@ window.ZjeApp = (() => {
     const id = entity.id || state.entityId;
     links.innerHTML = id
       ? `
-        <a class="button-muted" href="/api/v1/lookup/entity/${id}/export?format=json">JSON</a>
-        <a class="button-muted" href="/api/v1/lookup/entity/${id}/export?format=markdown">Markdown</a>
-        <a class="button-muted" href="/api/v1/lookup/entity/${id}/export?format=csv">CSV</a>
-        <a class="button-muted" href="/api/v1/lookup/entity/${id}/export?format=pdf">PDF</a>
+        <a class="button-muted" href="/api/v1/lookup/entity/${id}/export?format=json" style="font-size:.8rem;">JSON</a>
+        <a class="button-muted" href="/api/v1/lookup/entity/${id}/export?format=markdown" style="font-size:.8rem;">Markdown</a>
+        <a class="button-muted" href="/api/v1/lookup/entity/${id}/export?format=csv" style="font-size:.8rem;">CSV</a>
+        <a class="button-muted" href="/api/v1/lookup/entity/${id}/export?format=pdf" style="font-size:.8rem;">PDF</a>
       `
       : "";
 
