@@ -135,7 +135,6 @@ async def _dispatch_enrichment(entity: Entity, tenant_id: str, force: bool, db: 
                 await svc.enrich(provider_name, entity.kind, entity.canonical_name)
             except Exception:
                 pass
-        await _record_dispatch(bg_db, str(entity.id), tenant_id, force)
         await bg_db.commit()
 
 
@@ -191,6 +190,10 @@ async def lookup(
 
     should_dispatch = await _should_dispatch(db, str(entity.id), auth.tenant_id, body.force_repoll)
     if should_dispatch:
+        # Record the dispatch BEFORE queuing the background task so any concurrent
+        # request for the same entity sees it and skips the double-dispatch.
+        await _record_dispatch(db, str(entity.id), auth.tenant_id, body.force_repoll)
+        await db.commit()
         background_tasks.add_task(_dispatch_enrichment, entity, auth.tenant_id, body.force_repoll, db, auth.user_id)
 
     if body.investigation_id:

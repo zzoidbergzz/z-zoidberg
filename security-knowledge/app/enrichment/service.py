@@ -9,6 +9,27 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
+# Per-provider TTL (seconds) — loaded lazily to avoid circular imports at startup
+_TTL_ATTR: dict[str, str] = {
+    "virustotal":  "ENRICHMENT_TTL_VIRUSTOTAL",
+    "shodan":      "ENRICHMENT_TTL_SHODAN",
+    "ipinfo":      "ENRICHMENT_TTL_IPINFO",
+    "greynoise":   "ENRICHMENT_TTL_GREYNOISE",
+    "crowdstrike": "ENRICHMENT_TTL_CROWDSTRIKE",
+    "bgp_he":      "ENRICHMENT_TTL_BGP_HE",
+}
+_DEFAULT_TTL_HOURS = 24
+
+
+def _provider_ttl(provider_name: str) -> timedelta:
+    from app.config import settings
+    attr = _TTL_ATTR.get(provider_name)
+    if attr:
+        seconds = getattr(settings, attr, None)
+        if seconds:
+            return timedelta(seconds=int(seconds))
+    return timedelta(hours=_DEFAULT_TTL_HOURS)
+
 
 class EnrichmentService:
     def __init__(self, db: AsyncSession, tenant_id: str, user_id: str | None = None):
@@ -53,7 +74,7 @@ class EnrichmentService:
             entity_value=entity_value,
             raw_response=result,
             normalized=result,
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+            expires_at=datetime.now(timezone.utc) + _provider_ttl(provider_name),
         )
         self.db.add(cache)
         await self.db.flush()

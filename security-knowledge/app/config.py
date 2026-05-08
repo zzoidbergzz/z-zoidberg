@@ -57,10 +57,12 @@ class Settings(BaseSettings):
 
     # Budgets
     VIRUSTOTAL_DAILY_BUDGET: int = 500
+    VIRUSTOTAL_MINUTE_BUDGET: int = 4   # free tier: 4 req/min
     SHODAN_DAILY_BUDGET: int = 100
     IPINFO_MONTHLY_BUDGET: int = 50000
     GREYNOISE_DAILY_BUDGET: int = 1000
     CROWDSTRIKE_DAILY_BUDGET: int = 1000
+    BGP_HE_DAILY_BUDGET: int = 200      # scraping — be conservative
 
     # TTLs (seconds)
     ENRICHMENT_TTL_VIRUSTOTAL: int = 86400
@@ -68,6 +70,7 @@ class Settings(BaseSettings):
     ENRICHMENT_TTL_IPINFO: int = 86400
     ENRICHMENT_TTL_GREYNOISE: int = 3600
     ENRICHMENT_TTL_CROWDSTRIKE: int = 3600
+    ENRICHMENT_TTL_BGP_HE: int = 43200  # 12 h — BGP routing tables change slowly
 
     # NVD
     NVD_API_KEY: str = ""
