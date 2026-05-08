@@ -31,7 +31,7 @@ _ENTITY_SQL = text(
         e.kind,
         e.external_refs,
         e.mitre_attack_id,
-        COALESCE(ts_rank_cd(e.search_vector, plainto_tsquery('english', :q)), 0)
+        COALESCE(ts_rank_cd(e.search_vector, websearch_to_tsquery('english', :q)), 0)
             + 0.4 * COALESCE(similarity(e.canonical_name, :q), 0)               AS score,
         (
             SELECT c.value->>'assertion'
@@ -62,7 +62,7 @@ _ENTITY_SQL = text(
     FROM entities e
     WHERE e.tenant_id = :tenant_id
       AND (
-          e.search_vector @@ plainto_tsquery('english', :q)
+          e.search_vector @@ websearch_to_tsquery('english', :q)
           OR e.canonical_name % :q
       )
     ORDER BY score DESC, e.updated_at DESC
@@ -86,13 +86,13 @@ _CLAIM_SQL = text(
         c.value->>'assertion'                                                     AS description,
         c.value->'tags'                                                           AS tags,
         c.value->>'confidence'                                                    AS confidence,
-        COALESCE(ts_rank_cd(c.search_vector, plainto_tsquery('english', :q)), 0)
+        COALESCE(ts_rank_cd(c.search_vector, websearch_to_tsquery('english', :q)), 0)
             + 0.4 * COALESCE(similarity(c.claim_type, :q), 0)                   AS score
     FROM claims c
     LEFT JOIN entities e ON e.id = c.entity_id
     WHERE c.tenant_id = :tenant_id
       AND (
-          c.search_vector @@ plainto_tsquery('english', :q)
+          c.search_vector @@ websearch_to_tsquery('english', :q)
           OR c.claim_type % :q
       )
     ORDER BY score DESC, c.updated_at DESC
@@ -179,6 +179,43 @@ def _build_entity_result(row: Any) -> dict[str, Any]:
     return result
 
 
+# Substring fallback for free-form / SearXNG-style queries that don't tokenize well
+# (CVE-IDs, IPs, hostnames, EDB-IDs, hashes, etc.). Triggered when tsquery returns
+# nothing or for very short tokens.
+_CORPUS_ILIKE_SQL = text(
+    """
+    SELECT
+        cd.id::text AS id, cd.corpus, cd.external_id AS name,
+        cd.title, cd.summary, cd.published_at,
+        0.05::float AS score
+    FROM corpus_documents cd
+    WHERE cd.tenant_id = :tenant_id
+      AND (
+          cd.external_id ILIKE :pat
+          OR cd.title ILIKE :pat
+          OR cd.summary ILIKE :pat
+      )
+    ORDER BY cd.published_at DESC NULLS LAST
+    LIMIT :lim
+    """
+)
+
+_ENTITY_ILIKE_SQL = text(
+    """
+    SELECT
+        e.id::text AS id, e.canonical_name AS name, e.kind, e.external_refs,
+        e.mitre_attack_id,
+        0.05::float AS score,
+        NULL::text AS description, NULL::jsonb AS tags, NULL::text AS confidence
+    FROM entities e
+    WHERE e.tenant_id = :tenant_id
+      AND e.canonical_name ILIKE :pat
+    ORDER BY e.updated_at DESC
+    LIMIT :lim
+    """
+)
+
+
 async def full_text_search(
     db: AsyncSession, tenant_id: str, query: str, limit: int = 20
 ) -> list[dict[str, Any]]:
@@ -213,12 +250,13 @@ async def full_text_search(
 
     for row in claim_rows.mappings().all():
         eid = row["entity_id"]
-        result_id = row["id"]  # already COALESCED to entity id if available
-        # Skip if we already have the parent entity in results (avoid duplicates)
-        if eid and eid in seen_entity_ids:
+        # Skip orphan claims — without a parent entity their "id" is a claim UUID
+        # and any /entities/<id> link will 404. Surface them only via parent.
+        if not eid:
             continue
-        if eid and eid not in seen_entity_ids:
-            seen_entity_ids.add(eid)
+        if eid in seen_entity_ids:
+            continue
+        seen_entity_ids.add(eid)
 
         ext = row["external_refs"] or {}
         kind: str = row["kind"] or "claim"
@@ -227,7 +265,7 @@ async def full_text_search(
 
         r: dict[str, Any] = {
             "kind": kind,
-            "id": result_id,
+            "id": eid,
             "name": name,
             "score": float(row["score"]),
             "description": row["description"] or "",
@@ -235,7 +273,7 @@ async def full_text_search(
             "confidence": row["confidence"] or "",
             "cvss": None,
             "severity": "",
-            "detail_url": f"/entities/{eid}" if eid else None,
+            "detail_url": f"/entities/{eid}",
             "nvd_link": None,
             "mitre_link": None,
         }
@@ -258,6 +296,35 @@ async def full_text_search(
     for row in corpus_records:
         results.append(_build_corpus_result(row))
 
+    # Free-form / SearXNG-style fallback: if tsquery yielded nothing useful,
+    # do a substring search across entities + corpus_documents so that
+    # arbitrary strings (CVE-IDs, IPs, hashes, EDB-IDs, partial hostnames,
+    # apostrophe'd words, etc.) still surface results.
+    if len(results) < max(3, limit // 4):
+        ilike_params = {
+            "tenant_id": tenant_id,
+            "pat": f"%{query.strip()}%",
+            "lim": limit,
+        }
+        try:
+            ent_fallback = await db.execute(_ENTITY_ILIKE_SQL, ilike_params)
+            for row in ent_fallback.mappings().all():
+                if row["id"] in seen_entity_ids:
+                    continue
+                seen_entity_ids.add(row["id"])
+                results.append(_build_entity_result(row))
+        except Exception:
+            pass
+        try:
+            corpus_fallback = await db.execute(_CORPUS_ILIKE_SQL, ilike_params)
+            seen_corpus_ids = {r["id"] for r in results if r.get("kind") in ("cve", "exploit", "exploitdb", "gcve")}
+            for row in corpus_fallback.mappings().all():
+                if row["id"] in seen_corpus_ids:
+                    continue
+                results.append(_build_corpus_result(row))
+        except Exception:
+            pass
+
     results.sort(key=lambda r: r["score"], reverse=True)
     return results[:limit]
 
@@ -272,10 +339,10 @@ _CORPUS_SQL = text(
         cd.title,
         cd.summary,
         cd.published_at,
-        ts_rank_cd(cd.search_vector, plainto_tsquery('english', :q))              AS score
+        ts_rank_cd(cd.search_vector, websearch_to_tsquery('english', :q))              AS score
     FROM corpus_documents cd
     WHERE cd.tenant_id = :tenant_id
-      AND cd.search_vector @@ plainto_tsquery('english', :q)
+      AND cd.search_vector @@ websearch_to_tsquery('english', :q)
     ORDER BY score DESC, cd.published_at DESC NULLS LAST
     LIMIT :lim
     """
@@ -331,10 +398,10 @@ async def corpus_search(
             SELECT
                 cd.id::text AS id, cd.corpus, cd.external_id AS name,
                 cd.title, cd.summary, cd.published_at,
-                ts_rank_cd(cd.search_vector, plainto_tsquery('english', :q)) AS score
+                ts_rank_cd(cd.search_vector, websearch_to_tsquery('english', :q)) AS score
             FROM corpus_documents cd
             WHERE cd.tenant_id = :tenant_id
-              AND cd.search_vector @@ plainto_tsquery('english', :q)
+              AND cd.search_vector @@ websearch_to_tsquery('english', :q)
               {corpus_filter}
             ORDER BY score DESC, cd.published_at DESC NULLS LAST
             LIMIT :lim
@@ -342,4 +409,30 @@ async def corpus_search(
         ),
         params,
     )
-    return [_build_corpus_result(r) for r in rows.mappings().all()]
+    out = [_build_corpus_result(r) for r in rows.mappings().all()]
+    if len(out) < max(3, limit // 4):
+        ilike_params = dict(params)
+        ilike_params["pat"] = f"%{query.strip()}%"
+        rows2 = await db.execute(
+            text(
+                f"""
+                SELECT
+                    cd.id::text AS id, cd.corpus, cd.external_id AS name,
+                    cd.title, cd.summary, cd.published_at,
+                    0.05::float AS score
+                FROM corpus_documents cd
+                WHERE cd.tenant_id = :tenant_id
+                  AND (cd.external_id ILIKE :pat OR cd.title ILIKE :pat OR cd.summary ILIKE :pat)
+                  {corpus_filter}
+                ORDER BY cd.published_at DESC NULLS LAST
+                LIMIT :lim
+                """
+            ),
+            ilike_params,
+        )
+        seen = {r["id"] for r in out}
+        for row in rows2.mappings().all():
+            if row["id"] in seen:
+                continue
+            out.append(_build_corpus_result(row))
+    return out
