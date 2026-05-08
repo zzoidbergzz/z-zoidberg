@@ -1,5 +1,9 @@
 # Downstream LLM Prompt - Security Knowledge Service Roadmap
 
+<!-- Prompt file index: docs/prompts.md
+     This file: persona/system prompt for the coding-agent LLM.
+     See also: bootstrap.md (corpus onboarding), deep-research-prompt.md (corpus generation). -->
+
 ## File order
 
 1. **TODO.md** only. It replaces `PLAN.md` and `PLAN-EXTENSIONS.md`.

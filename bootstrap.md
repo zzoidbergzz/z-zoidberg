@@ -1,5 +1,9 @@
 # Bootstrap: MCP-Aware Research Corpus Ingestion
 
+<!-- Prompt file index: docs/prompts.md
+     This file: corpus onboarding contract (Mode A/B) for an LLM host.
+     See also: prompt.md (coding-agent system prompt), deep-research-prompt.md (corpus generation — being rewritten on feat/r1-deep-research-prompt-v2). -->
+
 Use this file to bootstrap another LLM host into this repository and the
 `security-knowledge/` service. The host should be able to use the service's
 runtime MCP dispatch, understand the current ingestion gaps, and feed either a
