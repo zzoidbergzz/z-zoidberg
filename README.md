@@ -170,11 +170,33 @@ not incorporated into this codebase, so it does not impose GPL requirements on t
 
 ## Known Gaps
 
-- Historical backfill is **not** performed — feeds only expose the recent N items so the knowledge base grows from the moment ingestion starts.
-- Enrichment runs on-demand for IPs/CVEs/URLs; a backfill sweep across all pre-existing entities is not yet automated (typical coverage after first day: CVEs ~17%, hashes ~5%, URLs near-100% via urlscan).
+- ~~Historical backfill is **not** performed~~ — now in progress: full MITRE CVE List V5, GCVE, and ExploitDB corpora are imported into `corpus_documents` (FTS-indexed) and refreshed daily via arq cron at 03:17 UTC (see `scripts/refresh_corpora.sh`).
+- Enrichment runs on-demand for IPs/CVEs/URLs; an idempotent backfill sweep is available via `scripts/enrich_backfill.py` (typical coverage after first sweep: CVEs ~30%, hashes ~10%, URLs near-100% via urlscan).
 - GraphQL resolvers return empty data.
 - MISP/OpenCTI bidirectional sync is incomplete.
 - Apache catch-all proxy means non-app paths (e.g. `/lookup.txt`) are answered by FastAPI rather than the filesystem.
+
+## Scheduled Jobs (arq cron)
+
+| Job | Cadence | Purpose |
+|---|---|---|
+| `poll_feeds` | every 5 min | Polls each `SourceRecord` whose `next_poll_at` has elapsed (per-source `poll_interval` honored) |
+| `send_digests` | hourly at :02 | Dispatches scheduled digest emails / webhooks (each digest's own cron schedule is checked inside) |
+| `refresh_corpora` | daily 03:17 UTC | `git pull` cvelistV5/gcve/exploitdb, then re-runs idempotent importers |
+| `check_ioc_watches` | event-driven | Fired after every enrichment cache miss; notifies subscribers of matched IOCs |
+
+## Roadmap — 10 Enhancement Ideas
+
+1. **Vector embeddings for semantic search** — embed `corpus_documents.body_text` with a local model (e.g. bge-small) into `pgvector`, expose `/search?mode=semantic` and an MCP `semantic_search` tool. Lets users find "kernel memory disclosure CVE in Linux io_uring" without knowing exact wording.
+2. **CVE ↔ ExploitDB ↔ MITRE auto-linking** — background job that parses `body_text` of every corpus_document for CVE ids and ATT&CK technique ids, builds explicit edges in a `corpus_links` table, then surfaces them as "Related" panels in the entity detail UI and an MCP `entity_neighbors(id)` tool.
+3. **Diff-aware feed ingestion** — per-source `last_modified` / `etag` headers + If-Modified-Since on RSS/Atom; for git-backed corpora track last-pulled SHA and only re-import touched files. Cuts daily refresh work by >95%.
+4. **User saved searches + email alerts** — let users save any `/search?q=...` URL with a cadence (hourly/daily). Worker job runs each saved search, diffs against last result set, emails new hits. Backed by existing digests pipeline.
+5. **Per-tenant sigma/yara rule library** — extend `detections` to store sigma + yara rules, auto-test against new ingested documents (regex/IoC match for sigma, hash+content match for yara), surface hits as `claims` with provenance.
+6. **OAuth/SSO (GitHub, Google, Entra)** — replace password-only auth with optional OAuth providers; map external email→User. Adds enterprise viability and removes the "first-login admin approval" friction for trusted IdPs.
+7. **TAXII 2.1 collection per tenant** — current TAXII is global; expose `/taxii2/collections/{tenant_id}/objects` so each tenant's STIX bundles are isolated. Enables MISP/OpenCTI peering with proper segregation.
+8. **MCP rate-limit + per-key quotas** — currently all authenticated MCP calls share global enrichment provider quotas. Add per-API-key rate limits + per-key BYOK provider preference (`provider_keys.preferred_for_key_id`) so heavy users supply their own quotas.
+9. **Public take-down / abuse contact lookup** — for any domain/IP/URL entity, auto-resolve abuse@ contact via WHOIS + RDAP + abuse.net, store on the entity, expose in UI + MCP. Massively speeds responder workflow.
+10. **Audit log streaming + immutable WORM mode** — current `audit_events` are mutable rows; add an append-only forwarder (Kafka/SIEM webhook) plus optional S3 Object Lock archival, gated by `settings.AUDIT_WORM=true`. Compliance-friendly and tamper-evident.
 
 ---
 

@@ -642,6 +642,52 @@ async def run_enrichment(
             raise
 
 
+async def refresh_corpora(
+    ctx: dict,
+    *,
+    _otel_ctx: dict | None = None,
+) -> dict:
+    """Daily refresh of historical CVE/GCVE/ExploitDB corpora.
+
+    Shells out to scripts/refresh_corpora.sh which does `git pull` per corpus
+    and re-runs each importer (importers are idempotent on (corpus, external_id)).
+    """
+    import asyncio
+    import os
+
+    script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "refresh_corpora.sh")
+    if not os.path.exists(script):
+        logger.warning("refresh_corpora_script_missing", path=script)
+        return {"status": "skipped", "reason": "script not found"}
+
+    t0 = time.monotonic()
+    job_id = "corpus-refresh-" + str(uuid.uuid4())[:8]
+    await record_job_start(job_id, "corpus_refresh")
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "/bin/bash", script,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        # Cap at 4h — corpora pulls can be large
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=14400)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await record_job_end(job_id, "corpus_refresh", "timeout", time.monotonic() - t0)
+            logger.warning("refresh_corpora_timeout")
+            return {"status": "timeout"}
+
+        rc = proc.returncode
+        status = "complete" if rc == 0 else "error"
+        await record_job_end(job_id, "corpus_refresh", status, time.monotonic() - t0)
+        logger.info("refresh_corpora_done", rc=rc, duration=time.monotonic() - t0)
+        return {"status": status, "returncode": rc}
+    except Exception:
+        await record_job_end(job_id, "corpus_refresh", "error", time.monotonic() - t0)
+        raise
+
+
 async def send_digests(
     ctx: dict,
     *,
@@ -729,14 +775,18 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [process_ingest_job, run_enrichment, send_digests, check_ioc_watches, poll_feeds]
+    functions = [process_ingest_job, run_enrichment, send_digests, check_ioc_watches, poll_feeds, refresh_corpora]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     max_jobs = 10
     job_timeout = 300
     keep_result = 3600  # seconds — retain job results for 1 hour
-    # Run feed poller every 5 minutes
     cron_jobs = [
+        # Feed poller every 5 minutes (per-source poll_interval is checked inside)
         cron(poll_feeds, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+        # Hourly digest dispatch (function checks each digest's own schedule)
+        cron(send_digests, minute={2}),
+        # Historical corpus refresh — daily 03:17 UTC (after most upstream daily syncs)
+        cron(refresh_corpora, hour={3}, minute={17}),
     ]
