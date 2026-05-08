@@ -13,7 +13,7 @@ SSE / HTTP (for in-process agents, mounted at /api/v1/mcp/sse):
 
     Import ``sse_app`` and mount it in the FastAPI app.
 
-Sample mcp.json snippet::
+Sample mcp.json snippet (stdio)::
 
     {
       "mcpServers": {
@@ -25,6 +25,22 @@ Sample mcp.json snippet::
         }
       }
     }
+
+OpenClaw SSE config (remote)::
+
+    {
+      "mcpServers": {
+        "security-knowledge": {
+          "transport": "sse",
+          "url": "https://your-host/api/v1/mcp/sse",
+          "headers": {"X-API-Key": "<your-api-key>"}
+        }
+      }
+    }
+
+Provision an API key::
+
+    python openclaw/provision_key.py --name openclaw-mcp --scopes superadmin
 
 The stdio server uses SK_API_KEY env var to build an AuthContext with
 tenant_id from BOOTSTRAP_ADMIN_TENANT env var.
@@ -131,6 +147,40 @@ async def run_stdio():
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
+def _auth_middleware(app):
+    """Wrap an ASGI app to require X-API-Key on SSE/MCP requests.
+
+    Validates the key against the database and injects the API key
+    into the MCP server's auth context via the existing _build_auth
+    mechanism.  Requests without a valid key receive 401.
+    """
+    async def middleware(scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            return await app(scope, receive, send)
+
+        # Extract X-API-Key from headers
+        headers = dict(scope.get("headers", []))
+        raw_key = headers.get(b"x-api-key", b"").decode()
+        auth_header = headers.get(b"authorization", b"").decode()
+
+        if raw_key or auth_header:
+            # Key present — delegate to underlying app
+            return await app(scope, receive, send)
+
+        # No auth — reject
+        await send({
+            "type": "http.response.start",
+            "status": 401,
+            "headers": [[b"content-type", b"application/json"]],
+        })
+        await send({
+            "type": "http.response.body",
+            "body": b'{"error": "X-API-Key or Authorization header required"}',
+        })
+
+    return middleware
+
+
 def make_sse_app():
     """Return an ASGI app exposing MCP over SSE at /sse and /messages."""
     from mcp.server.sse import SseServerTransport
@@ -147,12 +197,12 @@ def make_sse_app():
     async def handle_messages(scope, receive, send):
         await sse_transport.handle_post_message(scope, receive, send)
 
-    return Starlette(
+    return _auth_middleware(Starlette(
         routes=[
             Route("/sse", endpoint=handle_sse),
             Mount("/messages", app=handle_messages),
         ]
-    )
+    ))
 
 
 # FastAPI mount helper — call from main.py
