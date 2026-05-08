@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
@@ -13,6 +14,14 @@ class SearchResult(BaseModel):
     id: str
     name: str
     score: float = 1.0
+    description: Optional[str] = None
+    tags: list[str] = []
+    confidence: Optional[str] = None
+    cvss: Optional[str] = None
+    severity: Optional[str] = None
+    nvd_link: Optional[str] = None
+    mitre_link: Optional[str] = None
+    detail_url: Optional[str] = None
 
 
 @router.get("/", response_model=list[SearchResult])
@@ -20,7 +29,7 @@ async def search(
     q: str = Query(..., min_length=2),
     limit: int = Query(20, le=100),
     db: AsyncSession = Depends(get_db),
-    auth: dict = Depends(require_read),
+    auth = Depends(require_read),
 ):
     results = await full_text_search(db, auth.tenant_id, q, limit)
     return [SearchResult(**r) for r in results]

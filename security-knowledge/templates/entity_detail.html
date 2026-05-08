@@ -15,6 +15,347 @@
     </div>
   </header>
 
+  <div class="grid-2" style="margin-top:1rem;" id="main-grid">
+    <!-- Details card -->
+    <section class="card" id="details-card" style="display:none;">
+      <div class="section-title">Details</div>
+      <div id="meta-grid" style="margin-top:0.75rem;display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;"></div>
+      <div id="description-block" style="margin-top:1rem;display:none;">
+        <div class="section-title" style="font-size:0.8rem;margin-bottom:0.4rem;">Description</div>
+        <p id="description-text" class="subtle" style="font-size:0.9rem;line-height:1.6;"></p>
+      </div>
+    </section>
+
+    <!-- CVE / Vulnerability detail card -->
+    <section class="card" id="vuln-card" style="display:none;">
+      <div class="section-title">Vulnerability Details</div>
+      <div id="vuln-body" style="margin-top:0.75rem;"></div>
+    </section>
+  </div>
+
+  <!-- Enrichments -->
+  <section class="panel" id="enrichments-card" style="margin-top:1rem;display:none;">
+    <div class="section-title">Enrichment Results</div>
+    <div id="enrichments-body" style="margin-top:0.75rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.75rem;"></div>
+  </section>
+
+  <!-- Relationships -->
+  <section class="panel" id="rels-card" style="margin-top:1rem;display:none;">
+    <div class="section-title">Relationships</div>
+    <table class="table" style="margin-top:0.75rem;">
+      <thead><tr><th>Relation</th><th>Target</th><th>Kind</th></tr></thead>
+      <tbody id="rels-body"></tbody>
+    </table>
+  </section>
+
+  <!-- Graph link -->
+  <section class="panel" id="graph-link-section" style="margin-top:1rem;display:none;">
+    <a id="graph-link" class="button-muted" href="#">View in Graph</a>
+  </section>
+
+  <!-- Ask AI -->
+  <section class="card" id="ask-ai-card" style="margin-top:1rem;display:none;">
+    <div class="section-title">Ask AI <span class="subtle" style="font-size:0.8rem;font-weight:400;">· Claude (Anthropic)</span></div>
+    <details style="margin-top:0.75rem;">
+      <summary class="button-muted" style="cursor:pointer;display:inline-block;">Ask about this entity</summary>
+      <div style="margin-top:0.75rem;">
+        <textarea class="form-input mono" id="ai-question" rows="3" style="width:100%;resize:vertical;font-size:0.9rem;"></textarea>
+        <div style="display:flex;gap:0.75rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap;">
+          <button class="button" id="ask-btn">Ask Claude</button>
+          <span id="ask-status" class="tiny-pill"></span>
+        </div>
+        <div id="ai-response" class="card" style="margin-top:0.75rem;display:none;white-space:pre-wrap;font-size:0.9rem;line-height:1.6;"></div>
+      </div>
+    </details>
+  </section>
+</main>
+
+<style>
+.cvss-badge { font-size:0.78rem; font-weight:700; padding:0.2rem 0.5rem; border-radius:4px; }
+.cvss-critical { background:#7f1d1d; color:#fca5a5; }
+.cvss-high     { background:#7c2d12; color:#fdba74; }
+.cvss-medium   { background:#78350f; color:#fde68a; }
+.cvss-low      { background:#14532d; color:#86efac; }
+.kev-badge { background:#7f1d1d; color:#fca5a5; font-size:0.72rem; font-weight:700; padding:0.18rem 0.45rem; border-radius:4px; }
+.enrich-card { background:var(--surface,#1a1a2e); border:1px solid var(--border,#2a2a4a); border-radius:8px; padding:0.85rem 1rem; }
+.enrich-card-title { font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--accent,#4af); margin-bottom:0.5rem; }
+.enrich-kv { display:grid; grid-template-columns:auto 1fr; gap:0.25rem 0.75rem; font-size:0.82rem; }
+.enrich-kv .k { color:var(--text-muted,#94a3b8); white-space:nowrap; }
+.enrich-kv .v { word-break:break-all; }
+</style>
+
+<script>
+(function () {
+  const KIND_ICONS = {
+    cve:'🔴', vulnerability:'🔓', malware:'🦠', actor:'🕵️', tool:'🔧',
+    technique:'⚡', subtechnique:'⚡', tactic:'🎯', attack_pattern:'⚡',
+    domain:'🌐', ip_address:'📍', hash:'#️⃣', campaign:'⚔️', report:'📄',
+    product:'📦', framework:'🏗️', indicator:'🔎', other:'📌'
+  };
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function cvssClass(sev) {
+    const s = (sev||"").toLowerCase();
+    if (s === "critical") return "cvss-critical";
+    if (s === "high")     return "cvss-high";
+    if (s === "medium")   return "cvss-medium";
+    if (s === "low")      return "cvss-low";
+    return "";
+  }
+
+  const entityId = window.location.pathname.split("/").pop();
+  const statusEl = document.getElementById("status");
+
+  // ── Load entity + enrichments in parallel ────────────────────────────
+  async function loadAll() {
+    statusEl.textContent = "Loading…";
+    try {
+      const [entityResp, enrichResp] = await Promise.all([
+        fetch(`/api/v1/entities/${entityId}`, { credentials: "same-origin" }),
+        fetch(`/api/v1/lookup/entity/${entityId}/results`, { credentials: "same-origin" }),
+      ]);
+      const e = entityResp.ok ? await entityResp.json() : null;
+      const enrichData = enrichResp.ok ? await enrichResp.json() : null;
+
+      if (!e) { statusEl.textContent = "Entity not found."; return; }
+      statusEl.textContent = "";
+      renderEntity(e, enrichData);
+    } catch (err) {
+      statusEl.textContent = "Error: " + err.message;
+    }
+  }
+
+  // ── Render entity header + details ───────────────────────────────────
+  function renderEntity(e, enrichData) {
+    const name = e.canonical_name || e.name || e.id;
+    const kind = e.kind || "";
+    const icon = KIND_ICONS[kind] || "📦";
+    document.getElementById("entity-icon").textContent = icon;
+    document.getElementById("entity-name").textContent = name;
+    document.title = name + " · z.je";
+
+    const extRefs = e.external_refs || {};
+
+    const badges = document.getElementById("entity-badges");
+    badges.innerHTML = `<span class="tiny-pill">${esc(kind)}</span>`;
+    // CVE CVSS from external_refs
+    if (extRefs.cvss) {
+      const cvssVal = parseFloat(extRefs.cvss);
+      let sev = cvssVal >= 9 ? "critical" : cvssVal >= 7 ? "high" : cvssVal >= 4 ? "medium" : "low";
+      badges.innerHTML += ` <span class="cvss-badge ${cvssClass(sev)}">${sev.toUpperCase()} ${esc(extRefs.cvss)}</span>`;
+    }
+    if (e.mitre_attack_id) {
+      badges.innerHTML += ` <span class="tiny-pill">${esc(e.mitre_attack_id)}</span>`;
+    }
+    document.getElementById("entity-header").style.display = "";
+
+    // Meta grid
+    const meta = document.getElementById("meta-grid");
+    const fields = [
+      ["ID", e.id],
+      ["Kind", kind],
+      ["MITRE ID", e.mitre_attack_id],
+      ["CVE", extRefs.cve],
+      ["CVSS", extRefs.cvss],
+    ].filter(([,v]) => v != null && v !== "");
+    meta.innerHTML = fields.map(([k,v]) =>
+      `<span class="subtle" style="font-size:0.82rem;">${esc(k)}</span><span class="mono" style="font-size:0.82rem;">${esc(v)}</span>`
+    ).join("");
+    document.getElementById("details-card").style.display = "";
+
+    // Graph + Ask AI
+    document.getElementById("graph-link").href = `/graph?entity_id=${encodeURIComponent(entityId)}`;
+    document.getElementById("graph-link-section").style.display = "";
+    document.getElementById("ai-question").value = `Explain this ${kind || "entity"} "${name}" and its security relevance.`;
+    document.getElementById("ask-ai-card").style.display = "";
+    window._entityContext = JSON.stringify({ id: e.id, kind, name, external_refs: extRefs }, null, 2);
+
+    // Enrichments
+    if (enrichData) {
+      renderEnrichments(kind, name, extRefs, enrichData);
+    }
+
+    loadRelationships();
+  }
+
+  // ── Render enrichment results ─────────────────────────────────────────
+  function renderEnrichments(kind, name, extRefs, data) {
+    const enrichments = data.enrichments || [];
+    // Filter out empty
+    const filled = enrichments.filter(e => e.data && Object.keys(e.data).length > 0);
+
+    // CVE-specific card from NVD
+    const nvdEntry = filled.find(e => e.source === "nvd");
+    if (nvdEntry && nvdEntry.data) {
+      renderCVECard(name, extRefs, nvdEntry.data);
+    } else if (kind === "cve" || kind === "vulnerability") {
+      // Show basic CVE card from external_refs even without NVD cache
+      renderCVECard(name, extRefs, {});
+    }
+
+    if (!filled.length) return;
+
+    const body = document.getElementById("enrichments-body");
+    body.innerHTML = filled.map(enr => {
+      const d = enr.data || {};
+      const src = enr.source || "unknown";
+      const kvPairs = renderKV(d, src);
+      if (!kvPairs) return "";
+      return `<div class="enrich-card">
+        <div class="enrich-card-title">${esc(src)}</div>
+        <div class="enrich-kv">${kvPairs}</div>
+      </div>`;
+    }).filter(Boolean).join("");
+
+    if (body.innerHTML) {
+      document.getElementById("enrichments-card").style.display = "";
+    }
+  }
+
+  function renderKV(d, src) {
+    const skip = new Set(["nvd_link","gcve_link","cve_id","cvss","affected_products"]);
+    const entries = Object.entries(d)
+      .filter(([k, v]) => !skip.has(k) && v !== null && v !== "" && !(Array.isArray(v) && !v.length) && typeof v !== "object")
+      .slice(0, 12);
+    if (!entries.length) return "";
+    return entries.map(([k, v]) =>
+      `<span class="k">${esc(k.replace(/_/g," "))}</span><span class="v">${esc(String(v).slice(0,120))}</span>`
+    ).join("");
+  }
+
+  // ── CVE-specific detail card ──────────────────────────────────────────
+  function renderCVECard(name, extRefs, nvd) {
+    const cveId = extRefs.cve || name;
+    const cvssScore = nvd.base_score || extRefs.cvss;
+    const severity = nvd.severity || "";
+    const description = nvd.description || "";
+    const affected = nvd.affected_products || [];
+    const kev = nvd.cisa_kev || nvd.exploited_in_wild || false;
+    const nvdLink = nvd.nvd_link || (cveId ? `https://nvd.nist.gov/vuln/detail/${cveId}` : null);
+    const gcveLink = nvd.gcve_link || null;
+
+    if (!cvssScore && !description && !kev && !affected.length && !nvdLink) return;
+
+    const card = document.getElementById("vuln-card");
+    const body = document.getElementById("vuln-body");
+
+    let html = "";
+    // Score + badges row
+    if (cvssScore || kev) {
+      html += `<div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-bottom:0.75rem;">`;
+      if (cvssScore) {
+        html += `<span class="cvss-badge ${cvssClass(severity)}" title="CVSS Score">${severity ? severity.toUpperCase() + " " : ""}${esc(String(cvssScore))}</span>`;
+      }
+      if (kev) {
+        html += `<span class="kev-badge" title="CISA Known Exploited Vulnerability">⚠ Exploited in Wild (CISA KEV)</span>`;
+      }
+      if (nvdLink) html += `<a href="${esc(nvdLink)}" target="_blank" rel="noopener" style="font-size:0.8rem;color:var(--accent);">NVD ↗</a>`;
+      if (gcveLink) html += `<a href="${esc(gcveLink)}" target="_blank" rel="noopener" style="font-size:0.8rem;color:var(--accent);">GCVE ↗</a>`;
+      html += `</div>`;
+    }
+
+    // Description
+    if (description) {
+      html += `<p style="font-size:0.88rem;color:var(--text-muted,#94a3b8);line-height:1.6;margin-bottom:0.75rem;">${esc(description)}</p>`;
+    }
+
+    // Affected products
+    if (affected.length) {
+      html += `<div style="margin-top:0.5rem;">
+        <div class="section-title" style="font-size:0.78rem;margin-bottom:0.4rem;">Affected Products (${affected.length})</div>
+        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+          ${affected.slice(0, 15).map(p => `<span class="tiny-pill">${esc(p)}</span>`).join("")}
+          ${affected.length > 15 ? `<span class="subtle" style="font-size:0.8rem;align-self:center;">+${affected.length-15} more</span>` : ""}
+        </div>
+      </div>`;
+    }
+
+    body.innerHTML = html;
+    card.style.display = "";
+  }
+
+  // ── Relationships ─────────────────────────────────────────────────────
+  async function loadRelationships() {
+    try {
+      const resp = await fetch(`/api/v1/lookup/entity/${entityId}/graph`, { credentials: "same-origin" });
+      if (!resp.ok) return;
+      const g = await resp.json();
+      const edges = g.edges || [];
+      const nodes = g.nodes || [];
+      if (!edges.length) return;
+      const nodeMap = {};
+      nodes.forEach(n => nodeMap[n.id] = n);
+      const tbody = document.getElementById("rels-body");
+      tbody.innerHTML = edges.map(edge => {
+        const target = nodeMap[edge.to] || { id: edge.to, label: edge.to };
+        const targetName = target.label || target.id;
+        const targetKind = target.kind || "";
+        const rel = edge.label || edge.type || "related";
+        const icon = KIND_ICONS[targetKind] || "📦";
+        return `<tr>
+          <td><span class="tiny-pill">${esc(rel)}</span></td>
+          <td><a href="/entities/${esc(edge.to)}">${icon} ${esc(targetName)}</a></td>
+          <td><span class="tiny-pill">${esc(targetKind)}</span></td>
+        </tr>`;
+      }).join("");
+      document.getElementById("rels-card").style.display = "";
+    } catch (_) {}
+  }
+
+  // ── Ask AI ────────────────────────────────────────────────────────────
+  document.getElementById("ask-btn").addEventListener("click", async () => {
+    const question = document.getElementById("ai-question").value.trim();
+    if (!question) return;
+    const askStatus = document.getElementById("ask-status");
+    const aiResponse = document.getElementById("ai-response");
+    askStatus.textContent = "Asking Claude…";
+    aiResponse.style.display = "none";
+    try {
+      const resp = await fetch("/api/v1/ask/", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question,
+          context: window._entityContext || "",
+          model: "claude-3-5-haiku-20241022",
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: "error" }));
+        throw new Error(err.detail || "HTTP " + resp.status);
+      }
+      const data = await resp.json();
+      askStatus.textContent = data.model || "";
+      aiResponse.textContent = data.answer;
+      aiResponse.style.display = "";
+    } catch (err) {
+      askStatus.textContent = "Error: " + err.message;
+    }
+  });
+
+  loadAll();
+})();
+</script>
+{% endblock %}
+<main class="page-shell">
+  <div id="status" class="status-bar"></div>
+
+  <!-- Header -->
+  <header class="page-header" id="entity-header" style="display:none;">
+    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+      <span id="entity-icon" style="font-size:2rem;"></span>
+      <div>
+        <h1 id="entity-name" style="margin:0;"></h1>
+        <div id="entity-badges" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.4rem;"></div>
+      </div>
+    </div>
+  </header>
+
   <div class="grid-2" style="margin-top:1rem;" id="main-grid" style="display:none;">
     <!-- Details card -->
     <section class="card" id="details-card" style="display:none;">
