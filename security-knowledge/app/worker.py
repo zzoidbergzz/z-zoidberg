@@ -41,23 +41,31 @@ _KIND_MAP: dict[str, str] = {
 }
 
 
+def _strip_null_bytes(value: str) -> str:
+    """Postgres TEXT/VARCHAR cannot store NUL (0x00). Strip and normalise."""
+    if not value:
+        return value
+    # Drop NULs and other C0 controls except \t \n \r — keeps utf-8 valid.
+    return value.replace("\x00", "").translate({i: None for i in range(0, 32) if i not in (9, 10, 13)})
+
+
 def _extract_title(html: str) -> str:
     """Pull <title> text from raw HTML."""
     m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
-    return m.group(1).strip() if m else ""
+    return _strip_null_bytes(m.group(1).strip()) if m else ""
 
 
 def _parse_content(html: str, content_type: str) -> str:
     """Extract plain text from HTML using trafilatura, falling back to BeautifulSoup."""
     if content_type == "text/markdown":
-        return html
+        return _strip_null_bytes(html)
 
     try:
         import trafilatura
 
         text = trafilatura.extract(html, include_comments=False, include_tables=True)
         if text:
-            return text
+            return _strip_null_bytes(text)
     except Exception:
         pass
 
@@ -67,12 +75,12 @@ def _parse_content(html: str, content_type: str) -> str:
         soup = BeautifulSoup(html, "html.parser")
         for tag in soup(["script", "style", "noscript"]):
             tag.decompose()
-        return soup.get_text(separator="\n")
+        return _strip_null_bytes(soup.get_text(separator="\n"))
     except Exception:
         pass
 
     # Last resort: strip HTML tags with regex
-    return re.sub(r"<[^>]+>", " ", html)
+    return _strip_null_bytes(re.sub(r"<[^>]+>", " ", html))
 
 
 def _chunk_text(text: str) -> list[tuple[str, str]]:
@@ -253,7 +261,7 @@ async def process_ingest_job(
                             ParsedDocument.url == source_url,
                         )
                     )
-                    existing_doc = existing.scalar_one_or_none()
+                    existing_doc = existing.scalars().first()
                     if existing_doc is not None:
                         logger.info(
                             "ingest_job_skipped_duplicate",
@@ -325,7 +333,7 @@ async def process_ingest_job(
                         ParsedDocument.metadata_["content_sha256"].as_string() == content_sha256,
                     )
                 )
-                existing_by_hash_doc = existing_by_hash.scalar_one_or_none()
+                existing_by_hash_doc = existing_by_hash.scalars().first()
                 if existing_by_hash_doc is not None:
                     logger.info(
                         "ingest_job_skipped_duplicate_hash",
