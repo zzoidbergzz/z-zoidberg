@@ -124,20 +124,11 @@ _templates_dir = Path(__file__).parent.parent / "templates"
 _templates = Jinja2Templates(directory=str(_templates_dir)) if _templates_dir.exists() else None
 
 # ── Public browser pages ───────────────────────────────────────────────────────
-PUBLIC_PATHS = {"/login", "/register", "/health", "/api", "/fp", "/ip", "/ua", "/headers", "/static", "/favicon.ico"}
+PUBLIC_PATHS = {"/login", "/register", "/health", "/api", "/fp", "/ip", "/ua", "/headers", "/static", "/favicon.ico", "/pending"}
 
 
 def _is_public(path: str) -> bool:
     return any(path == p or path.startswith(p + "/") for p in PUBLIC_PATHS)
-
-
-@app.get("/", include_in_schema=False)
-async def root(request: Request):
-    """Redirect root: authenticated users → /ui/, others → /login."""
-    cookie = request.cookies.get(settings.SESSION_COOKIE_NAME)
-    if cookie:
-        return RedirectResponse(url="/ui/")
-    return RedirectResponse(url="/login")
 
 
 @app.get("/login", include_in_schema=False, response_class=HTMLResponse)

@@ -26,8 +26,9 @@
         <a href="/" class="nav-pill">Search</a>
         <a href="/fp" class="nav-pill">Fingerprint</a>
         <a href="/investigation" class="nav-pill">Investigations</a>
+        <a href="/graph" class="nav-pill">Graph</a>
         {% if current_user and current_user.role == 'admin' %}
-        <a href="/ui/admin" class="nav-pill">Admin</a>
+        <a href="/admin" class="nav-pill">Admin</a>
         {% endif %}
       </div>
       <div class="nav-user">
