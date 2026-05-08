@@ -1,4 +1,5 @@
 """MCP tool: enrich a named entity via registered providers."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enrichment.registry import list_providers
 from app.enrichment.service import EnrichmentService
+from app.mcp.registry import register_tool
 
 logger = structlog.get_logger(__name__)
 
@@ -60,3 +62,36 @@ async def enrich_entity_tool(inp: EnrichEntityInput, db: AsyncSession) -> Enrich
         results=results,
         count=len(results),
     )
+
+
+async def _enrich_entity_mcp(args: dict, db, auth) -> dict:
+    inp = EnrichEntityInput(tenant_id=str(auth.tenant_id), **args)
+    result = await enrich_entity_tool(inp, db)
+    return result.model_dump()
+
+
+register_tool(
+    name="enrich_entity",
+    fn=_enrich_entity_mcp,
+    schema={
+        "type": "object",
+        "required": ["entity_kind", "entity_value"],
+        "properties": {
+            "entity_kind": {
+                "type": "string",
+                "description": "Kind of entity to enrich (e.g. cve, ip_address, domain, malware)",
+            },
+            "entity_value": {
+                "type": "string",
+                "description": "The entity value to look up (e.g. CVE-2024-1234, 1.2.3.4)",
+            },
+            "providers": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Optional provider names to restrict enrichment to",
+            },
+        },
+    },
+    description="Enrich an entity via registered providers",
+    scope="read",
+)
