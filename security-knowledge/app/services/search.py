@@ -1,6 +1,6 @@
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from app.models.entities import Entity
 from app.models.claims import Claim
 import structlog
@@ -17,28 +17,28 @@ async def full_text_search(
     entity_result = await db.execute(
         select(Entity).where(
             Entity.tenant_id == tenant_id,
-            or_(Entity.name.ilike(f"%{query}%"), Entity.description.ilike(f"%{query}%"))
+            Entity.canonical_name.ilike(f"%{query}%")
         ).limit(limit)
     )
     for entity in entity_result.scalars().all():
         results.append({
             "kind": "entity",
             "id": str(entity.id),
-            "name": entity.name,
+            "name": entity.canonical_name,
             "score": 1.0,
         })
 
     claim_result = await db.execute(
         select(Claim).where(
             Claim.tenant_id == tenant_id,
-            or_(Claim.subject.ilike(f"%{query}%"), Claim.predicate.ilike(f"%{query}%"))
+            Claim.claim_type.ilike(f"%{query}%")
         ).limit(limit)
     )
     for claim in claim_result.scalars().all():
         results.append({
             "kind": "claim",
             "id": str(claim.id),
-            "name": f"{claim.subject} {claim.predicate} {claim.object}",
+            "name": f"{claim.claim_type}: {str(claim.value)[:80]}",
             "score": 1.0,
         })
 

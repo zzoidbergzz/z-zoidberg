@@ -31,7 +31,7 @@ async def list_webhooks(
     auth: dict = Depends(require_read),
 ):
     result = await db.execute(
-        select(WebhookSubscription).where(WebhookSubscription.tenant_id == auth["tenant_id"])
+        select(WebhookSubscription).where(WebhookSubscription.tenant_id == auth.tenant_id)
     )
     return result.scalars().all()
 
@@ -43,7 +43,7 @@ async def create_webhook(
     auth: dict = Depends(require_write),
 ):
     wh = WebhookSubscription(
-        tenant_id=auth["tenant_id"],
+        tenant_id=auth.tenant_id,
         url=body.url,
         filters={"event_types": body.event_types},
         secret=body.secret,

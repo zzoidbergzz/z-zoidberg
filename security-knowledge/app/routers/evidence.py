@@ -33,7 +33,7 @@ async def list_evidence(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_read),
 ):
-    result = await db.execute(select(Evidence).where(Evidence.tenant_id == auth["tenant_id"]).limit(limit))
+    result = await db.execute(select(Evidence).where(Evidence.tenant_id == auth.tenant_id).limit(limit))
     return result.scalars().all()
 
 
@@ -43,7 +43,7 @@ async def create_evidence(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_write),
 ):
-    ev = Evidence(tenant_id=auth["tenant_id"], **body.model_dump())
+    ev = Evidence(tenant_id=auth.tenant_id, **body.model_dump())
     db.add(ev)
     await db.flush()
     await db.refresh(ev)

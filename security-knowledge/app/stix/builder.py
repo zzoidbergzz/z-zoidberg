@@ -105,8 +105,8 @@ def build_stix_bundle(entities: list, claims: list, relationships: list | None =
     for rel in (relationships or []):
         rel_id = getattr(rel, "id", uuid.uuid4())
         stix_rel_id = getattr(rel, "stix_id", None) or f"relationship--{rel_id}"
-        source_entity_id = getattr(rel, "source_id", None)
-        target_entity_id = getattr(rel, "target_id", None)
+        source_entity_id = getattr(rel, "from_entity_id", None)
+        target_entity_id = getattr(rel, "to_entity_id", None)
         created = (
             rel.created_at.isoformat()
             if getattr(rel, "created_at", None)
@@ -129,7 +129,7 @@ def build_stix_bundle(entities: list, claims: list, relationships: list | None =
             "spec_version": "2.1",
             "created": created,
             "modified": created,
-            "relationship_type": getattr(rel, "relationship_type", "related-to"),
+            "relationship_type": getattr(rel, "kind", "related-to"),
             "source_ref": src_stix_id,
             "target_ref": tgt_stix_id,
             "description": getattr(rel, "description", ""),

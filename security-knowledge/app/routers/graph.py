@@ -17,4 +17,4 @@ async def get_graph(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_read),
 ):
-    return await build_graph(db, str(auth["tenant_id"]), entity_id, depth, fmt)
+    return await build_graph(db, str(auth.tenant_id), entity_id, depth, fmt)

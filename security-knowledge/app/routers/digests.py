@@ -33,7 +33,7 @@ async def list_digests(
     auth: dict = Depends(require_read),
 ):
     result = await db.execute(
-        select(DigestSubscription).where(DigestSubscription.tenant_id == auth["tenant_id"])
+        select(DigestSubscription).where(DigestSubscription.tenant_id == auth.tenant_id)
     )
     return result.scalars().all()
 
@@ -44,7 +44,7 @@ async def create_digest(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_write),
 ):
-    sub = DigestSubscription(tenant_id=auth["tenant_id"], **body.model_dump())
+    sub = DigestSubscription(tenant_id=auth.tenant_id, **body.model_dump())
     db.add(sub)
     await db.flush()
     await db.refresh(sub)

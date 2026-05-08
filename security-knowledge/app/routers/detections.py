@@ -16,7 +16,7 @@ async def list_rules(
     auth: dict = Depends(require_read),
 ):
     result = await db.execute(
-        select(DetectionRule).where(DetectionRule.tenant_id == auth["tenant_id"])
+        select(DetectionRule).where(DetectionRule.tenant_id == auth.tenant_id)
     )
     return result.scalars().all()
 
@@ -27,7 +27,7 @@ async def create_rule(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_write),
 ):
-    rule = DetectionRule(tenant_id=auth["tenant_id"], **body.model_dump())
+    rule = DetectionRule(tenant_id=auth.tenant_id, **body.model_dump())
     db.add(rule)
     await db.flush()
     await db.refresh(rule)

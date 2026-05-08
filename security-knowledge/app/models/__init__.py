@@ -2,7 +2,7 @@ from app.models.audit import AuditEvent
 from app.models.auth import ApiKey, Tenant, User
 from app.models.base import Base, TimestampMixin, UUIDMixin
 from app.models.changes import Change
-from app.models.claims import Claim, ClaimVersion
+from app.models.claims import Claim
 from app.models.detections import DetectionRule
 from app.models.digests import DigestRun, DigestSubscription, InboxItem, SavedSearch
 from app.models.documents import DocumentSection, ParsedDocument
@@ -26,7 +26,7 @@ __all__ = [
     "ParsedDocument", "DocumentSection",
     "Evidence", "ChunkEmbedding",
     "Entity", "EntityAlias", "EntityKind",
-    "Claim", "ClaimVersion",
+    "Claim",
     "Relationship",
     "LearningUnit",
     "IngestionJob",

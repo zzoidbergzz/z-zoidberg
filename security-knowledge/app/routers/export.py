@@ -101,7 +101,7 @@ async def export_stix(
         rels_result = await db.execute(
             select(Relationship).where(
                 Relationship.tenant_id == tenant_id,
-                Relationship.source_id.in_(entity_ids),
+                Relationship.from_entity_id.in_(entity_ids),
             ).limit(limit * 10)
         )
         rels = list(rels_result.scalars().all())

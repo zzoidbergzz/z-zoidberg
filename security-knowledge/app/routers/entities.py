@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from typing import Optional
 import uuid
 from app.database import get_db
@@ -14,15 +14,12 @@ router = APIRouter(prefix="/entities", tags=["entities"])
 class EntityCreate(BaseModel):
     name: str
     kind: EntityKind
-    description: Optional[str] = None
-    confidence: int = 50
 
 
 class EntityOut(BaseModel):
     id: uuid.UUID
     canonical_name: str
     kind: str
-    description: Optional[str] = None
     tenant_id: uuid.UUID
     model_config = {"from_attributes": True}
 
@@ -39,7 +36,7 @@ async def list_entities(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_read),
 ):
-    q = select(Entity).where(Entity.tenant_id == auth["tenant_id"]).limit(limit).offset(offset)
+    q = select(Entity).where(Entity.tenant_id == auth.tenant_id).limit(limit).offset(offset)
     if kind:
         q = q.where(Entity.kind == kind)
     result = await db.execute(q)
@@ -53,10 +50,9 @@ async def create_entity(
     auth: dict = Depends(require_write),
 ):
     entity = Entity(
-        tenant_id=auth["tenant_id"],
+        tenant_id=auth.tenant_id,
         canonical_name=body.name,
         kind=body.kind,
-        description=body.description or "",
     )
     db.add(entity)
     await db.flush()
@@ -71,7 +67,7 @@ async def get_entity(
     auth: dict = Depends(require_read),
 ):
     result = await db.execute(
-        select(Entity).where(Entity.id == entity_id, Entity.tenant_id == auth["tenant_id"])
+        select(Entity).where(Entity.id == entity_id, Entity.tenant_id == auth.tenant_id)
     )
     entity = result.scalar_one_or_none()
     if not entity:

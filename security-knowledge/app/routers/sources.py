@@ -51,7 +51,7 @@ async def list_sources(
     auth: dict = Depends(require_read),
 ):
     result = await db.execute(
-        select(SourceRecord).where(SourceRecord.tenant_id == auth["tenant_id"]).limit(limit)
+        select(SourceRecord).where(SourceRecord.tenant_id == auth.tenant_id).limit(limit)
     )
     return result.scalars().all()
 
@@ -64,7 +64,7 @@ async def feed_status(
     auth: dict = Depends(require_read),
 ):
     """Return per-feed health: last fetch time, next due time, last outcome, overdue flag."""
-    stmt = select(SourceRecord).where(SourceRecord.tenant_id == auth["tenant_id"])
+    stmt = select(SourceRecord).where(SourceRecord.tenant_id == auth.tenant_id)
     if active_only:
         stmt = stmt.where(SourceRecord.active == True)  # noqa: E712
     stmt = stmt.limit(limit)

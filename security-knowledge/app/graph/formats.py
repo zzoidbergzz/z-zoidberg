@@ -22,8 +22,8 @@ def to_vis_js(entities: list, relationships: list) -> dict:
     edges = [
         {
             "id": str(r.id),
-            "from": str(r.source_id),
-            "to": str(r.target_id),
+            "from": str(r.from_entity_id),
+            "to": str(r.to_entity_id),
             "label": r.kind,
         }
         for r in relationships
@@ -43,6 +43,6 @@ def to_cytoscape(entities: list, relationships: list) -> list[dict]:
         })
     for r in relationships:
         elements.append({
-            "data": {"id": str(r.id), "source": str(r.source_id), "target": str(r.target_id), "label": r.kind}
+            "data": {"id": str(r.id), "source": str(r.from_entity_id), "target": str(r.to_entity_id), "label": r.kind}
         })
     return elements

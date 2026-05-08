@@ -21,7 +21,7 @@ async def build_graph(
     entity_ids = [e.id for e in entities]
     rel_q = select(Relationship).where(
         Relationship.tenant_id == tenant_id,
-        Relationship.source_id.in_(entity_ids),
+        Relationship.from_entity_id.in_(entity_ids),
     )
     relationships = list((await db.execute(rel_q)).scalars().all())
 

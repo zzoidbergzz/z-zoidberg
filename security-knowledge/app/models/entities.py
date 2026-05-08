@@ -35,11 +35,8 @@ class Entity(Base, UUIDMixin, TimestampMixin):
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     kind: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     canonical_name: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
-    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    stix_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     mitre_attack_id: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
     external_refs: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    properties: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     aliases: Mapped[list["EntityAlias"]] = relationship("EntityAlias", back_populates="entity")
 
 

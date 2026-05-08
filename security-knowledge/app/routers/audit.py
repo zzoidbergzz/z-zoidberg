@@ -31,7 +31,7 @@ async def list_audit_events(
     auth: dict = Depends(require_read),
 ):
     result = await db.execute(
-        select(AuditEvent).where(AuditEvent.tenant_id == auth["tenant_id"])
+        select(AuditEvent).where(AuditEvent.tenant_id == auth.tenant_id)
         .order_by(AuditEvent.created_at.desc())
         .limit(limit).offset(offset)
     )

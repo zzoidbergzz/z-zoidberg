@@ -30,7 +30,7 @@ async def list_collections(
     auth: dict = Depends(require_read),
 ):
     result = await db.execute(
-        select(TaxiiCollection).where(TaxiiCollection.tenant_id == auth["tenant_id"])
+        select(TaxiiCollection).where(TaxiiCollection.tenant_id == auth.tenant_id)
     )
     collections = result.scalars().all()
     return {
@@ -53,7 +53,7 @@ async def get_objects(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_read),
 ):
-    result = await db.execute(select(Entity).where(Entity.tenant_id == auth["tenant_id"]).limit(100))
+    result = await db.execute(select(Entity).where(Entity.tenant_id == auth.tenant_id).limit(100))
     entities = list(result.scalars().all())
     bundle = build_stix_bundle(entities, [])
     return bundle

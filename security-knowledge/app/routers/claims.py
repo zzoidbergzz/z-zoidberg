@@ -36,7 +36,7 @@ async def list_claims(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_read),
 ):
-    q = select(Claim).where(Claim.tenant_id == auth["tenant_id"]).limit(limit).offset(offset)
+    q = select(Claim).where(Claim.tenant_id == auth.tenant_id).limit(limit).offset(offset)
     result = await db.execute(q)
     return result.scalars().all()
 
@@ -52,7 +52,7 @@ async def create_claim(
     if body.subject and body.predicate and body.object:
         statement = f"{body.subject} {body.predicate} {body.object}"
     claim = Claim(
-        tenant_id=auth["tenant_id"],
+        tenant_id=auth.tenant_id,
         statement=statement,
         claim_type=body.claim_type,
         confidence=body.confidence,

@@ -24,7 +24,7 @@ async def enrich_entity(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_write),
 ):
-    service = EnrichmentService(db, str(auth["tenant_id"]))
+    service = EnrichmentService(db, str(auth.tenant_id))
     providers = list_providers()
     results = {}
     for prov in providers:

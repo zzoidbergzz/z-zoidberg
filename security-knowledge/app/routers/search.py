@@ -22,5 +22,5 @@ async def search(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_read),
 ):
-    results = await full_text_search(db, auth["tenant_id"], q, limit)
+    results = await full_text_search(db, auth.tenant_id, q, limit)
     return [SearchResult(**r) for r in results]

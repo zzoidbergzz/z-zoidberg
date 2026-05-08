@@ -15,6 +15,6 @@ async def export_stix_bundle(
     db: AsyncSession = Depends(get_db),
     auth: dict = Depends(require_read),
 ):
-    result = await db.execute(select(Entity).where(Entity.tenant_id == auth["tenant_id"]).limit(limit))
+    result = await db.execute(select(Entity).where(Entity.tenant_id == auth.tenant_id).limit(limit))
     entities = list(result.scalars().all())
     return build_stix_bundle(entities, [])
