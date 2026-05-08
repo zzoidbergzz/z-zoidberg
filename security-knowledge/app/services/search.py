@@ -1,8 +1,11 @@
-"""Full-text + trigram hybrid search across entities and claims.
+"""Full-text + trigram hybrid search across entities, claims, and corpus_documents.
 
 Migration 0005 adds a ``search_vector`` tsvector column (GIN-indexed) and a
 ``canonical_name gin_trgm_ops`` index to ``entities``, and a
 ``search_vector`` column (GIN-indexed) to ``claims``.
+
+Migration 0023 adds ``corpus_documents`` (CVE, GCVE, Exploit-DB) with its own
+``search_vector`` GIN index.
 
 Results are enriched with claim descriptions (assertion text), tags,
 CVSS scores and external reference links so the search UI can render
@@ -98,6 +101,7 @@ _CLAIM_SQL = text(
 )
 
 _CVE_RE = re.compile(r"^CVE-\d{4}-\d+$", re.IGNORECASE)
+_GCVE_RE = re.compile(r"^GCVE-\d+-\d{4}-\d+$", re.IGNORECASE)
 _MITRE_RE = re.compile(r"^[TGSC]\d{4}(\.\d{3})?$")
 
 
@@ -178,17 +182,26 @@ def _build_entity_result(row: Any) -> dict[str, Any]:
 async def full_text_search(
     db: AsyncSession, tenant_id: str, query: str, limit: int = 20
 ) -> list[dict[str, Any]]:
-    """Return enriched search results across entities and claims.
+    """Return enriched search results across entities, claims, and corpus_documents.
 
     Each result includes description (from claim assertion), CVSS/severity
     for CVEs, NVD/MITRE links, and tag lists so the UI can render rich cards.
     Entity-linked claims are deduplicated — if an entity matches via both the
     entity row and an associated claim, only the entity result is kept.
+    Corpus documents are merged in and re-ranked by score.
     """
     params = {"q": query, "tenant_id": tenant_id, "lim": limit}
 
     entity_rows = await db.execute(_ENTITY_SQL, params)
     claim_rows = await db.execute(_CLAIM_SQL, params)
+
+    # Also search corpus_documents
+    corpus_params = {"q": query, "tenant_id": tenant_id, "lim": limit}
+    try:
+        corpus_rows = await db.execute(_CORPUS_SQL, corpus_params)
+        corpus_records = corpus_rows.mappings().all()
+    except Exception:
+        corpus_records = []
 
     results: list[dict[str, Any]] = []
     seen_entity_ids: set[str] = set()
@@ -242,5 +255,88 @@ async def full_text_search(
 
         results.append(r)
 
+    for row in corpus_records:
+        results.append(_build_corpus_result(row))
+
     results.sort(key=lambda r: r["score"], reverse=True)
     return results[:limit]
+
+
+# Corpus document search: CVE, GCVE, and Exploit-DB records.
+_CORPUS_SQL = text(
+    """
+    SELECT
+        cd.id::text                                                               AS id,
+        cd.corpus,
+        cd.external_id                                                            AS name,
+        cd.title,
+        cd.summary,
+        cd.published_at,
+        ts_rank_cd(cd.search_vector, plainto_tsquery('english', :q))              AS score
+    FROM corpus_documents cd
+    WHERE cd.tenant_id = :tenant_id
+      AND cd.search_vector @@ plainto_tsquery('english', :q)
+    ORDER BY score DESC, cd.published_at DESC NULLS LAST
+    LIMIT :lim
+    """
+)
+
+
+def _build_corpus_result(row: Any) -> dict[str, Any]:
+    corpus = row["corpus"]
+    ext_id: str = row["name"]
+    title: str = row["title"] or ext_id
+    summary: str = row["summary"] or ""
+
+    kind_map = {"cve": "cve", "gcve": "cve", "exploitdb": "exploit"}
+    kind = kind_map.get(corpus, corpus)
+
+    result: dict[str, Any] = {
+        "kind": kind,
+        "id": row["id"],
+        "name": ext_id,
+        "score": float(row["score"]),
+        "description": (summary[:300] + "…" if len(summary) > 300 else summary),
+        "tags": [corpus],
+        "confidence": "",
+        "cvss": None,
+        "severity": "",
+        "nvd_link": None,
+        "mitre_link": None,
+        "detail_url": f"/cve/{ext_id}" if corpus in ("cve", "gcve") else None,
+    }
+
+    if corpus in ("cve", "gcve") and _CVE_RE.match(ext_id):
+        result["nvd_link"] = _nvd_link(ext_id)
+
+    return result
+
+
+async def corpus_search(
+    db: AsyncSession, tenant_id: str, query: str, corpus: str | None = None, limit: int = 20
+) -> list[dict[str, Any]]:
+    """Search corpus_documents only. Used by the corpus-filtered search endpoint."""
+    params: dict[str, Any] = {"q": query, "tenant_id": tenant_id, "lim": limit}
+    corpus_filter = ""
+    if corpus:
+        corpus_filter = "AND cd.corpus = :corpus"
+        params["corpus"] = corpus
+
+    rows = await db.execute(
+        text(
+            f"""
+            SELECT
+                cd.id::text AS id, cd.corpus, cd.external_id AS name,
+                cd.title, cd.summary, cd.published_at,
+                ts_rank_cd(cd.search_vector, plainto_tsquery('english', :q)) AS score
+            FROM corpus_documents cd
+            WHERE cd.tenant_id = :tenant_id
+              AND cd.search_vector @@ plainto_tsquery('english', :q)
+              {corpus_filter}
+            ORDER BY score DESC, cd.published_at DESC NULLS LAST
+            LIMIT :lim
+            """
+        ),
+        params,
+    )
+    return [_build_corpus_result(r) for r in rows.mappings().all()]
