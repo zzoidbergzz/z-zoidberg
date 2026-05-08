@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# z-zoidberg pre-commit guard.
+#
+# Enable once per clone:    git config core.hooksPath .githooks
+#
+# Checks:
+#   1. Block obvious secret patterns landing in MEMORY.md or memory/.
+#   2. Block edits to existing alembic migration files (immutable history).
+#
+# Exit 0 = OK, non-zero = block commit.
+
+set -euo pipefail
+
+fail=0
+
+# ---- 1. Secret grep over staged memory files --------------------------------
+secret_paths=$(git diff --cached --name-only --diff-filter=AM \
+  | grep -E '^(MEMORY\.md|memory/.*\.md)$' || true)
+
+if [[ -n "${secret_paths}" ]]; then
+  patterns='(sk_live_[A-Za-z0-9]{16,}|sk_test_[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{30,}|gho_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----|(API_?KEY|SECRET|TOKEN|PASSWORD)\s*[:=]\s*[A-Za-z0-9+/=_-]{16,})'
+  if git diff --cached -- ${secret_paths} \
+       | grep -E "${patterns}" >/dev/null 2>&1; then
+    echo "✗ pre-commit: refused — secret-shaped string in MEMORY.md / memory/" >&2
+    echo "  Re-run with --no-verify only after auditing the diff." >&2
+    fail=1
+  fi
+fi
+
+# ---- 2. Block edits to existing alembic versions ----------------------------
+modified_migrations=$(git diff --cached --name-only --diff-filter=M \
+  | grep -E '^security-knowledge/alembic/versions/.+\.py$' || true)
+
+if [[ -n "${modified_migrations}" ]]; then
+  echo "✗ pre-commit: refused — modifying existing alembic migration:" >&2
+  echo "${modified_migrations}" | sed 's/^/    /' >&2
+  echo "  Migrations are immutable. Add a new revision instead." >&2
+  fail=1
+fi
+
+exit "${fail}"
