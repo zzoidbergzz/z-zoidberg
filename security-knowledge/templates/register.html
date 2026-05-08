@@ -1,48 +1,71 @@
-{% extends "base.html" %}
-{% block title %}z.je | Register{% endblock %}
-{% block content %}
-<section class="hero">
-  <div class="panel">
-    <p class="tiny-pill">ACCOUNT REQUEST</p>
-    <h1 class="headline" style="margin-top:1rem;">Register for analyst access.</h1>
-    <p class="subtle" style="margin-top:1rem;">Accounts require manual approval. On approval, z.je activates your session access and issues your first API key.</p>
-  </div>
-
-  <div class="panel">
-    <div class="section-title">Registration</div>
-    <form class="stack" id="register-form" style="margin-top:1rem;">
-      <input class="form-input" type="text" name="full_name" placeholder="Full name" required>
-      <input class="form-input" type="email" name="email" placeholder="Email" required>
-      <input class="form-input" type="password" name="password" placeholder="Password" required minlength="10">
-      <button class="button" type="submit">Create Account</button>
-      <div id="auth-status" class="status-bar"></div>
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>z.je | Request Access</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#091117;--text:#dce8ef;--muted:#8fb2c7;--accent:#6bf2c7;--line:rgba(123,161,181,0.18);--danger:#ff6b7a; }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{min-height:100vh;background:radial-gradient(circle at top left,rgba(107,242,199,0.12),transparent 30%),linear-gradient(180deg,#081017 0%,#0d1720 60%,#071016 100%);color:var(--text);font-family:"Space Grotesk",sans-serif;display:flex;align-items:center;justify-content:center;}
+    .card{width:100%;max-width:26rem;padding:2.5rem 2rem;border:1px solid var(--line);border-radius:1.5rem;background:rgba(13,23,31,0.88);backdrop-filter:blur(20px);box-shadow:0 24px 64px rgba(0,0,0,0.4);}
+    .brand{font-family:"IBM Plex Mono",monospace;font-size:1.5rem;font-weight:700;color:var(--accent);letter-spacing:0.1em;margin-bottom:0.35rem;}
+    .tagline{color:var(--muted);font-size:0.9rem;margin-bottom:2rem;}
+    .stack{display:grid;gap:0.85rem;}
+    input{width:100%;padding:0.9rem 1rem;border:1px solid rgba(123,161,181,0.22);border-radius:0.9rem;background:rgba(4,10,15,0.85);color:var(--text);font-size:1rem;font-family:inherit;outline:none;}
+    input:focus{border-color:rgba(107,242,199,0.6);box-shadow:0 0 0 3px rgba(107,242,199,0.1);}
+    input::placeholder{color:var(--muted);opacity:0.7;}
+    button{width:100%;padding:0.9rem;border:none;border-radius:0.9rem;background:linear-gradient(135deg,var(--accent),#91ffd6);color:#071116;font-size:1rem;font-weight:700;font-family:inherit;cursor:pointer;}
+    button:disabled{opacity:0.5;cursor:not-allowed;}
+    .status{min-height:1.4rem;font-size:0.9rem;color:var(--muted);text-align:center;}
+    .status.error{color:var(--danger);}
+    .status.success{color:var(--accent);}
+    .footer{margin-top:1.5rem;text-align:center;font-size:0.85rem;color:var(--muted);}
+    .footer a{color:var(--accent);text-decoration:none;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">z.je</div>
+    <div class="tagline">Request analyst access — accounts require approval</div>
+    <form class="stack" id="register-form">
+      <input type="text" name="full_name" placeholder="Full name" required>
+      <input type="email" name="email" placeholder="Email" autocomplete="email" required>
+      <input type="password" name="password" placeholder="Password (min 10 chars)" autocomplete="new-password" required minlength="10">
+      <button type="submit" id="reg-btn">Request Access</button>
+      <div class="status" id="status"></div>
     </form>
-    <p class="subtle" style="margin-top:1rem;">Already have an account? <a href="/login">Login</a>.</p>
-    <pre id="one-time-api-key" class="json-view" hidden style="margin-top:1rem;"></pre>
+    <div class="footer">Already have an account? <a href="/login">Login</a>.</div>
   </div>
-</section>
-<script>
-  document.getElementById("register-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const status = document.getElementById("auth-status");
-    const data = Object.fromEntries(new FormData(e.currentTarget).entries());
-    status.textContent = "Submitting…";
-    try {
-      const res = await fetch("/api/v1/auth/register", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        credentials: "same-origin",
-        body: JSON.stringify(data),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.detail || "Registration failed");
-      status.textContent = "Account created — awaiting approval.";
-      status.dataset.kind = "success";
-      window.location.href = "/pending";
-    } catch (err) {
-      status.textContent = err.message;
-      status.dataset.kind = "error";
-    }
-  });
-</script>
-{% endblock %}
+  <script>
+    document.getElementById("register-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("reg-btn");
+      const status = document.getElementById("status");
+      btn.disabled = true;
+      status.className = "status";
+      status.textContent = "Submitting…";
+      try {
+        const res = await fetch("/api/v1/auth/register", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          credentials: "same-origin",
+          body: JSON.stringify(Object.fromEntries(new FormData(e.currentTarget))),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.detail || "Registration failed");
+        status.className = "status success";
+        status.textContent = "Request submitted — awaiting approval.";
+        setTimeout(() => window.location.href = "/pending", 1500);
+      } catch (err) {
+        status.className = "status error";
+        status.textContent = err.message;
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
