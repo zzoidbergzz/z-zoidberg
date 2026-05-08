@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🦞 Zoidberg — Threat Intelligence Platform</title>
+  <title>🦞 Zoidberg — Security Knowledge Platform</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
     :root {
@@ -173,20 +173,22 @@
       <span>Ingestion</span>
       <span>Enrichment</span>
       <span>Detection</span>
-      <span>Agent-Ready</span>
+      <span>Lookup</span>
+      <span>Pivot</span>
       <span>Graph</span>
       <span>MCP</span>
+      <span>MITRE ATT&CK</span>
     </div>
   </header>
 
   <main>
     <div class="stats">
-      <div class="stat"><span class="num">40+</span><span class="label">API Endpoints</span></div>
-      <div class="stat"><span class="num">7</span><span class="label">Enrichment Providers</span></div>
+      <div class="stat"><span class="num">50+</span><span class="label">API Endpoints</span></div>
+      <div class="stat"><span class="num">9</span><span class="label">Enrichment Providers</span></div>
       <div class="stat"><span class="num">6</span><span class="label">Feed Adapters</span></div>
       <div class="stat"><span class="num">16</span><span class="label">IOC Extractors</span></div>
+      <div class="stat"><span class="num">MITRE</span><span class="label">ATT&CK Mapped</span></div>
       <div class="stat"><span class="num">MCP</span><span class="label">Agent Ready</span></div>
-      <div class="stat"><span class="num">WIP</span><span class="label">Roadmap</span></div>
     </div>
 
     <div class="feature-grid">
@@ -206,8 +208,8 @@
 
       <div class="card">
         <span class="emoji">🔗</span>
-        <h3>7 Enrichment Providers</h3>
-        <p>VirusTotal, Shodan, CrowdStrike, GreyNoise, IPinfo — cached, budgeted, policy-gated. Shared cache with TTL, daily budgets, and monthly caps.</p>
+        <h3>9 Enrichment Providers</h3>
+        <p>VirusTotal, Shodan, CrowdStrike, GreyNoise, IPinfo, MISP, OpenCTI, NVD, MITRE ATT&CK — cached, budgeted, policy-gated. Enrichment diffs track what changed between lookups.</p>
         <div class="zoidberg">"Budgets! Rate limits! Someone around here understands restraint... unlike me at a dumpster."</div>
       </div>
 
@@ -256,8 +258,22 @@
       <div class="card">
         <span class="emoji">🎯</span>
         <h3>MITRE ATT&CK Integration</h3>
-        <p>Technique mapping, knowledge seeding, and attack-pattern entities linked across the graph. Know your adversary's playbook.</p>
+        <p>Full technique and tactic mapping with knowledge seeding and attack-pattern entities. Sector classification, technique search, and sub-technique rollup across the graph.</p>
         <div class="zoidberg">"I know all about being attacked. Verbally. Daily. But these are different attacks. Cyber ones. Far less personal."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🔎</span>
+        <h3>Lookup + Investigation</h3>
+        <p>Smart entity lookup with type classification, IOC extraction, and multi-provider enrichment in one call. Investigation sessions chain lookups with full history and pivot tracking.</p>
+        <div class="zoidberg">"Looking things up! Investigating! This is what real doctors do. I've seen it on TV."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🔄</span>
+        <h3>Pivot + Fingerprint</h3>
+        <p>Pivot extractor finds related IOCs across entities — connected indicators, shared infrastructure, co-occurrence graphs. Fingerprinting identifies unique entity signatures for dedup and merge.</p>
+        <div class="zoidberg">"Pivoting! Like a dancer! ...A very uncoordinated dancer. But the data pivots beautifully."</div>
       </div>
 
       <div class="card">
@@ -268,16 +284,30 @@
       </div>
 
       <div class="card">
+        <span class="emoji">⚡</span>
+        <h3>Shortcuts + Capabilities</h3>
+        <p>One-click shortcut endpoints for common analyst workflows — lookup-and-enrich, pivot-and-graph, IOC-pingback. Capabilities API exposes all available actions for agent discovery and MCP tool selection.</p>
+        <div class="zoidberg">"Shortcuts! The path of least resistance! Finally, a system that understands me."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">📡</span>
+        <h3>IOC Pingback + Diff Alerting</h3>
+        <p>Re-check IOCs on schedule — are they still active? Enrichment diffs detect what changed between lookups and trigger alerts. Circuit-broken webhook delivery with HMAC signing.</p>
+        <div class="zoidberg">"Pingback! Like echolocation! I too make sounds nobody responds to. But the IOCs respond. They always respond."</div>
+      </div>
+
+      <div class="card">
         <span class="emoji">🧪</span>
         <h3>Full Analyst Workflow</h3>
-        <p>HTMX review UI, saved searches, scheduled digests, and inbox delivery. Claim approve/reject, entity merge, enrichment triggers — the human-in-the-loop that makes it real.</p>
+        <p>HTMX review UI with entity detail pages, graph visualisation, saved searches, scheduled digests, and inbox delivery. Auth with registration approval, claim approve/reject, entity merge — the human-in-the-loop that makes it real.</p>
         <div class="zoidberg">"A loop! With a human! Usually I'm outside the loop. This is progress, friends."</div>
       </div>
     </div>
 
     <div class="quote-block">
-      <p>"Other threat intel platforms have budgets. And friends. And self-respect. But do they have 7 enrichment providers, bidirectional MISP/OpenCTI sync, and a heart of gold? ...I'm told that's worth something."</p>
-      <div class="attr">— Dr. John A. Zoidberg, MD (Threat Intelligence)</div>
+      <p>"Other threat intel platforms have budgets. And friends. And self-respect. But do they have 9 enrichment providers, bidirectional MISP/OpenCTI sync, IOC pingback, and a heart of gold? ...I'm told that's worth something."</p>
+      <div class="attr">— Dr. John A. Zoidberg, MD (Security Knowledge)</div>
     </div>
   </main>
 
