@@ -6,14 +6,18 @@ by `app.observability.trace_propagation.get_traceparent()`).  The
 done inside the job appears as a child of the originating HTTP request in
 any OTel-compatible backend (Jaeger, Tempo, Honeycomb, etc.).
 """
+
 from __future__ import annotations
 
+import hashlib
+import re
 import time
 import uuid
 
 import structlog
 from arq.connections import RedisSettings
 from arq.cron import cron
+from sqlalchemy import select
 
 from app.config import settings
 from app.observability.trace_propagation import trace_from_job
@@ -22,10 +26,97 @@ from app.workers.feed_poller import poll_feeds
 
 logger = structlog.get_logger(__name__)
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+# Map extractor "kind" strings → EntityKind enum values
+_KIND_MAP: dict[str, str] = {
+    "cve": "cve",
+    "ip": "ip_address",
+    "hash": "hash",
+    "domain": "domain",
+    "url": "url",
+    "technique": "attack_pattern",
+}
+
+
+def _extract_title(html: str) -> str:
+    """Pull <title> text from raw HTML."""
+    m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+    return m.group(1).strip() if m else ""
+
+
+def _parse_content(html: str, content_type: str) -> str:
+    """Extract plain text from HTML using trafilatura, falling back to BeautifulSoup."""
+    if content_type == "text/markdown":
+        return html
+
+    try:
+        import trafilatura
+
+        text = trafilatura.extract(html, include_comments=False, include_tables=True)
+        if text:
+            return text
+    except Exception:
+        pass
+
+    try:
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in soup(["script", "style", "noscript"]):
+            tag.decompose()
+        return soup.get_text(separator="\n")
+    except Exception:
+        pass
+
+    # Last resort: strip HTML tags with regex
+    return re.sub(r"<[^>]+>", " ", html)
+
+
+def _chunk_text(text: str) -> list[tuple[str, str]]:
+    """Split text into (heading, content) pairs by double newlines or headers.
+
+    Returns a list of (heading, content) tuples where heading may be empty.
+    """
+    chunks: list[tuple[str, str]] = []
+    current_heading = ""
+    current_lines: list[str] = []
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        # Markdown-style headings
+        if stripped.startswith("#"):
+            if current_lines:
+                content = "\n".join(current_lines).strip()
+                if content:
+                    chunks.append((current_heading, content))
+            current_heading = stripped.lstrip("#").strip()
+            current_lines = []
+        else:
+            current_lines.append(line)
+
+    if current_lines:
+        content = "\n".join(current_lines).strip()
+        if content:
+            chunks.append((current_heading, content))
+
+    if not chunks:
+        # Paragraph-split fallback
+        paragraphs = re.split(r"\n\s*\n", text)
+        for para in paragraphs:
+            para = para.strip()
+            if para:
+                chunks.append(("", para))
+
+    return chunks or [("", text.strip())]
+
 
 # ---------------------------------------------------------------------------
 # Job functions
 # ---------------------------------------------------------------------------
+
 
 async def process_ingest_job(
     ctx: dict,
@@ -42,13 +133,326 @@ async def process_ingest_job(
             logger.info("processing_ingest_job", job_id=job_id)
             span.set_attribute("job.type", "ingest")
 
-            # --- real ingestion pipeline would go here ---
-            result = {"job_id": job_id, "status": "complete"}
+            from app.database import AsyncSessionLocal
+            from app.extractors.base import run_all
+            from app.fetcher import _is_denied, fetch
+            from app.models.audit import AuditEvent
+            from app.models.claims import Claim
+            from app.models.documents import DocumentSection, ParsedDocument
+            from app.models.entities import Entity
+            from app.models.evidence import Evidence
+            from app.models.jobs import IngestionJob
 
+            async with AsyncSessionLocal() as db:
+                # ----------------------------------------------------------
+                # 1. Load job from DB
+                # ----------------------------------------------------------
+                result_row = await db.execute(select(IngestionJob).where(IngestionJob.id == uuid.UUID(job_id)))
+                job = result_row.scalar_one_or_none()
+                if job is None:
+                    logger.error("ingest_job_not_found", job_id=job_id)
+                    return {"job_id": job_id, "status": "error", "error": "Job not found"}
+
+                job.status = "running"
+                await db.flush()
+
+                tenant_id = job.tenant_id
+                source_url = job.source_url or ""
+
+                # ----------------------------------------------------------
+                # 2. Resolve source policy — abort if denied
+                # ----------------------------------------------------------
+                if source_url and _is_denied(source_url):
+                    logger.warning("ingest_job_denied_by_policy", job_id=job_id, url=source_url)
+                    job.status = "error"
+                    job.error_message = "Denied by source policy"
+                    job.result = {"job_id": job_id, "status": "error", "reason": "policy_denied"}
+                    await db.commit()
+                    result = {"job_id": job_id, "status": "error", "reason": "policy_denied"}
+                    span.set_attribute("job.status", "error")
+                    await record_job_end(job_id, "ingest", "error", time.monotonic() - t0)
+                    return result
+
+                # ----------------------------------------------------------
+                # 3. Check idempotency — skip if URL already ingested for tenant
+                # ----------------------------------------------------------
+                if source_url:
+                    existing = await db.execute(
+                        select(ParsedDocument).where(
+                            ParsedDocument.tenant_id == tenant_id,
+                            ParsedDocument.url == source_url,
+                        )
+                    )
+                    existing_doc = existing.scalar_one_or_none()
+                    if existing_doc is not None:
+                        logger.info(
+                            "ingest_job_skipped_duplicate",
+                            job_id=job_id,
+                            url=source_url,
+                            doc_id=str(existing_doc.id),
+                        )
+                        job.status = "complete"
+                        job.result = {
+                            "job_id": job_id,
+                            "status": "complete",
+                            "skipped": True,
+                            "document_id": str(existing_doc.id),
+                        }
+                        await db.commit()
+                        result = job.result
+                        span.set_attribute("job.status", "complete")
+                        await record_job_end(job_id, "ingest", "complete", time.monotonic() - t0)
+                        return result
+
+                # ----------------------------------------------------------
+                # 4. Detect content type from payload or URL
+                # ----------------------------------------------------------
+                content_type_hint = job.payload.get("content_type", "text/html")
+                if source_url.endswith(".md") or source_url.endswith(".markdown"):
+                    content_type_hint = "text/markdown"
+                if source_url.endswith(".pdf"):
+                    logger.warning("ingest_job_pdf_unsupported", job_id=job_id, url=source_url)
+                    job.status = "error"
+                    job.error_message = "PDF ingestion not yet supported"
+                    job.result = {"job_id": job_id, "status": "error", "reason": "unsupported_content_type"}
+                    await db.commit()
+                    result = job.result
+                    span.set_attribute("job.status", "error")
+                    await record_job_end(job_id, "ingest", "error", time.monotonic() - t0)
+                    return result
+
+                # ----------------------------------------------------------
+                # 5. Fetch the URL
+                # ----------------------------------------------------------
+                if not source_url:
+                    job.status = "error"
+                    job.error_message = "No source_url on job"
+                    job.result = {"job_id": job_id, "status": "error", "reason": "no_source_url"}
+                    await db.commit()
+                    span.set_attribute("job.status", "error")
+                    await record_job_end(job_id, "ingest", "error", time.monotonic() - t0)
+                    return job.result
+
+                logger.info("ingest_fetching", job_id=job_id, url=source_url)
+                fetch_result = await fetch(source_url)
+
+                if not fetch_result.ok:
+                    job.status = "error"
+                    job.error_message = f"Fetch failed: {fetch_result.error or fetch_result.status_code}"
+                    job.result = {"job_id": job_id, "status": "error", "reason": "fetch_failed"}
+                    await db.commit()
+                    span.set_attribute("job.status", "error")
+                    await record_job_end(job_id, "ingest", "error", time.monotonic() - t0)
+                    return job.result
+
+                raw_text = fetch_result.text
+                content_sha256 = hashlib.sha256(raw_text.encode()).hexdigest()
+
+                # Idempotency by content hash
+                existing_by_hash = await db.execute(
+                    select(ParsedDocument).where(
+                        ParsedDocument.tenant_id == tenant_id,
+                        ParsedDocument.metadata_["content_sha256"].as_string() == content_sha256,
+                    )
+                )
+                existing_by_hash_doc = existing_by_hash.scalar_one_or_none()
+                if existing_by_hash_doc is not None:
+                    logger.info(
+                        "ingest_job_skipped_duplicate_hash",
+                        job_id=job_id,
+                        sha256=content_sha256,
+                        doc_id=str(existing_by_hash_doc.id),
+                    )
+                    job.status = "complete"
+                    job.result = {
+                        "job_id": job_id,
+                        "status": "complete",
+                        "skipped": True,
+                        "document_id": str(existing_by_hash_doc.id),
+                    }
+                    await db.commit()
+                    span.set_attribute("job.status", "complete")
+                    await record_job_end(job_id, "ingest", "complete", time.monotonic() - t0)
+                    return job.result
+
+                # ----------------------------------------------------------
+                # 6. Parse content
+                # ----------------------------------------------------------
+                logger.info("ingest_parsing", job_id=job_id)
+                parsed_text = _parse_content(raw_text, content_type_hint)
+                title = _extract_title(raw_text) or source_url
+                word_count = len(parsed_text.split())
+
+                # ----------------------------------------------------------
+                # 7. Persist ParsedDocument
+                # ----------------------------------------------------------
+                doc = ParsedDocument(
+                    tenant_id=tenant_id,
+                    source_id=job.source_id,
+                    title=title[:512],
+                    url=source_url,
+                    content_type=content_type_hint,
+                    word_count=word_count,
+                    metadata_={"content_sha256": content_sha256, "used_browser": fetch_result.used_browser},
+                )
+                db.add(doc)
+                await db.flush()
+
+                # ----------------------------------------------------------
+                # 8. Chunk into DocumentSection rows
+                # ----------------------------------------------------------
+                logger.info("ingest_chunking", job_id=job_id, doc_id=str(doc.id))
+                chunks = _chunk_text(parsed_text)
+                sections: list[DocumentSection] = []
+                for idx, (heading, content) in enumerate(chunks):
+                    section = DocumentSection(
+                        document_id=doc.id,
+                        section_index=idx,
+                        heading=heading[:512],
+                        content=content,
+                    )
+                    db.add(section)
+                    sections.append(section)
+                await db.flush()
+
+                # ----------------------------------------------------------
+                # 9. Extract entities and create Claims + Evidence
+                # ----------------------------------------------------------
+                logger.info("ingest_extracting", job_id=job_id, doc_id=str(doc.id))
+                entities_found = run_all(parsed_text)
+
+                # Deduplicate by (kind, value)
+                seen: set[tuple[str, str]] = set()
+                unique_entities: list[dict] = []
+                for ent in entities_found:
+                    key = (ent["kind"], ent["value"])
+                    if key not in seen:
+                        seen.add(key)
+                        unique_entities.append(ent)
+
+                # Pick the first section for evidence anchor (or last if single chunk)
+                anchor_section = sections[0] if sections else None
+
+                entity_count = 0
+                for ent_data in unique_entities:
+                    raw_kind = ent_data["kind"]
+                    mapped_kind = _KIND_MAP.get(raw_kind, "other")
+                    canonical = ent_data["value"]
+
+                    # Upsert entity (find existing or create)
+                    existing_ent = await db.execute(
+                        select(Entity).where(
+                            Entity.tenant_id == tenant_id,
+                            Entity.kind == mapped_kind,
+                            Entity.canonical_name == canonical,
+                        )
+                    )
+                    entity = existing_ent.scalar_one_or_none()
+                    if entity is None:
+                        entity = Entity(
+                            tenant_id=tenant_id,
+                            kind=mapped_kind,
+                            canonical_name=canonical,
+                            external_refs={},
+                        )
+                        db.add(entity)
+                        await db.flush()
+
+                    # Create Claim linking entity to this document
+                    claim = Claim(
+                        tenant_id=tenant_id,
+                        entity_id=entity.id,
+                        claim_type="observed_in_document",
+                        value={"source_url": source_url, "document_id": str(doc.id)},
+                        confidence=0.8,
+                        status="pending",
+                    )
+                    db.add(claim)
+                    await db.flush()
+
+                    # Create Evidence linking claim to document section
+                    snippet = canonical[:200]
+                    evidence = Evidence(
+                        tenant_id=tenant_id,
+                        document_id=doc.id,
+                        claim_id=claim.id,
+                        entity_id=entity.id,
+                        title=f"{mapped_kind}: {canonical[:100]}",
+                        content=anchor_section.content[:500] if anchor_section else "",
+                        text_snippet=snippet,
+                        source_url=source_url,
+                        confidence=0.8,
+                    )
+                    db.add(evidence)
+                    entity_count += 1
+
+                await db.flush()
+
+                # ----------------------------------------------------------
+                # 10. Emit AuditEvent
+                # ----------------------------------------------------------
+                audit = AuditEvent(
+                    tenant_id=tenant_id,
+                    actor="worker",
+                    action="ingest_complete",
+                    resource_type="parsed_document",
+                    resource_id=str(doc.id),
+                    details={
+                        "job_id": job_id,
+                        "source_url": source_url,
+                        "word_count": word_count,
+                        "sections": len(sections),
+                        "entities_extracted": entity_count,
+                        "content_sha256": content_sha256,
+                    },
+                )
+                db.add(audit)
+
+                # ----------------------------------------------------------
+                # 11. Update job to complete
+                # ----------------------------------------------------------
+                result = {
+                    "job_id": job_id,
+                    "status": "complete",
+                    "document_id": str(doc.id),
+                    "word_count": word_count,
+                    "sections": len(sections),
+                    "entities_extracted": entity_count,
+                    "content_sha256": content_sha256,
+                }
+                job.status = "complete"
+                job.result = result
+                await db.commit()
+
+            logger.info(
+                "ingest_job_complete",
+                job_id=job_id,
+                document_id=result["document_id"],
+                entities=entity_count,
+            )
             span.set_attribute("job.status", "complete")
+            span.set_attribute("ingest.entities", entity_count)
             await record_job_end(job_id, "ingest", "complete", time.monotonic() - t0)
             return result
-        except Exception:
+
+        except Exception as exc:
+            logger.exception("ingest_job_failed", job_id=job_id, error=str(exc))
+            span.record_exception(exc)
+            # Best-effort: update job to error state
+            try:
+                from app.database import AsyncSessionLocal
+                from app.models.jobs import IngestionJob
+
+                async with AsyncSessionLocal() as db:
+                    result_row = await db.execute(select(IngestionJob).where(IngestionJob.id == uuid.UUID(job_id)))
+                    job = result_row.scalar_one_or_none()
+                    if job:
+                        job.status = "error"
+                        job.error_message = str(exc)
+                        job.result = {"job_id": job_id, "status": "error"}
+                        await db.commit()
+            except Exception:
+                pass
             await record_job_end(job_id, "ingest", "error", time.monotonic() - t0)
             raise
 
@@ -85,11 +489,61 @@ async def run_enrichment(
                 provider=provider,
                 force_refresh=force_refresh,
             )
-            result = {"entity_id": entity_id, "status": "complete", "provider": provider}
+
+            from app.database import AsyncSessionLocal
+            from app.enrichment.registry import list_providers
+            from app.enrichment.service import EnrichmentService
+            from app.models.entities import Entity
+
+            async with AsyncSessionLocal() as db:
+                # Load entity from DB
+                result_row = await db.execute(select(Entity).where(Entity.id == uuid.UUID(entity_id)))
+                entity = result_row.scalar_one_or_none()
+                if entity is None:
+                    logger.warning("enrichment_entity_not_found", entity_id=entity_id)
+                    span.set_attribute("job.status", "error")
+                    await record_job_end(entity_id, "enrichment", "error", time.monotonic() - t0)
+                    return {"entity_id": entity_id, "status": "error", "error": "Entity not found"}
+
+                svc = EnrichmentService(db, tenant_id)
+                providers_to_run = [provider] if provider != "all" else list_providers()
+
+                enrichment_results: dict[str, dict] = {}
+                for prov_name in providers_to_run:
+                    try:
+                        prov_result = await svc.enrich(prov_name, entity.kind, entity.canonical_name)
+                        enrichment_results[prov_name] = prov_result
+                        logger.info(
+                            "enrichment_provider_complete",
+                            entity_id=entity_id,
+                            provider=prov_name,
+                        )
+                    except Exception as prov_exc:
+                        logger.warning(
+                            "enrichment_provider_failed",
+                            entity_id=entity_id,
+                            provider=prov_name,
+                            error=str(prov_exc),
+                        )
+                        enrichment_results[prov_name] = {"error": str(prov_exc)}
+
+                await db.commit()
+
+            result = {
+                "entity_id": entity_id,
+                "status": "complete",
+                "provider": provider,
+                "providers_run": list(enrichment_results.keys()),
+                "results": enrichment_results,
+            }
             span.set_attribute("job.status", "complete")
+            span.set_attribute("enrichment.providers_run", len(enrichment_results))
             await record_job_end(entity_id, "enrichment", "complete", time.monotonic() - t0)
             return result
-        except Exception:
+
+        except Exception as exc:
+            logger.exception("enrichment_job_failed", entity_id=entity_id, error=str(exc))
+            span.record_exception(exc)
             await record_job_end(entity_id, "enrichment", "error", time.monotonic() - t0)
             raise
 
@@ -162,6 +616,7 @@ async def check_ioc_watches(
 # Lifecycle + settings
 # ---------------------------------------------------------------------------
 
+
 async def startup(ctx: dict) -> None:
     logger.info("worker_starting")
     # Pre-load MITRE data if cached (non-blocking)
@@ -169,6 +624,7 @@ async def startup(ctx: dict) -> None:
         import asyncio
 
         from app.services import mitre_attack
+
         asyncio.create_task(mitre_attack.preload_if_cached())
     except Exception:
         pass
