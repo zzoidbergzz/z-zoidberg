@@ -413,6 +413,9 @@ window.ZjeApp = (() => {
       clearInterval(state.pollTimer);
       state.pollTimer = null;
       state.lookupPollCount = 0;
+      // Clear thinking placeholder on error
+      const placeholder = document.querySelector(".thinking-placeholder");
+      if (placeholder) placeholder.remove();
       setStatus(error.message, "error", "lookup-status");
     }
   }
@@ -421,6 +424,19 @@ window.ZjeApp = (() => {
     state.entityId = entityId;
     hideGraphContextMenu();
     await pollEntity(entityId);
+  }
+
+  function setLookupBusy(form, busy) {
+    const btn = form.querySelector("[type='submit']");
+    if (!btn) return;
+    if (busy) {
+      btn.disabled = true;
+      btn.dataset.originalText = btn.textContent;
+      btn.textContent = "Looking up…";
+    } else {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.originalText || "Run Lookup";
+    }
   }
 
   async function handleLookupSubmit(event) {
@@ -434,6 +450,7 @@ window.ZjeApp = (() => {
       return;
     }
 
+    setLookupBusy(form, true);
     setStatus(forceRepoll ? "Submitting manual repoll request." : "Checking cache state and dispatch eligibility.", "info", "lookup-status");
     try {
       const payload = await api("/api/v1/lookup", {
@@ -444,13 +461,23 @@ window.ZjeApp = (() => {
           force_repoll: forceRepoll,
         }),
       });
-      document.getElementById("results-panel")?.removeAttribute("hidden");
+
+      // Reveal and scroll to results panel immediately
+      const resultsPanel = document.getElementById("results-panel");
+      resultsPanel?.removeAttribute("hidden");
+      resultsPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      // Show "Thinking…" placeholder while enrichment is in-flight
       document.getElementById("entity-summary").innerHTML = `
-        <div class="empty-state">
-          <div class="section-title">Lookup accepted</div>
-          <p class="subtle" style="margin-top:0.55rem;">${escapeHtml(payload.message)}. Entity <span class="mono">${escapeHtml(payload.entity_id || "n/a")}</span>, type <span class="mono">${escapeHtml(payload.entity_type)}</span>.</p>
+        <div class="empty-state thinking-placeholder">
+          <div class="thinking-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <p class="subtle" style="margin-top:0.75rem;">Enriching <span class="mono">${escapeHtml(payload.entity_value || payload.entity_id || input.value.trim())}</span> — this may take a few seconds.</p>
         </div>
       `;
+      document.getElementById("enrichment-list").innerHTML = "";
+
       if (payload.cached_results?.length) {
         renderResults({ entity: { id: payload.entity_id, entity_type: payload.entity_type, entity_value: payload.entity_value }, enrichments: payload.cached_results, relationships: [] });
       }
@@ -471,6 +498,8 @@ window.ZjeApp = (() => {
       setStatus(`${payload.message}${modeText}${repollText}`, "success", "lookup-status");
     } catch (error) {
       setStatus(error.message, "error", "lookup-status");
+    } finally {
+      setLookupBusy(form, false);
     }
   }
 
