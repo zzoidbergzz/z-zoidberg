@@ -1,0 +1,73 @@
+"""GET /api/v1/capabilities — live machine-readable service inventory."""
+from __future__ import annotations
+
+import subprocess
+from typing import Any
+
+from fastapi import APIRouter, Request
+
+router = APIRouter(prefix="/capabilities", tags=["capabilities"])
+
+
+def _git_sha() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=3,
+        )
+        return result.stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
+@router.get("", summary="Live service capability inventory")
+async def get_capabilities(request: Request) -> dict[str, Any]:
+    """Return what this service can do right now — honest about stubs."""
+    from app.enrichment.registry import list_providers
+    from app.config import settings
+
+    registered = list_providers()
+    configured = [
+        p for p in registered
+        if _provider_has_creds(p, settings)
+    ]
+    missing_providers = [
+        p for p in ["ipinfo", "greynoise", "crowdstrike"]
+        if p not in registered
+    ]
+
+    routes = sorted(set(
+        route.path for route in request.app.routes
+        if hasattr(route, "path") and route.path.startswith("/api/")
+    ))
+
+    return {
+        "version": _git_sha(),
+        "endpoints": routes,
+        "providers": {
+            "registered": registered,
+            "configured": configured,
+            "missing": missing_providers,
+        },
+        "feature_flags": {
+            "ingest_worker_pipeline": True,
+            "fts_search": True,
+            "graphql_resolvers": "stub",
+            "enrich_entity_mcp_tool": True,
+        },
+    }
+
+
+def _provider_has_creds(provider: str, settings) -> bool:
+    cred_map = {
+        "virustotal": bool(settings.VIRUSTOTAL_API_KEY),
+        "shodan": bool(settings.SHODAN_API_KEY),
+        "ipinfo": bool(settings.IPINFO_TOKEN),
+        "greynoise": bool(settings.GREYNOISE_API_KEY),
+        "crowdstrike": bool(settings.CROWDSTRIKE_CLIENT_ID and settings.CROWDSTRIKE_CLIENT_SECRET),
+        "opencti": bool(settings.OPENCTI_URL and settings.OPENCTI_TOKEN),
+        "misp": bool(settings.MISP_URL and settings.MISP_KEY),
+        "nvd": True,  # NVD works without key (rate limited)
+        "mitre_attack": True,  # Local data
+    }
+    return cred_map.get(provider, False)

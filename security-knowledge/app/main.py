@@ -21,6 +21,7 @@ from app.routers.enrich import router as enrich_router
 from app.routers.entities import router as entities_router
 from app.routers.evidence import router as evidence_router
 from app.routers.export import router as export_router
+from app.routers.capabilities import router as capabilities_router
 from app.routers.graph import router as graph_router
 from app.routers.health import router as health_router
 from app.routers.ingest import router as ingest_router
@@ -98,6 +99,7 @@ app.include_router(pingback_router, prefix="/api/v1")
 app.include_router(sectors_router, prefix="/api/v1")
 app.include_router(mitre_router, prefix="/api/v1")
 app.include_router(export_router, prefix="/api/v1")
+app.include_router(capabilities_router, prefix="/api/v1")
 app.include_router(graphql_router, prefix="/graphql")
 
 # Static files (UI)
