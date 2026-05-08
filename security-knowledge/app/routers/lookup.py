@@ -124,12 +124,12 @@ async def _record_dispatch(db: AsyncSession, entity_id: str, tenant_id: str, for
     )
 
 
-async def _dispatch_enrichment(entity: Entity, tenant_id: str, force: bool, db: AsyncSession) -> None:
+async def _dispatch_enrichment(entity: Entity, tenant_id: str, force: bool, db: AsyncSession, user_id: str | None = None) -> None:
     """Run enrichment for all registered providers (background-safe, opens own session)."""
     from app.database import AsyncSessionLocal  # avoid circular at module level
 
     async with AsyncSessionLocal() as bg_db:
-        svc = EnrichmentService(bg_db, tenant_id)
+        svc = EnrichmentService(bg_db, tenant_id, user_id=user_id)
         for provider_name in list_providers():
             try:
                 await svc.enrich(provider_name, entity.kind, entity.canonical_name)
@@ -187,7 +187,7 @@ async def lookup(
 
     should_dispatch = await _should_dispatch(db, str(entity.id), auth.tenant_id, body.force_repoll)
     if should_dispatch:
-        background_tasks.add_task(_dispatch_enrichment, entity, auth.tenant_id, body.force_repoll, db)
+        background_tasks.add_task(_dispatch_enrichment, entity, auth.tenant_id, body.force_repoll, db, auth.user_id)
 
     if body.investigation_id:
         await _add_entity_to_investigation(db, body.investigation_id, str(entity.id), auth.tenant_id, auth.user_id)
@@ -223,7 +223,7 @@ async def bulk_lookup(
             entity = await _upsert_entity(db, auth.tenant_id, kind, canonical)
             should_dispatch = await _should_dispatch(db, str(entity.id), auth.tenant_id, False)
             if should_dispatch:
-                background_tasks.add_task(_dispatch_enrichment, entity, auth.tenant_id, False, db)
+                background_tasks.add_task(_dispatch_enrichment, entity, auth.tenant_id, False, db, auth.user_id)
             if body.investigation_id:
                 await _add_entity_to_investigation(db, body.investigation_id, str(entity.id), auth.tenant_id, auth.user_id)
             results.append({

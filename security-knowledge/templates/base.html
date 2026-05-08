@@ -43,6 +43,7 @@
       <div class="nav-user">
         <button class="button-muted" id="theme-toggle" title="Toggle light/dark mode" style="font-size:1.1rem;padding:0.6rem 0.7rem;">🌙</button>
         {% if current_user %}
+        <a href="/settings" class="nav-pill">Settings</a>
         <span class="tiny-pill">{{ current_user.email }}</span>
         <button class="button-muted" onclick="fetch('/api/v1/auth/logout',{method:'POST',credentials:'same-origin'}).then(()=>window.location='/login')">Logout</button>
         {% else %}

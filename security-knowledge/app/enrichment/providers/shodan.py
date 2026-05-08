@@ -8,13 +8,15 @@ from app.config import settings
 class ShodanProvider(BaseEnrichmentProvider):
     name = "shodan"
     kind = "ip"
+    supported_kinds = {"ip", "ip_address"}
 
     async def enrich(self, entity_kind: str, entity_value: str) -> dict:
-        if entity_kind not in ("ip",):
+        if entity_kind not in ("ip", "ip_address"):
             return {}
-        if not settings.SHODAN_API_KEY:
+        api_key = self.api_key_override or settings.SHODAN_API_KEY
+        if not api_key:
             return {}
-        url = f"https://api.shodan.io/shodan/host/{entity_value}?key={settings.SHODAN_API_KEY}"
+        url = f"https://api.shodan.io/shodan/host/{entity_value}?key={api_key}"
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.get(url)
             if resp.status_code == 404:

@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import app.enrichment.providers  # noqa: F401 — side-effect: registers all providers
 from app.enrichment.registry import get_provider, list_providers
 from app.enrichment.budget import check_budget, increment_usage
+from app.auth.byok import resolve_user_provider_key
 from app.models.enrichment import EnrichmentCache
 from datetime import datetime, timedelta, timezone
 import structlog
@@ -10,9 +11,10 @@ logger = structlog.get_logger(__name__)
 
 
 class EnrichmentService:
-    def __init__(self, db: AsyncSession, tenant_id: str):
+    def __init__(self, db: AsyncSession, tenant_id: str, user_id: str | None = None):
         self.db = db
         self.tenant_id = tenant_id
+        self.user_id = user_id
 
     async def enrich(self, provider_name: str, entity_kind: str, entity_value: str) -> dict:
         from sqlalchemy import select
@@ -37,7 +39,10 @@ class EnrichmentService:
             logger.warning("enrichment_budget_exceeded", provider=provider_name)
             return {}
 
-        provider = provider_cls()
+        byok = await resolve_user_provider_key(self.db, self.user_id, provider_name)
+        if byok:
+            logger.info("enrichment_using_byok", provider=provider_name, user_id=self.user_id)
+        provider = provider_cls(api_key=byok) if byok else provider_cls()
         result = await provider.enrich(entity_kind, entity_value)
         await increment_usage(self.db, provider_name, self.tenant_id)
 

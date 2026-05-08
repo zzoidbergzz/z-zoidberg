@@ -250,3 +250,190 @@ async def logout(response: Response):
     """Clear the session cookie."""
     response.delete_cookie(settings.SESSION_COOKIE_NAME)
     return {"message": "Logged out"}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Change password
+# ──────────────────────────────────────────────────────────────────────────────
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new(cls, v: str) -> str:
+        if len(v) < 12:
+            raise ValueError("New password must be at least 12 characters")
+        if v.lower() == v or v.upper() == v:
+            raise ValueError("New password must contain mixed case")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("New password must contain at least one digit")
+        return v
+
+
+@router.post("/change-password")
+async def change_password(
+    req: ChangePasswordRequest,
+    response: Response,
+    auth: AuthContext = Depends(get_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify current password, set new password, invalidate session cookie."""
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="User context required (use bearer token, not API key)")
+
+    result = await db.execute(select(User).where(User.id == uuid.UUID(auth.user_id)))
+    user = result.scalar_one_or_none()
+    if not user or not user.hashed_password:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not _bcrypt.checkpw(req.current_password.encode(), user.hashed_password.encode()):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    if req.current_password == req.new_password:
+        raise HTTPException(status_code=400, detail="New password must differ from current password")
+
+    user.hashed_password = _bcrypt.hashpw(req.new_password.encode(), _bcrypt.gensalt()).decode()
+    await db.flush()
+
+    response.delete_cookie(settings.SESSION_COOKIE_NAME)
+    return {"message": "Password changed. Please log in again."}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Bring-your-own-key (BYOK) provider key management
+# ──────────────────────────────────────────────────────────────────────────────
+
+from app.auth.byok import (
+    BYOK_PROVIDERS,
+    encrypt_key as _encrypt_key,
+    key_hint as _key_hint,
+)
+from app.models.auth import UserProviderKey
+
+
+class ProviderKeyRequest(BaseModel):
+    api_key: str
+
+    @field_validator("api_key")
+    @classmethod
+    def validate_key(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 8:
+            raise ValueError("API key looks too short")
+        return v
+
+
+class ProviderKeyResponse(BaseModel):
+    provider: str
+    key_hint: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+def _ensure_provider_supported(provider: str) -> None:
+    if provider not in BYOK_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Provider '{provider}' is not BYOK-enabled. Supported: {', '.join(BYOK_PROVIDERS)}",
+        )
+
+
+@router.get("/provider-keys", response_model=list[ProviderKeyResponse])
+async def list_provider_keys(
+    auth: AuthContext = Depends(get_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """List BYOK rows for the current user. Plaintext is never returned."""
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="User context required")
+    result = await db.execute(
+        select(UserProviderKey).where(UserProviderKey.user_id == uuid.UUID(auth.user_id))
+    )
+    rows = result.scalars().all()
+    return [
+        ProviderKeyResponse(
+            provider=r.provider,
+            key_hint=r.key_hint,
+            created_at=r.created_at,
+            updated_at=r.updated_at,
+        )
+        for r in rows
+    ]
+
+
+@router.get("/provider-keys/supported")
+async def list_supported_providers(auth: AuthContext = Depends(get_auth)):
+    """Return the list of providers that honour user-supplied keys."""
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="User context required")
+    return {"providers": list(BYOK_PROVIDERS)}
+
+
+@router.put("/provider-keys/{provider}", response_model=ProviderKeyResponse)
+async def upsert_provider_key(
+    provider: str,
+    req: ProviderKeyRequest,
+    auth: AuthContext = Depends(get_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Encrypt + store (or update) a user-supplied API key for ``provider``."""
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="User context required")
+    _ensure_provider_supported(provider)
+
+    encrypted = _encrypt_key(req.api_key)
+    hint = _key_hint(req.api_key)
+
+    result = await db.execute(
+        select(UserProviderKey).where(
+            UserProviderKey.user_id == uuid.UUID(auth.user_id),
+            UserProviderKey.provider == provider,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        row = UserProviderKey(
+            user_id=uuid.UUID(auth.user_id),
+            tenant_id=uuid.UUID(auth.tenant_id),
+            provider=provider,
+            encrypted_key=encrypted,
+            key_hint=hint,
+        )
+        db.add(row)
+    else:
+        row.encrypted_key = encrypted
+        row.key_hint = hint
+    await db.flush()
+    await db.refresh(row)
+
+    return ProviderKeyResponse(
+        provider=row.provider,
+        key_hint=row.key_hint,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+@router.delete("/provider-keys/{provider}", status_code=204)
+async def delete_provider_key(
+    provider: str,
+    auth: AuthContext = Depends(get_auth),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a user's BYOK row; subsequent enrichments fall back to the system key."""
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="User context required")
+    _ensure_provider_supported(provider)
+
+    result = await db.execute(
+        select(UserProviderKey).where(
+            UserProviderKey.user_id == uuid.UUID(auth.user_id),
+            UserProviderKey.provider == provider,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is not None:
+        await db.delete(row)
+        await db.flush()
+    return Response(status_code=204)

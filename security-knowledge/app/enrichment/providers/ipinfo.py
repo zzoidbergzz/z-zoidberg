@@ -12,16 +12,18 @@ from app.enrichment.registry import register
 class IPinfoProvider(BaseEnrichmentProvider):
     name = "ipinfo"
     kind = "ip"
+    supported_kinds = {"ip", "ip_address", "indicator"}
 
     async def enrich(self, entity_kind: str, entity_value: str) -> dict:
-        if not settings.IPINFO_TOKEN:
+        token = self.api_key_override or settings.IPINFO_TOKEN
+        if not token:
             return {}
-        if entity_kind not in ("ip", "indicator"):
+        if entity_kind not in ("ip", "ip_address", "indicator"):
             return {}
 
         url = f"https://ipinfo.io/{entity_value}/json"
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(url, headers={"Authorization": f"Bearer {settings.IPINFO_TOKEN}"})
+            resp = await client.get(url, headers={"Authorization": f"Bearer {token}"})
             if resp.status_code == 404:
                 return {}
             resp.raise_for_status()

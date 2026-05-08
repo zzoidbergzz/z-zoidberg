@@ -8,9 +8,11 @@ from app.config import settings
 class VirusTotalProvider(BaseEnrichmentProvider):
     name = "virustotal"
     kind = "indicator"
+    supported_kinds = {"ip", "ip_address", "domain", "url", "hash", "indicator"}
 
     async def enrich(self, entity_kind: str, entity_value: str) -> dict:
-        if not settings.VIRUSTOTAL_API_KEY:
+        api_key = self.api_key_override or settings.VIRUSTOTAL_API_KEY
+        if not api_key:
             return {}
         kind_map = {"ip": "ip_addresses", "domain": "domains", "hash": "files", "url": "urls"}
         resource_type = kind_map.get(entity_kind)
@@ -18,7 +20,7 @@ class VirusTotalProvider(BaseEnrichmentProvider):
             return {}
         url = f"https://www.virustotal.com/api/v3/{resource_type}/{entity_value}"
         async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.get(url, headers={"x-apikey": settings.VIRUSTOTAL_API_KEY})
+            resp = await client.get(url, headers={"x-apikey": api_key})
             if resp.status_code == 404:
                 return {}
             resp.raise_for_status()
