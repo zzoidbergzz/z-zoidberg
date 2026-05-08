@@ -79,10 +79,18 @@ class BrowserPool:
                     ctx = await self._browser.new_context(
                         user_agent=(
                             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                            "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
                         ),
                         java_script_enabled=True,
                         ignore_https_errors=False,
+                        extra_http_headers={
+                            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                            "Accept-Language": "en-US,en;q=0.9",
+                            "Accept-Encoding": "gzip, deflate, br",
+                            "Sec-Ch-Ua": '"Chromium";v="147", "Not?A_Brand";v="24", "Google Chrome";v="147"',
+                            "Sec-Ch-Ua-Mobile": "?0",
+                            "Sec-Ch-Ua-Platform": '"Linux"',
+                        },
                     )
                     await self._contexts.put(ctx)
 

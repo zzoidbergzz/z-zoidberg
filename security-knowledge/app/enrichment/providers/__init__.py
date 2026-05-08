@@ -18,5 +18,6 @@ from . import (  # noqa: F401  (import-for-side-effects)
     nvd,
     opencti,
     shodan,
+    urlscan,
     virustotal,
 )
