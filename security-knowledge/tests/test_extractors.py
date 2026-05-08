@@ -71,3 +71,25 @@ def test_run_all_combined():
     assert "cve" in kinds
     assert "ip" in kinds
     assert "url" in kinds
+
+
+def test_run_all_includes_technique_actor_cwe_cpe_malware():
+    """run_all must wire all extractors, not just the original 5."""
+    text = (
+        "APT29 used T1566.001 (CVE-2024-1234) on 10.0.0.1, deploying "
+        "Cobalt Strike. See CWE-79 and cpe:2.3:a:vendor:product:1.0:*:*:*:*:*:*:*"
+    )
+    results = run_all(text)
+    kinds = {r["kind"] for r in results}
+    assert "cve" in kinds
+    assert "ip" in kinds
+    assert "technique" in kinds
+    assert "actor" in kinds
+    assert "cwe" in kinds
+    assert "cpe" in kinds
+    assert "malware" in kinds
+
+    techniques = [r["value"] for r in results if r["kind"] == "technique"]
+    assert "T1566.001" in techniques
+    actors = [r["value"] for r in results if r["kind"] == "actor"]
+    assert any(a.upper() == "APT29" for a in actors)

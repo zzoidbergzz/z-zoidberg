@@ -1,16 +1,116 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Security Knowledge - claims</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
-</head>
-<body>
-<main class="container">
-  <h1>Security Knowledge</h1>
-  <p>Page: claims</p>
+{% extends "base.html" %}
+{% block content %}
+<main class="page-shell">
+  <header class="page-header">
+    <h1>Claims</h1>
+    <p class="muted">Structured assertions extracted from ingested intelligence.</p>
+  </header>
+
+  <section class="card">
+    <h3>Browse</h3>
+    <div class="row" style="gap:0.5rem; margin-bottom:0.75rem;">
+      <input id="claim-filter" type="search" placeholder="filter by statement substring…" />
+      <select id="claim-type">
+        <option value="">all types</option>
+      </select>
+      <button class="button-muted" id="claim-refresh">Refresh</button>
+    </div>
+    <div id="claims-status" class="muted"></div>
+    <table class="data-table" id="claims-table">
+      <thead><tr><th>Statement</th><th>Type</th><th>Confidence</th></tr></thead>
+      <tbody><tr><td colspan="3" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h3>Add a manual claim</h3>
+    <form id="claim-form">
+      <label>Statement <textarea name="statement" required rows="2" placeholder="APT28 operates infrastructure at 198.51.100.1"></textarea></label>
+      <div class="row" style="gap:0.5rem;">
+        <label style="flex:1;">Type <input name="claim_type" value="general" /></label>
+        <label style="flex:1;">Confidence (0–1) <input name="confidence" type="number" min="0" max="1" step="0.05" value="0.5" /></label>
+      </div>
+      <details>
+        <summary>Subject / predicate / object (optional, builds statement)</summary>
+        <div class="row" style="gap:0.5rem;">
+          <label style="flex:1;">Subject <input name="subject" /></label>
+          <label style="flex:1;">Predicate <input name="predicate" /></label>
+          <label style="flex:1;">Object <input name="object" /></label>
+        </div>
+      </details>
+      <button class="button" type="submit">Create claim</button>
+      <span id="claim-form-status" class="muted"></span>
+    </form>
+  </section>
 </main>
-</body>
-</html>
+
+<script>
+(() => {
+  const escape = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+
+  let allClaims = [];
+
+  async function loadClaims() {
+    const tbody = document.querySelector("#claims-table tbody");
+    tbody.innerHTML = `<tr><td colspan="3" class="muted">Loading…</td></tr>`;
+    const r = await fetch("/api/v1/claims/?limit=200", {credentials:"same-origin"});
+    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="3" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
+    allClaims = await r.json();
+    const types = [...new Set(allClaims.map(c => c.claim_type).filter(Boolean))].sort();
+    const sel = document.getElementById("claim-type");
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">all types</option>` + types.map(t => `<option value="${escape(t)}" ${t === cur ? "selected" : ""}>${escape(t)}</option>`).join("");
+    render();
+  }
+
+  function render() {
+    const filter = document.getElementById("claim-filter").value.toLowerCase();
+    const type = document.getElementById("claim-type").value;
+    const filtered = allClaims.filter(c =>
+      (!filter || (c.statement || "").toLowerCase().includes(filter)) &&
+      (!type || c.claim_type === type)
+    );
+    document.getElementById("claims-status").textContent = `${filtered.length} of ${allClaims.length} claims`;
+    const tbody = document.querySelector("#claims-table tbody");
+    if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="3" class="muted">No claims match.</td></tr>`; return; }
+    tbody.innerHTML = filtered.map(c =>
+      `<tr><td>${escape(c.statement)}</td><td><span class="tiny-pill">${escape(c.claim_type)}</span></td><td>${(c.confidence ?? 0).toFixed(2)}</td></tr>`
+    ).join("");
+  }
+
+  document.getElementById("claim-filter").addEventListener("input", render);
+  document.getElementById("claim-type").addEventListener("change", render);
+  document.getElementById("claim-refresh").addEventListener("click", loadClaims);
+
+  document.getElementById("claim-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const form = ev.target;
+    const status = document.getElementById("claim-form-status");
+    const body = {
+      statement: form.statement.value,
+      claim_type: form.claim_type.value || "general",
+      confidence: parseFloat(form.confidence.value) || 0.5,
+    };
+    if (form.subject.value) body.subject = form.subject.value;
+    if (form.predicate.value) body.predicate = form.predicate.value;
+    if (form.object.value) body.object = form.object.value;
+    status.textContent = "Saving…";
+    const r = await fetch("/api/v1/claims/", {
+      method: "POST", credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    if (r.ok) {
+      status.textContent = "Claim created.";
+      form.reset();
+      loadClaims();
+    } else {
+      const err = await r.json().catch(() => ({detail: "error"}));
+      status.textContent = `Failed: ${err.detail || r.status}`;
+    }
+  });
+
+  loadClaims();
+})();
+</script>
+{% endblock %}

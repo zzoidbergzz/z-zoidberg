@@ -781,3 +781,29 @@ body::before {
 [data-theme="light"] .result-card { background: rgba(255,255,255,0.8); }
 [data-theme="light"] .graph-stage { background: rgba(240,248,255,0.8); }
 [data-theme="light"] .shell-nav { background: rgba(255,255,255,0.7); }
+
+/* admin stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.stat-tile {
+  background: var(--card-bg, rgba(255,255,255,0.04));
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+.stat-label { font-size: 0.8rem; color: var(--muted, #9aa); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-value { font-size: 1.6rem; font-weight: 600; margin-top: 0.15rem; }
+.small { font-size: 0.8rem; }
+
+.byok-banner {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: rgba(255, 196, 0, 0.12);
+  border: 1px solid rgba(255, 196, 0, 0.35);
+  border-radius: 8px;
+  margin: 0.5rem 1rem 0; font-size: 0.92rem;
+}

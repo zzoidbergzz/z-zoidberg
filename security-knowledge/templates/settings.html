@@ -47,6 +47,28 @@
   </section>
 
   <section class="card">
+    <h2>Personal API keys</h2>
+    <p class="muted">
+      Use these to call the REST API or MCP from scripts / agents
+      (<code>Authorization: Bearer &lt;key&gt;</code>). Stored as SHA-256 hash — we
+      cannot show the original after creation, so copy a new key immediately.
+      Rotating issues a new key and deactivates the old one.
+    </p>
+    <table class="data-table" id="apikeys-table">
+      <thead>
+        <tr><th>Name</th><th>Scopes</th><th>Created</th><th>Last used</th><th>Status</th><th>Hint</th><th></th></tr>
+      </thead>
+      <tbody id="apikeys-body">
+        <tr><td colspan="7" class="muted">Loading…</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:0.6rem;">
+      <button class="button" id="apikey-new-btn">+ New API key</button>
+      <span id="apikeys-status" class="tiny-pill" style="margin-left:0.6rem"></span>
+    </p>
+  </section>
+
+  <section class="card">
     <h2>Session</h2>
     <p class="muted">Sign out of this browser session.</p>
     <button class="button-muted" id="logout-btn">Logout</button>
@@ -55,7 +77,7 @@
 
 <script>
 (function(){
-  const SUPPORTED = ["virustotal","greynoise","ipinfo","shodan","abuseipdb","anthropic"];
+  const SUPPORTED = ["virustotal","greynoise","ipinfo","shodan","abuseipdb","urlscan","anthropic"];
 
   async function refreshKeys() {
     const body = document.getElementById("keys-body");

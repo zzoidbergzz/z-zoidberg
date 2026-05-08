@@ -1,8 +1,11 @@
-"""Full-text + trigram hybrid search across entities and claims.
+"""Full-text + trigram hybrid search across entities, claims, and corpus_documents.
 
 Migration 0005 adds a ``search_vector`` tsvector column (GIN-indexed) and a
 ``canonical_name gin_trgm_ops`` index to ``entities``, and a
 ``search_vector`` column (GIN-indexed) to ``claims``.
+
+Migration 0023 adds ``corpus_documents`` (CVE, GCVE, Exploit-DB) with its own
+``search_vector`` GIN index.
 
 Results are enriched with claim descriptions (assertion text), tags,
 CVSS scores and external reference links so the search UI can render
@@ -28,7 +31,7 @@ _ENTITY_SQL = text(
         e.kind,
         e.external_refs,
         e.mitre_attack_id,
-        COALESCE(ts_rank_cd(e.search_vector, plainto_tsquery('english', :q)), 0)
+        COALESCE(ts_rank_cd(e.search_vector, websearch_to_tsquery('english', :q)), 0)
             + 0.4 * COALESCE(similarity(e.canonical_name, :q), 0)               AS score,
         (
             SELECT c.value->>'assertion'
@@ -59,7 +62,7 @@ _ENTITY_SQL = text(
     FROM entities e
     WHERE e.tenant_id = :tenant_id
       AND (
-          e.search_vector @@ plainto_tsquery('english', :q)
+          e.search_vector @@ websearch_to_tsquery('english', :q)
           OR e.canonical_name % :q
       )
     ORDER BY score DESC, e.updated_at DESC
@@ -83,13 +86,13 @@ _CLAIM_SQL = text(
         c.value->>'assertion'                                                     AS description,
         c.value->'tags'                                                           AS tags,
         c.value->>'confidence'                                                    AS confidence,
-        COALESCE(ts_rank_cd(c.search_vector, plainto_tsquery('english', :q)), 0)
+        COALESCE(ts_rank_cd(c.search_vector, websearch_to_tsquery('english', :q)), 0)
             + 0.4 * COALESCE(similarity(c.claim_type, :q), 0)                   AS score
     FROM claims c
     LEFT JOIN entities e ON e.id = c.entity_id
     WHERE c.tenant_id = :tenant_id
       AND (
-          c.search_vector @@ plainto_tsquery('english', :q)
+          c.search_vector @@ websearch_to_tsquery('english', :q)
           OR c.claim_type % :q
       )
     ORDER BY score DESC, c.updated_at DESC
@@ -98,6 +101,7 @@ _CLAIM_SQL = text(
 )
 
 _CVE_RE = re.compile(r"^CVE-\d{4}-\d+$", re.IGNORECASE)
+_GCVE_RE = re.compile(r"^GCVE-\d+-\d{4}-\d+$", re.IGNORECASE)
 _MITRE_RE = re.compile(r"^[TGSC]\d{4}(\.\d{3})?$")
 
 
@@ -175,20 +179,66 @@ def _build_entity_result(row: Any) -> dict[str, Any]:
     return result
 
 
+# Substring fallback for free-form / SearXNG-style queries that don't tokenize well
+# (CVE-IDs, IPs, hostnames, EDB-IDs, hashes, etc.). Triggered when tsquery returns
+# nothing or for very short tokens.
+_CORPUS_ILIKE_SQL = text(
+    """
+    SELECT
+        cd.id::text AS id, cd.corpus, cd.external_id AS name,
+        cd.title, cd.summary, cd.published_at,
+        0.05::float AS score
+    FROM corpus_documents cd
+    WHERE cd.tenant_id = :tenant_id
+      AND (
+          cd.external_id ILIKE :pat
+          OR cd.title ILIKE :pat
+          OR cd.summary ILIKE :pat
+      )
+    ORDER BY cd.published_at DESC NULLS LAST
+    LIMIT :lim
+    """
+)
+
+_ENTITY_ILIKE_SQL = text(
+    """
+    SELECT
+        e.id::text AS id, e.canonical_name AS name, e.kind, e.external_refs,
+        e.mitre_attack_id,
+        0.05::float AS score,
+        NULL::text AS description, NULL::jsonb AS tags, NULL::text AS confidence
+    FROM entities e
+    WHERE e.tenant_id = :tenant_id
+      AND e.canonical_name ILIKE :pat
+    ORDER BY e.updated_at DESC
+    LIMIT :lim
+    """
+)
+
+
 async def full_text_search(
     db: AsyncSession, tenant_id: str, query: str, limit: int = 20
 ) -> list[dict[str, Any]]:
-    """Return enriched search results across entities and claims.
+    """Return enriched search results across entities, claims, and corpus_documents.
 
     Each result includes description (from claim assertion), CVSS/severity
     for CVEs, NVD/MITRE links, and tag lists so the UI can render rich cards.
     Entity-linked claims are deduplicated — if an entity matches via both the
     entity row and an associated claim, only the entity result is kept.
+    Corpus documents are merged in and re-ranked by score.
     """
     params = {"q": query, "tenant_id": tenant_id, "lim": limit}
 
     entity_rows = await db.execute(_ENTITY_SQL, params)
     claim_rows = await db.execute(_CLAIM_SQL, params)
+
+    # Also search corpus_documents
+    corpus_params = {"q": query, "tenant_id": tenant_id, "lim": limit}
+    try:
+        corpus_rows = await db.execute(_CORPUS_SQL, corpus_params)
+        corpus_records = corpus_rows.mappings().all()
+    except Exception:
+        corpus_records = []
 
     results: list[dict[str, Any]] = []
     seen_entity_ids: set[str] = set()
@@ -200,12 +250,13 @@ async def full_text_search(
 
     for row in claim_rows.mappings().all():
         eid = row["entity_id"]
-        result_id = row["id"]  # already COALESCED to entity id if available
-        # Skip if we already have the parent entity in results (avoid duplicates)
-        if eid and eid in seen_entity_ids:
+        # Skip orphan claims — without a parent entity their "id" is a claim UUID
+        # and any /entities/<id> link will 404. Surface them only via parent.
+        if not eid:
             continue
-        if eid and eid not in seen_entity_ids:
-            seen_entity_ids.add(eid)
+        if eid in seen_entity_ids:
+            continue
+        seen_entity_ids.add(eid)
 
         ext = row["external_refs"] or {}
         kind: str = row["kind"] or "claim"
@@ -214,7 +265,7 @@ async def full_text_search(
 
         r: dict[str, Any] = {
             "kind": kind,
-            "id": result_id,
+            "id": eid,
             "name": name,
             "score": float(row["score"]),
             "description": row["description"] or "",
@@ -222,7 +273,7 @@ async def full_text_search(
             "confidence": row["confidence"] or "",
             "cvss": None,
             "severity": "",
-            "detail_url": f"/entities/{eid}" if eid else None,
+            "detail_url": f"/entities/{eid}",
             "nvd_link": None,
             "mitre_link": None,
         }
@@ -242,5 +293,146 @@ async def full_text_search(
 
         results.append(r)
 
+    for row in corpus_records:
+        results.append(_build_corpus_result(row))
+
+    # Free-form / SearXNG-style fallback: if tsquery yielded nothing useful,
+    # do a substring search across entities + corpus_documents so that
+    # arbitrary strings (CVE-IDs, IPs, hashes, EDB-IDs, partial hostnames,
+    # apostrophe'd words, etc.) still surface results.
+    if len(results) < max(3, limit // 4):
+        ilike_params = {
+            "tenant_id": tenant_id,
+            "pat": f"%{query.strip()}%",
+            "lim": limit,
+        }
+        try:
+            ent_fallback = await db.execute(_ENTITY_ILIKE_SQL, ilike_params)
+            for row in ent_fallback.mappings().all():
+                if row["id"] in seen_entity_ids:
+                    continue
+                seen_entity_ids.add(row["id"])
+                results.append(_build_entity_result(row))
+        except Exception:
+            pass
+        try:
+            corpus_fallback = await db.execute(_CORPUS_ILIKE_SQL, ilike_params)
+            seen_corpus_ids = {r["id"] for r in results if r.get("kind") in ("cve", "exploit", "exploitdb", "gcve")}
+            for row in corpus_fallback.mappings().all():
+                if row["id"] in seen_corpus_ids:
+                    continue
+                results.append(_build_corpus_result(row))
+        except Exception:
+            pass
+
     results.sort(key=lambda r: r["score"], reverse=True)
     return results[:limit]
+
+
+# Corpus document search: CVE, GCVE, and Exploit-DB records.
+_CORPUS_SQL = text(
+    """
+    SELECT
+        cd.id::text                                                               AS id,
+        cd.corpus,
+        cd.external_id                                                            AS name,
+        cd.title,
+        cd.summary,
+        cd.published_at,
+        ts_rank_cd(cd.search_vector, websearch_to_tsquery('english', :q))              AS score
+    FROM corpus_documents cd
+    WHERE cd.tenant_id = :tenant_id
+      AND cd.search_vector @@ websearch_to_tsquery('english', :q)
+    ORDER BY score DESC, cd.published_at DESC NULLS LAST
+    LIMIT :lim
+    """
+)
+
+
+def _build_corpus_result(row: Any) -> dict[str, Any]:
+    corpus = row["corpus"]
+    ext_id: str = row["name"]
+    title: str = row["title"] or ext_id
+    summary: str = row["summary"] or ""
+
+    kind_map = {"cve": "cve", "gcve": "cve", "exploitdb": "exploit"}
+    kind = kind_map.get(corpus, corpus)
+
+    result: dict[str, Any] = {
+        "kind": kind,
+        "id": row["id"],
+        "name": ext_id,
+        "score": float(row["score"]),
+        "description": (summary[:300] + "…" if len(summary) > 300 else summary),
+        "tags": [corpus],
+        "confidence": "",
+        "cvss": None,
+        "severity": "",
+        "nvd_link": None,
+        "mitre_link": None,
+        "detail_url": (
+            f"/cve/{ext_id}" if corpus in ("cve", "gcve")
+            else (f"/exploit/{ext_id.replace('EDB-', '')}" if corpus == "exploitdb" else None)
+        ),
+    }
+
+    if corpus in ("cve", "gcve") and _CVE_RE.match(ext_id):
+        result["nvd_link"] = _nvd_link(ext_id)
+
+    return result
+
+
+async def corpus_search(
+    db: AsyncSession, tenant_id: str, query: str, corpus: str | None = None, limit: int = 20
+) -> list[dict[str, Any]]:
+    """Search corpus_documents only. Used by the corpus-filtered search endpoint."""
+    params: dict[str, Any] = {"q": query, "tenant_id": tenant_id, "lim": limit}
+    corpus_filter = ""
+    if corpus:
+        corpus_filter = "AND cd.corpus = :corpus"
+        params["corpus"] = corpus
+
+    rows = await db.execute(
+        text(
+            f"""
+            SELECT
+                cd.id::text AS id, cd.corpus, cd.external_id AS name,
+                cd.title, cd.summary, cd.published_at,
+                ts_rank_cd(cd.search_vector, websearch_to_tsquery('english', :q)) AS score
+            FROM corpus_documents cd
+            WHERE cd.tenant_id = :tenant_id
+              AND cd.search_vector @@ websearch_to_tsquery('english', :q)
+              {corpus_filter}
+            ORDER BY score DESC, cd.published_at DESC NULLS LAST
+            LIMIT :lim
+            """
+        ),
+        params,
+    )
+    out = [_build_corpus_result(r) for r in rows.mappings().all()]
+    if len(out) < max(3, limit // 4):
+        ilike_params = dict(params)
+        ilike_params["pat"] = f"%{query.strip()}%"
+        rows2 = await db.execute(
+            text(
+                f"""
+                SELECT
+                    cd.id::text AS id, cd.corpus, cd.external_id AS name,
+                    cd.title, cd.summary, cd.published_at,
+                    0.05::float AS score
+                FROM corpus_documents cd
+                WHERE cd.tenant_id = :tenant_id
+                  AND (cd.external_id ILIKE :pat OR cd.title ILIKE :pat OR cd.summary ILIKE :pat)
+                  {corpus_filter}
+                ORDER BY cd.published_at DESC NULLS LAST
+                LIMIT :lim
+                """
+            ),
+            ilike_params,
+        )
+        seen = {r["id"] for r in out}
+        for row in rows2.mappings().all():
+            if row["id"] in seen:
+                continue
+            out.append(_build_corpus_result(row))
+    return out

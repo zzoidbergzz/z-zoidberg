@@ -20,6 +20,7 @@ class EnrichEntityInput(BaseModel):
     entity_value: str
     providers: list[str] | None = None
     tenant_id: str
+    user_id: str | None = None
 
 
 class ProviderResult(BaseModel):
@@ -45,7 +46,7 @@ async def enrich_entity_tool(inp: EnrichEntityInput, db: AsyncSession) -> Enrich
     available = list_providers()
     selected = [p for p in (inp.providers or available) if p in available]
 
-    service = EnrichmentService(db=db, tenant_id=inp.tenant_id)
+    service = EnrichmentService(db=db, tenant_id=inp.tenant_id, user_id=inp.user_id)
     results: list[ProviderResult] = []
 
     for provider_name in selected:
@@ -65,7 +66,11 @@ async def enrich_entity_tool(inp: EnrichEntityInput, db: AsyncSession) -> Enrich
 
 
 async def _enrich_entity_mcp(args: dict, db, auth) -> dict:
-    inp = EnrichEntityInput(tenant_id=str(auth.tenant_id), **args)
+    inp = EnrichEntityInput(
+        tenant_id=str(auth.tenant_id),
+        user_id=str(auth.user_id) if auth.user_id else None,
+        **args,
+    )
     result = await enrich_entity_tool(inp, db)
     return result.model_dump()
 

@@ -11,7 +11,7 @@ class ParsedDocument(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "parsed_documents"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sources.id"), nullable=True)
+    source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("source_records.id"), nullable=True)
     title: Mapped[str] = mapped_column(String(512), nullable=False, default="")
     url: Mapped[str | None] = mapped_column(Text, nullable=True)
     content_type: Mapped[str] = mapped_column(String(100), nullable=False, default="text/plain")

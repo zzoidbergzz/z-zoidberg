@@ -70,12 +70,36 @@ async def approve_user(
         user.status = UserStatus.approved
         user.approved_by = uuid.UUID(auth.user_id) if auth.user_id else None
         user.approved_at = datetime.now(timezone.utc)
+        # Auto-generate first API key on approval if user has none
+        from app.auth.api_key import generate_api_key
+        from app.models.auth import ApiKey
+
+        existing_keys = (await db.execute(
+            select(func.count()).select_from(ApiKey).where(ApiKey.user_id == user.id)
+        )).scalar_one()
+        new_key_plaintext = None
+        if existing_keys == 0:
+            raw, key_hash = generate_api_key()
+            ak = ApiKey(
+                user_id=user.id,
+                tenant_id=user.tenant_id,
+                key_hash=key_hash,
+                name=f"auto-generated-{user.email.split('@')[0]}",
+                scopes="read write enrichment watch",
+                active=True,
+            )
+            db.add(ak)
+            new_key_plaintext = raw
+        await db.flush()
+        await db.commit()
+        return {"id": str(user.id), "status": user.status, "api_key": new_key_plaintext}
     elif body.action == "reject":
         user.status = UserStatus.rejected
     else:
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'reject'")
 
     await db.flush()
+    await db.commit()
     return {"id": str(user.id), "status": user.status}
 
 
@@ -85,14 +109,58 @@ async def get_stats(
     db: AsyncSession = Depends(get_db),
 ):
     """Basic stats: user count, sighting count, watch count, enrichment cache size."""
+    from app.models.documents import ParsedDocument
+    from app.models.entities import Entity
+    from app.models.audit import AuditEvent
+    from app.models.sources import SourceRecord
+
     user_count = (await db.execute(select(func.count()).select_from(User))).scalar_one()
     watch_count = (await db.execute(select(func.count()).select_from(IocWatch))).scalar_one()
     sighting_count = (await db.execute(select(func.count()).select_from(IocSighting))).scalar_one()
     cache_count = (await db.execute(select(func.count()).select_from(EnrichmentCache))).scalar_one()
+    source_count = (await db.execute(select(func.count()).select_from(SourceRecord))).scalar_one()
+    source_active = (await db.execute(
+        select(func.count()).select_from(SourceRecord).where(SourceRecord.active == True)  # noqa: E712
+    )).scalar_one()
+    document_count = (await db.execute(select(func.count()).select_from(ParsedDocument))).scalar_one()
+    entity_count = (await db.execute(select(func.count()).select_from(Entity))).scalar_one()
+    audit_count = (await db.execute(select(func.count()).select_from(AuditEvent))).scalar_one()
+    pending_users = (await db.execute(
+        select(func.count()).select_from(User).where(User.status == UserStatus.pending)
+    )).scalar_one()
 
     return {
         "user_count": user_count,
+        "pending_users": pending_users,
         "watch_count": watch_count,
         "sighting_count": sighting_count,
         "enrichment_cache_size": cache_count,
+        "source_count": source_count,
+        "source_active": source_active,
+        "document_count": document_count,
+        "entity_count": entity_count,
+        "audit_count": audit_count,
     }
+
+
+class SourceToggleBody(BaseModel):
+    active: bool
+
+
+@router.post("/sources/{source_id}/toggle")
+async def toggle_source(
+    source_id: uuid.UUID,
+    body: SourceToggleBody,
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Activate or deactivate a feed source."""
+    from app.models.sources import SourceRecord
+
+    src = (await db.execute(select(SourceRecord).where(SourceRecord.id == source_id))).scalar_one_or_none()
+    if not src:
+        raise HTTPException(status_code=404, detail="Source not found")
+    src.active = body.active
+    await db.flush()
+    await db.commit()
+    return {"id": str(src.id), "active": src.active, "url": src.url}

@@ -41,23 +41,31 @@ _KIND_MAP: dict[str, str] = {
 }
 
 
+def _strip_null_bytes(value: str) -> str:
+    """Postgres TEXT/VARCHAR cannot store NUL (0x00). Strip and normalise."""
+    if not value:
+        return value
+    # Drop NULs and other C0 controls except \t \n \r — keeps utf-8 valid.
+    return value.replace("\x00", "").translate({i: None for i in range(0, 32) if i not in (9, 10, 13)})
+
+
 def _extract_title(html: str) -> str:
     """Pull <title> text from raw HTML."""
     m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
-    return m.group(1).strip() if m else ""
+    return _strip_null_bytes(m.group(1).strip()) if m else ""
 
 
 def _parse_content(html: str, content_type: str) -> str:
     """Extract plain text from HTML using trafilatura, falling back to BeautifulSoup."""
     if content_type == "text/markdown":
-        return html
+        return _strip_null_bytes(html)
 
     try:
         import trafilatura
 
         text = trafilatura.extract(html, include_comments=False, include_tables=True)
         if text:
-            return text
+            return _strip_null_bytes(text)
     except Exception:
         pass
 
@@ -67,12 +75,12 @@ def _parse_content(html: str, content_type: str) -> str:
         soup = BeautifulSoup(html, "html.parser")
         for tag in soup(["script", "style", "noscript"]):
             tag.decompose()
-        return soup.get_text(separator="\n")
+        return _strip_null_bytes(soup.get_text(separator="\n"))
     except Exception:
         pass
 
     # Last resort: strip HTML tags with regex
-    return re.sub(r"<[^>]+>", " ", html)
+    return _strip_null_bytes(re.sub(r"<[^>]+>", " ", html))
 
 
 def _chunk_text(text: str) -> list[tuple[str, str]]:
@@ -116,6 +124,81 @@ def _chunk_text(text: str) -> list[tuple[str, str]]:
 # ---------------------------------------------------------------------------
 # Job functions
 # ---------------------------------------------------------------------------
+
+
+# Map Entity.kind (post _KIND_MAP normalisation) → list of arq enrichment
+# providers to dispatch when a new entity is materialised at ingest time.
+_AUTO_ENRICHMENT_PROVIDERS: dict[str, tuple[str, ...]] = {
+    "cve": ("nvd",),
+    "cve_id": ("nvd",),
+    "attack_pattern": ("mitre_attack",),
+    "technique": ("mitre_attack",),
+    "subtechnique": ("mitre_attack",),
+    "url": ("urlscan",),
+    "ip": ("greynoise", "ipinfo", "abuseipdb"),
+    "ip_address": ("greynoise", "ipinfo", "abuseipdb"),
+    "domain": ("virustotal",),
+    "hash": ("virustotal",),
+    "file_hash": ("virustotal",),
+}
+
+
+async def _enqueue_auto_enrichment(entities: list, tenant_id: str) -> None:
+    """Enqueue run_enrichment jobs for newly-created entities.
+
+    Each enqueue is wrapped in its own try/except so a single failure
+    cannot roll back the ingest transaction.  Returns silently if the
+    arq pool cannot be reached (jobs can be re-driven manually later).
+    """
+    if not entities:
+        return
+
+    try:
+        from arq import create_pool
+        from arq.connections import RedisSettings
+    except Exception as exc:  # pragma: no cover
+        logger.warning("auto_enrichment_arq_import_failed", error=str(exc))
+        return
+
+    pool = None
+    try:
+        pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+    except Exception as exc:
+        logger.warning("auto_enrichment_pool_failed", error=str(exc))
+        return
+
+    try:
+        for ent in entities:
+            providers = _AUTO_ENRICHMENT_PROVIDERS.get(ent.kind)
+            if not providers:
+                continue
+            for prov in providers:
+                try:
+                    await pool.enqueue_job(
+                        "run_enrichment",
+                        str(ent.id),
+                        tenant_id,
+                        provider=prov,
+                    )
+                    logger.info(
+                        "auto_enrichment_enqueued",
+                        entity_id=str(ent.id),
+                        kind=ent.kind,
+                        provider=prov,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "auto_enrichment_enqueue_failed",
+                        entity_id=str(ent.id),
+                        kind=ent.kind,
+                        provider=prov,
+                        error=str(exc),
+                    )
+    finally:
+        try:
+            await pool.aclose()
+        except Exception:
+            pass
 
 
 async def process_ingest_job(
@@ -183,7 +266,7 @@ async def process_ingest_job(
                             ParsedDocument.url == source_url,
                         )
                     )
-                    existing_doc = existing.scalar_one_or_none()
+                    existing_doc = existing.scalars().first()
                     if existing_doc is not None:
                         logger.info(
                             "ingest_job_skipped_duplicate",
@@ -255,7 +338,7 @@ async def process_ingest_job(
                         ParsedDocument.metadata_["content_sha256"].as_string() == content_sha256,
                     )
                 )
-                existing_by_hash_doc = existing_by_hash.scalar_one_or_none()
+                existing_by_hash_doc = existing_by_hash.scalars().first()
                 if existing_by_hash_doc is not None:
                     logger.info(
                         "ingest_job_skipped_duplicate_hash",
@@ -334,6 +417,7 @@ async def process_ingest_job(
                 anchor_section = sections[0] if sections else None
 
                 entity_count = 0
+                newly_created_entities: list[Entity] = []
                 for ent_data in unique_entities:
                     raw_kind = ent_data["kind"]
                     mapped_kind = _KIND_MAP.get(raw_kind, "other")
@@ -357,6 +441,7 @@ async def process_ingest_job(
                         )
                         db.add(entity)
                         await db.flush()
+                        newly_created_entities.append(entity)
 
                     # Create Claim linking entity to this document
                     claim = Claim(
@@ -387,6 +472,15 @@ async def process_ingest_job(
                     entity_count += 1
 
                 await db.flush()
+
+                # ----------------------------------------------------------
+                # 9b. Auto-enrichment — enqueue per-provider arq jobs for
+                #     newly-created entities.  Each enqueue is wrapped in
+                #     try/except so a transient redis failure (or one
+                #     bad provider) cannot roll back the whole ingest.
+                # ----------------------------------------------------------
+                if not getattr(settings, "AUTO_ENRICHMENT_DISABLED", False) and newly_created_entities:
+                    await _enqueue_auto_enrichment(newly_created_entities, str(tenant_id))
 
                 # ----------------------------------------------------------
                 # 10. Emit AuditEvent
@@ -548,6 +642,52 @@ async def run_enrichment(
             raise
 
 
+async def refresh_corpora(
+    ctx: dict,
+    *,
+    _otel_ctx: dict | None = None,
+) -> dict:
+    """Daily refresh of historical CVE/GCVE/ExploitDB corpora.
+
+    Shells out to scripts/refresh_corpora.sh which does `git pull` per corpus
+    and re-runs each importer (importers are idempotent on (corpus, external_id)).
+    """
+    import asyncio
+    import os
+
+    script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "refresh_corpora.sh")
+    if not os.path.exists(script):
+        logger.warning("refresh_corpora_script_missing", path=script)
+        return {"status": "skipped", "reason": "script not found"}
+
+    t0 = time.monotonic()
+    job_id = "corpus-refresh-" + str(uuid.uuid4())[:8]
+    await record_job_start(job_id, "corpus_refresh")
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "/bin/bash", script,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        # Cap at 4h — corpora pulls can be large
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=14400)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await record_job_end(job_id, "corpus_refresh", "timeout", time.monotonic() - t0)
+            logger.warning("refresh_corpora_timeout")
+            return {"status": "timeout"}
+
+        rc = proc.returncode
+        status = "complete" if rc == 0 else "error"
+        await record_job_end(job_id, "corpus_refresh", status, time.monotonic() - t0)
+        logger.info("refresh_corpora_done", rc=rc, duration=time.monotonic() - t0)
+        return {"status": status, "returncode": rc}
+    except Exception:
+        await record_job_end(job_id, "corpus_refresh", "error", time.monotonic() - t0)
+        raise
+
+
 async def send_digests(
     ctx: dict,
     *,
@@ -635,14 +775,18 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [process_ingest_job, run_enrichment, send_digests, check_ioc_watches, poll_feeds]
+    functions = [process_ingest_job, run_enrichment, send_digests, check_ioc_watches, poll_feeds, refresh_corpora]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     max_jobs = 10
     job_timeout = 300
     keep_result = 3600  # seconds — retain job results for 1 hour
-    # Run feed poller every 5 minutes
     cron_jobs = [
+        # Feed poller every 5 minutes (per-source poll_interval is checked inside)
         cron(poll_feeds, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+        # Hourly digest dispatch (function checks each digest's own schedule)
+        cron(send_digests, minute={2}),
+        # Historical corpus refresh — daily 03:17 UTC (after most upstream daily syncs)
+        cron(refresh_corpora, hour={3}, minute={17}),
     ]

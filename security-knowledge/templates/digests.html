@@ -1,16 +1,97 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Security Knowledge - digests</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
-</head>
-<body>
-<main class="container">
-  <h1>Security Knowledge</h1>
-  <p>Page: digests</p>
+{% extends "base.html" %}
+{% block content %}
+<main class="page-shell">
+  <header class="page-header">
+    <h1>Digests</h1>
+    <p class="muted">Recurring summaries of new intel matching your filters.</p>
+  </header>
+
+  <section class="card">
+    <h3>Subscriptions</h3>
+    <div id="digests-status" class="muted"></div>
+    <table class="data-table" id="digests-table">
+      <thead><tr><th>Name</th><th>Frequency</th><th>Channels</th><th>Active</th></tr></thead>
+      <tbody><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h3>Create subscription</h3>
+    <form id="digest-form">
+      <label>Name <input name="name" required placeholder="Daily APT brief" /></label>
+      <div class="row" style="gap:0.5rem;">
+        <label style="flex:1;">Frequency
+          <select name="frequency">
+            <option value="hourly">hourly</option>
+            <option value="daily" selected>daily</option>
+            <option value="weekly">weekly</option>
+          </select>
+        </label>
+        <label style="flex:2;">Channels (comma-separated, e.g. <code>email:m@z.je</code>)
+          <input name="channels" placeholder="email:m@z.je" />
+        </label>
+      </div>
+      <label>Filters (JSON)
+        <textarea name="filters" rows="3" placeholder='{"entity_types":["technique","cve"],"min_confidence":0.7}'>{}</textarea>
+      </label>
+      <button class="button" type="submit">Create</button>
+      <span id="digest-form-status" class="muted"></span>
+    </form>
+  </section>
 </main>
-</body>
-</html>
+
+<script>
+(() => {
+  const escape = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+
+  async function loadDigests() {
+    const tbody = document.querySelector("#digests-table tbody");
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">Loading…</td></tr>`;
+    const r = await fetch("/api/v1/digests/", {credentials:"same-origin"});
+    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="4" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
+    const subs = await r.json();
+    document.getElementById("digests-status").textContent = `${subs.length} subscription(s)`;
+    if (!subs.length) { tbody.innerHTML = `<tr><td colspan="4" class="muted">No subscriptions yet. Create one below.</td></tr>`; return; }
+    tbody.innerHTML = subs.map(s =>
+      `<tr>
+         <td>${escape(s.name)}</td>
+         <td><span class="tiny-pill">${escape(s.frequency)}</span></td>
+         <td>${(s.channels || []).map(escape).join(", ") || "—"}</td>
+         <td><span class="tiny-pill ${s.active ? '' : 'warn'}">${s.active ? 'active' : 'paused'}</span></td>
+       </tr>`
+    ).join("");
+  }
+
+  document.getElementById("digest-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const form = ev.target;
+    const status = document.getElementById("digest-form-status");
+    let filters = {};
+    try { filters = JSON.parse(form.filters.value || "{}"); }
+    catch (e) { status.textContent = `Invalid filters JSON: ${e.message}`; return; }
+    const channels = (form.channels.value || "").split(",").map(c => c.trim()).filter(Boolean);
+    status.textContent = "Saving…";
+    const r = await fetch("/api/v1/digests/", {
+      method: "POST", credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        name: form.name.value,
+        frequency: form.frequency.value,
+        channels, filters,
+      }),
+    });
+    if (r.ok) {
+      status.textContent = "Created.";
+      form.reset();
+      form.filters.value = "{}";
+      loadDigests();
+    } else {
+      const err = await r.json().catch(() => ({detail: "error"}));
+      status.textContent = `Failed: ${err.detail || r.status}`;
+    }
+  });
+
+  loadDigests();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}{{ cve_id }} · z.je{% endblock %}
+{% block content %}
+<main class="page-shell">
+  <div id="status" class="status-bar" style="display:none;"></div>
+
+  <header class="page-header">
+    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+      <span style="font-size:2rem;">🛡️</span>
+      <div>
+        <h1 id="cve-title" style="margin:0;">{{ cve_id }}</h1>
+        <div id="cve-badges" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.4rem;"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid-2" style="margin-top:1rem;">
+    <!-- Summary card -->
+    <section class="card" id="summary-card">
+      <div class="section-title">Vulnerability Summary</div>
+      <div id="summary-loading" style="margin-top:0.75rem;" class="subtle">Loading…</div>
+      <div id="summary-body" style="margin-top:0.75rem;display:none;">
+        <div id="meta-grid" style="display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;font-size:0.9rem;"></div>
+        <div id="description-block" style="margin-top:1rem;">
+          <div class="section-title" style="font-size:0.8rem;margin-bottom:0.4rem;">Description</div>
+          <p id="description-text" class="subtle" style="font-size:0.9rem;line-height:1.6;"></p>
+        </div>
+      </div>
+      <div id="summary-error" style="display:none;" class="subtle">Not found in local corpus.</div>
+    </section>
+
+    <!-- Links card -->
+    <section class="card" id="links-card" style="display:none;">
+      <div class="section-title">External Links</div>
+      <div id="links-body" style="margin-top:0.75rem;display:flex;flex-direction:column;gap:0.5rem;"></div>
+    </section>
+  </div>
+
+  <!-- Related Exploits -->
+  <section class="panel" id="exploits-card" style="margin-top:1rem;display:none;">
+    <div class="section-title">Related Exploits (Exploit-DB)</div>
+    <table class="table" style="margin-top:0.75rem;">
+      <thead><tr><th>EDB ID</th><th>Title</th><th>Date</th></tr></thead>
+      <tbody id="exploits-body"></tbody>
+    </table>
+  </section>
+
+  <!-- Full JSON (collapsible) -->
+  <section class="panel" id="raw-card" style="margin-top:1rem;display:none;">
+    <details>
+      <summary class="section-title" style="cursor:pointer;">Raw JSON Record</summary>
+      <pre id="raw-json" style="font-size:0.75rem;max-height:600px;overflow:auto;margin-top:0.75rem;background:var(--surface);padding:1rem;border-radius:6px;white-space:pre-wrap;word-break:break-all;"></pre>
+    </details>
+  </section>
+</main>
+
+<script>
+(async () => {
+  const cveId = {{ cve_id | tojson }};
+  const API = '/api/v1';
+
+  async function apiKey() {
+    const m = document.cookie.match(/sk_session=([^;]+)/);
+    return m ? m[1] : null;
+  }
+
+  async function callMcp(tool, args) {
+    const key = await apiKey();
+    const resp = await fetch(`${API}/mcp/call`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({ tool, args }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return resp.json();
+  }
+
+  function badge(text, color) {
+    const s = document.createElement('span');
+    s.className = 'tag';
+    s.style.background = color || 'var(--surface)';
+    s.style.color = '#fff';
+    s.style.padding = '0.2rem 0.55rem';
+    s.style.borderRadius = '4px';
+    s.style.fontSize = '0.75rem';
+    s.style.fontWeight = '600';
+    s.textContent = text;
+    return s;
+  }
+
+  function severityColor(sev) {
+    return { critical: '#dc2626', high: '#ea580c', medium: '#d97706', low: '#16a34a' }[sev] || '#6b7280';
+  }
+
+  const loading = document.getElementById('summary-loading');
+  const body = document.getElementById('summary-body');
+  const err = document.getElementById('summary-error');
+  const badges = document.getElementById('cve-badges');
+  const title = document.getElementById('cve-title');
+
+  try {
+    const result = await callMcp('cve_lookup', { cve_id: cveId });
+
+    loading.style.display = 'none';
+
+    if (!result.found) {
+      err.style.display = '';
+      err.textContent = `${cveId} not found in local corpus. Try NVD: `;
+      const lnk = document.createElement('a');
+      lnk.href = `https://nvd.nist.gov/vuln/detail/${cveId}`;
+      lnk.target = '_blank';
+      lnk.textContent = 'NVD ↗';
+      err.appendChild(lnk);
+      return;
+    }
+
+    body.style.display = '';
+
+    // Title
+    if (result.title) title.textContent = `${cveId} — ${result.title}`;
+
+    // Corpus badge
+    const corpusBadge = badge(result.corpus === 'gcve' ? 'GCVE' : 'CVE List V5', '#1e40af');
+    badges.appendChild(corpusBadge);
+
+    // Parse raw_json for CVSS etc (from corpus doc)
+    let raw = null;
+    try { raw = result.raw_json ? JSON.parse(result.raw_json) : null; } catch (_) {}
+
+    // CVSS from raw_json
+    let cvssScore = null;
+    let cvssVector = null;
+    let severity = null;
+    if (raw) {
+      const cna = raw?.containers?.cna || {};
+      for (const m of (cna.metrics || [])) {
+        for (const key of ['cvssV3_1', 'cvssV3_0', 'cvssV4_0', 'cvssV2_0']) {
+          if (m[key]) {
+            cvssScore = m[key].baseScore;
+            cvssVector = m[key].vectorString;
+            break;
+          }
+        }
+        if (cvssScore) break;
+      }
+    }
+
+    if (cvssScore != null) {
+      const score = parseFloat(cvssScore);
+      severity = score >= 9 ? 'critical' : score >= 7 ? 'high' : score >= 4 ? 'medium' : 'low';
+      badges.appendChild(badge(`CVSS ${cvssScore}`, severityColor(severity)));
+      badges.appendChild(badge(severity.toUpperCase(), severityColor(severity)));
+    }
+
+    // Meta grid
+    const grid = document.getElementById('meta-grid');
+    function addMeta(label, value) {
+      const k = document.createElement('span');
+      k.style.fontWeight = '600';
+      k.style.color = 'var(--muted)';
+      k.style.fontSize = '0.8rem';
+      k.textContent = label;
+      grid.appendChild(k);
+      const v = document.createElement('span');
+      v.style.fontSize = '0.9rem';
+      v.textContent = value;
+      grid.appendChild(v);
+    }
+    if (result.published_at) addMeta('Published', result.published_at.slice(0, 10));
+    if (result.modified_at) addMeta('Modified', result.modified_at.slice(0, 10));
+    if (cvssScore) addMeta('CVSS Score', `${cvssScore}${cvssVector ? ' · ' + cvssVector : ''}`);
+
+    // Affected products
+    if (raw) {
+      const affected = (raw?.containers?.cna?.affected || []).slice(0, 8);
+      if (affected.length) {
+        const prods = affected.map(a => [a.vendor, a.product].filter(Boolean).join(' ')).filter(Boolean).join(', ');
+        if (prods) addMeta('Affected', prods);
+      }
+    }
+
+    // Description
+    const descEl = document.getElementById('description-text');
+    descEl.textContent = result.summary || '(no description available)';
+
+    // Links card
+    const linksCard = document.getElementById('links-card');
+    const linksBody = document.getElementById('links-body');
+    const extId = result.cve_id || cveId;
+    if (/^CVE-/i.test(extId)) {
+      linksCard.style.display = '';
+      function addLink(label, url) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.className = 'button-muted';
+        a.style.display = 'inline-block';
+        a.style.fontSize = '0.85rem';
+        a.textContent = label + ' ↗';
+        linksBody.appendChild(a);
+      }
+      addLink('NVD', `https://nvd.nist.gov/vuln/detail/${extId}`);
+      addLink('MITRE CVE', `https://cve.mitre.org/cgi-bin/cvename.cgi?name=${extId}`);
+      addLink('OSV', `https://osv.dev/vulnerability/${extId}`);
+    }
+
+    // Related exploits
+    const exploits = result.related_exploits || [];
+    if (exploits.length) {
+      const exploitsCard = document.getElementById('exploits-card');
+      exploitsCard.style.display = '';
+      const tbody = document.getElementById('exploits-body');
+      exploits.forEach(ex => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><a href="/search?q=${encodeURIComponent(ex.edb_id)}&corpus=exploitdb">${ex.edb_id}</a></td>
+          <td>${ex.title || ''}</td>
+          <td>${(ex.date || '').slice(0, 10)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Raw JSON
+    if (result) {
+      document.getElementById('raw-card').style.display = '';
+      const raw_data = raw || result;
+      document.getElementById('raw-json').textContent = JSON.stringify(raw_data, null, 2);
+    }
+
+  } catch (e) {
+    loading.style.display = 'none';
+    err.style.display = '';
+    err.textContent = `Error loading CVE data: ${e.message}`;
+  }
+})();
+</script>
+{% endblock %}

@@ -64,7 +64,15 @@ def value_hash(value: str) -> str:
 # Providers that currently honour user-supplied BYOK overrides. Keep this
 # list in sync with the provider modules that accept an ``api_key`` arg
 # and with the settings UI under templates/settings.html.
-BYOK_PROVIDERS: tuple[str, ...] = ("virustotal", "greynoise", "ipinfo", "shodan", "anthropic", "abuseipdb")
+BYOK_PROVIDERS: tuple[str, ...] = (
+    "virustotal",
+    "greynoise",
+    "ipinfo",
+    "shodan",
+    "anthropic",
+    "abuseipdb",
+    "urlscan",
+)
 
 
 async def resolve_user_provider_key(db, user_id, provider: str) -> str | None:

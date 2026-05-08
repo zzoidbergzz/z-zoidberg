@@ -1,0 +1,22 @@
+# OpenClaw Gateway MCP Configuration
+# Add this to your gateway config under mcp.servers
+
+# For SSE transport (remote hosted SK instance):
+mcp:
+  servers:
+    security-knowledge:
+      transport: sse
+      url: "https://your-sk-host/api/v1/mcp/sse"
+      headers:
+        X-API-Key: "${SK_API_KEY}"
+
+# Or for stdio transport (local SK instance):
+# mcp:
+#   servers:
+#     security-knowledge:
+#       command: python
+#       args: ["-m", "app.mcp.server"]
+#       cwd: /path/to/z-zoidberg/security-knowledge
+#       env:
+#         SK_API_KEY: "${SK_API_KEY}"
+#         DATABASE_URL: "postgresql+asyncpg://sk:sk@localhost/sk"

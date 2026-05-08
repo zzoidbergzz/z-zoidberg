@@ -30,6 +30,29 @@ from app.config import settings
 logger = structlog.get_logger(__name__)
 
 PACK_DIR = Path(__file__).parent / "knowledge" / "research_pack"
+CATALOG_PATH = Path(__file__).parent / "knowledge" / "entity_catalog.yml"
+
+
+def _load_catalog() -> dict[str, dict]:
+    """Load curated entity catalog (knowledge_id → metadata).
+    Used to seed friendly canonical_name + description on stub creation
+    instead of bare slugs. Safe if PyYAML or file missing.
+    """
+    try:
+        import yaml  # type: ignore
+    except Exception:
+        return {}
+    if not CATALOG_PATH.exists():
+        return {}
+    try:
+        with CATALOG_PATH.open() as f:
+            data = yaml.safe_load(f) or {}
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+_CATALOG = _load_catalog()
 
 
 def _asyncpg_dsn(url: str) -> str:
@@ -74,10 +97,23 @@ async def _get_or_create_entity_stub(conn: asyncpg.Connection, tenant_id, knowle
         return entity_id
 
     # Create stub with JSONB external_refs — pass dict, asyncpg serialises to jsonb
+    entry = _CATALOG.get(knowledge_id) or {}
+    refs: dict = {"knowledge_id": knowledge_id}
+    if not entry:
+        refs["stub"] = True
+    else:
+        for k in ("description", "aka", "url"):
+            if entry.get(k) is not None:
+                v = entry[k]
+                if isinstance(v, str):
+                    v = " ".join(v.split())
+                refs[k] = v
+    new_kind = entry.get("kind") or "other"
+    new_name = entry.get("name") or knowledge_id
     row = await conn.fetchrow(
         "INSERT INTO entities (tenant_id, kind, canonical_name, external_refs)"
-        " VALUES ($1, 'other', $2, $3) RETURNING id",
-        tenant_id, knowledge_id, json.dumps({"knowledge_id": knowledge_id, "stub": True}),
+        " VALUES ($1, $2, $3, $4) RETURNING id",
+        tenant_id, new_kind, new_name, json.dumps(refs),
     )
     entity_id = row["id"]
     logger.info("created_entity_stub", knowledge_id=knowledge_id, entity_id=str(entity_id))

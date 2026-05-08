@@ -580,6 +580,44 @@ uvx falcon-mcp --modules detections,intel,hosts,ioc,spotlight
 
 ---
 
+## 8b. Historical Corpora (branch: `feat/historical-corpora`)
+
+Three static vulnerability/exploit corpora are bulk-imported into `corpus_documents` (table created in migration 0023, widened in 0024):
+
+| Corpus | Source | Records | Import script |
+|--------|--------|---------|---------------|
+| `cve` | MITRE CVE List V5 (GitHub: `CVEProject/cvelistV5`) | ~349k | `scripts/import_cvelist.py` |
+| `gcve` | GCVE NDJSON dumps at https://vulnerability.circl.lu/dumps/ | 78 | `scripts/import_gcve.py` |
+| `exploitdb` | Exploit-DB GitLab (CSV + exploit files) | ~47k | `scripts/import_exploitdb.py` |
+
+Raw data lives at `security-knowledge/data/corpora/` (git-ignored). To refresh:
+
+```bash
+cd security-knowledge
+# ExploitDB
+git -C data/corpora/exploitdb pull --ff-only
+.venv/bin/python scripts/import_exploitdb.py
+
+# CVE List V5
+git -C data/corpora/cvelistv5 pull --ff-only
+.venv/bin/python scripts/import_cvelist.py
+
+# GCVE (download latest dumps, then import)
+wget -P data/corpora/gcve https://vulnerability.circl.lu/dumps/gna-1.ndjson
+.venv/bin/python scripts/import_gcve.py
+```
+
+**New MCP tools:**
+- `cve_lookup(cve_id)` — full CVE/GCVE record + related exploits
+- `exploit_search(query, limit=10)` — FTS over Exploit-DB
+- `corpus_search(query, corpus?, limit=10)` — FTS across all corpora
+
+**New UI route:** `GET /cve/{cve_id}` — CVE detail page with CVSS, description, related exploits.
+
+**Search filter:** `GET /api/v1/search/?q=...&corpus=cve|gcve|exploitdb` — limit results to one corpus.
+
+---
+
 ## 9. Decisions Log
 
 | Decision | Rationale |
