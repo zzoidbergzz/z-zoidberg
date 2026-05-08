@@ -7,6 +7,57 @@ from sqlalchemy import text
 from app.mcp.registry import register_tool
 
 
+async def _exploit_lookup(args: dict, db, auth) -> dict:
+    """Look up a single Exploit-DB record by EDB-XXXX id."""
+    eid = (args.get("edb_id") or "").strip().upper()
+    if not eid:
+        return {"error": "edb_id is required"}
+    if not eid.startswith("EDB-"):
+        eid = f"EDB-{eid}"
+
+    row = await db.execute(
+        text(
+            """
+            SELECT
+                cd.id::text, cd.corpus, cd.external_id, cd.title, cd.summary,
+                cd.body_text, cd.raw_json, cd.published_at, cd.modified_at,
+                cd.source_path
+            FROM corpus_documents cd
+            WHERE cd.corpus = 'exploitdb'
+              AND cd.external_id = :eid
+              AND cd.tenant_id = :tid
+            LIMIT 1
+            """
+        ),
+        {"eid": eid, "tid": str(auth.tenant_id)},
+    )
+    rec = row.mappings().first()
+    if rec is None:
+        return {"found": False, "edb_id": eid, "message": "Not found in local Exploit-DB corpus"}
+
+    doc = dict(rec)
+    raw = doc.get("raw_json") or {}
+    # Extract referenced CVEs from body or raw_json metadata
+    import re as _re
+    body = (doc.get("body_text") or "")[:50000]
+    cves = sorted(set(_re.findall(r"CVE-\d{4}-\d{4,7}", body, _re.IGNORECASE)))[:20]
+    cves = [c.upper() for c in cves]
+
+    return {
+        "found": True,
+        "edb_id": eid,
+        "title": doc.get("title"),
+        "summary": doc.get("summary"),
+        "body_text": (doc.get("body_text") or "")[:20000],
+        "raw_json": raw,
+        "published_at": str(doc.get("published_at") or ""),
+        "modified_at": str(doc.get("modified_at") or ""),
+        "source_path": doc.get("source_path"),
+        "related_cves": cves,
+        "detail_url": f"/exploit/{eid.replace('EDB-', '')}",
+    }
+
+
 async def _cve_lookup(args: dict, db, auth) -> dict:
     """Look up a CVE from the local corpus_documents table."""
     cve_id = (args.get("cve_id") or "").strip().upper()
@@ -162,6 +213,20 @@ register_tool(
         },
     },
     description="Look up a CVE or GCVE record from the local corpus. Returns record + related exploits.",
+    scope="read",
+)
+
+register_tool(
+    name="exploit_lookup",
+    fn=_exploit_lookup,
+    schema={
+        "type": "object",
+        "required": ["edb_id"],
+        "properties": {
+            "edb_id": {"type": "string", "description": "Exploit-DB id, e.g. EDB-42031 or just 42031"},
+        },
+    },
+    description="Look up a single Exploit-DB record. Returns metadata, body text, raw JSON, and related CVEs.",
     scope="read",
 )
 

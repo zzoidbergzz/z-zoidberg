@@ -151,9 +151,12 @@
 
   // ── Render one card ────────────────────────────────────────────────────
   function renderCard(item) {
-    const detailHref = item.kind === "cve" || item.kind === "technique" || item.kind === "attack_pattern" || item.kind === "actor" || item.kind === "malware" || item.kind === "tool"
-      ? `/entities/${esc(item.id)}`
-      : (item.detail_url || `/entities/${esc(item.id)}`);
+    const corpusKinds = new Set(["cve", "gcve", "exploit", "exploitdb"]);
+    const detailHref = corpusKinds.has(item.kind)
+      ? (item.detail_url || `/entities/${esc(item.id)}`)
+      : (item.kind === "technique" || item.kind === "attack_pattern" || item.kind === "actor" || item.kind === "malware" || item.kind === "tool"
+          ? `/entities/${esc(item.id)}`
+          : (item.detail_url || `/entities/${esc(item.id)}`));
 
     const desc = item.description || "";
     const snippet = desc.length > 320 ? desc.slice(0, 320) + "…" : desc;

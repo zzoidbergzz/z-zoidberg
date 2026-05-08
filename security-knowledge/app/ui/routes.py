@@ -97,6 +97,20 @@ async def ui_cve_detail(request: Request, cve_id: str):
     )
 
 
+@ui_router.get("/exploit/{edb_id}", response_class=HTMLResponse)
+async def ui_exploit_detail(request: Request, edb_id: str):
+    if not _authed(request):
+        return _login_redirect(f"/exploit/{edb_id}")
+    eid = edb_id.upper()
+    if not eid.startswith("EDB-"):
+        eid = f"EDB-{eid}"
+    return templates.TemplateResponse(
+        request,
+        "exploit_detail.html",
+        {"current_user": get_template_user(request), "edb_id": eid},
+    )
+
+
 @ui_router.get("/settings", response_class=HTMLResponse)
 async def ui_settings(request: Request):
     if not _authed(request):
