@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from app.database import get_db
 from app.auth.dependencies import require_read
-from app.services.search import full_text_search
+from app.services.search import corpus_search, full_text_search
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -28,8 +28,12 @@ class SearchResult(BaseModel):
 async def search(
     q: str = Query(..., min_length=2),
     limit: int = Query(20, le=100),
+    corpus: Optional[str] = Query(None, description="Filter to corpus: cve, gcve, exploitdb"),
     db: AsyncSession = Depends(get_db),
     auth = Depends(require_read),
 ):
-    results = await full_text_search(db, auth.tenant_id, q, limit)
+    if corpus:
+        results = await corpus_search(db, str(auth.tenant_id), q, corpus=corpus, limit=limit)
+    else:
+        results = await full_text_search(db, str(auth.tenant_id), q, limit)
     return [SearchResult(**r) for r in results]

@@ -1,3 +1,4 @@
 .env
 .env.*
 .openclaw/
+security-knowledge/data/corpora/

@@ -86,6 +86,17 @@ async def ui_digests(request: Request):
     return templates.TemplateResponse(request, "digests.html", {"current_user": get_template_user(request)})
 
 
+@ui_router.get("/cve/{cve_id}", response_class=HTMLResponse)
+async def ui_cve_detail(request: Request, cve_id: str):
+    if not _authed(request):
+        return _login_redirect(f"/cve/{cve_id}")
+    return templates.TemplateResponse(
+        request,
+        "cve_detail.html",
+        {"current_user": get_template_user(request), "cve_id": cve_id.upper()},
+    )
+
+
 @ui_router.get("/settings", response_class=HTMLResponse)
 async def ui_settings(request: Request):
     if not _authed(request):

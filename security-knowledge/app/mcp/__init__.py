@@ -3,6 +3,7 @@
 from app.mcp.tools import (  # noqa: F401
     ask_question,
     audit,
+    corpus_tools,
     create_claim,
     create_entity,
     create_evidence,
