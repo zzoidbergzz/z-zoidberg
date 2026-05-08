@@ -3,6 +3,7 @@ from app.models.auth import ApiKey, Tenant, User
 from app.models.base import Base, TimestampMixin, UUIDMixin
 from app.models.changes import Change
 from app.models.claims import Claim
+from app.models.corpus import CorpusDocument
 from app.models.detections import DetectionRule
 from app.models.digests import DigestRun, DigestSubscription, InboxItem, SavedSearch
 from app.models.documents import DocumentSection, ParsedDocument
@@ -40,4 +41,5 @@ __all__ = [
     "SyncState", "TaxiiCollection",
     "Sector", "SectorMembership", "SectorInvite",
     "IocWatch", "IocSighting", "IocContact",
+    "CorpusDocument",
 ]
