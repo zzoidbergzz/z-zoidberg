@@ -25,6 +25,7 @@ from app.routers.entities import router as entities_router
 from app.routers.evidence import router as evidence_router
 from app.routers.export import router as export_router
 from app.routers.capabilities import router as capabilities_router
+from app.routers.import_corpus import router as import_corpus_router
 from app.routers.graph import router as graph_router
 from app.routers.shortcuts import router as shortcuts_router
 from app.routers.lookup import router as lookup_router
@@ -177,6 +178,7 @@ app.include_router(sectors_router, prefix="/api/v1")
 app.include_router(mitre_router, prefix="/api/v1")
 app.include_router(export_router, prefix="/api/v1")
 app.include_router(capabilities_router, prefix="/api/v1")
+app.include_router(import_corpus_router, prefix="/api/v1")
 app.include_router(graphql_router, prefix="/graphql")
 app.include_router(shortcuts_router)
 app.include_router(lookup_router, prefix="/api/v1")
@@ -191,3 +193,8 @@ if templates_path.exists():
 _static_dir = Path(__file__).parent.parent / "static"
 if _static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+# Mount real MCP SSE transport at /api/v1/mcp/sse
+from app.mcp.server import mount_sse as _mount_mcp_sse  # noqa: E402
+_mount_mcp_sse(app)
+

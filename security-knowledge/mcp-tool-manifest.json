@@ -1,53 +1,293 @@
 {
-  "schema_version": "1.0",
-  "name": "security-knowledge-mcp",
-  "description": "Security intelligence MCP tools",
-  "tools": [
+  "schema_version": "1.1",
+  "generated_from": "GET /api/v1/mcp/tools",
+  "note": "Auto-generated. Regenerate with: make mcp-manifest",
+  "tool_names": [
+    "enrich_entity",
+    "get_object_by_attack_id",
+    "get_object_by_stix_id",
+    "get_objects_by_name",
+    "get_objects_by_content",
+    "get_techniques_used_by_group",
+    "get_software_used_by_group",
+    "get_campaigns_attributed_to_group",
+    "get_groups_using_technique",
+    "get_groups_using_software",
+    "get_techniques_used_by_software",
+    "get_all_techniques",
+    "get_all_subtechniques",
+    "get_all_groups",
+    "get_all_software",
+    "get_all_mitigations",
+    "get_all_tactics",
+    "get_all_campaigns",
+    "get_subtechniques_of_technique",
+    "get_parent_technique_of_subtechnique",
+    "get_techniques_by_tactic",
+    "get_techniques_by_platform",
+    "get_mitigations_mitigating_technique",
+    "get_datacomponents_detecting_technique",
+    "get_procedure_examples_by_technique",
+    "get_techniques_used_by_campaign",
+    "get_campaigns_using_technique",
+    "get_techniques_mitigated_by_mitigation",
+    "get_objects_created_after",
+    "get_objects_modified_after",
+    "get_revoked_techniques",
+    "get_groups_by_alias",
+    "get_software_by_alias"
+  ],
+  "tool_schemas": [
     {
       "name": "enrich_entity",
-      "description": "Enrich a named security entity with data from external sources",
-      "input_schema": {
+      "parameters": {
         "type": "object",
+        "required": [
+          "entity_kind",
+          "entity_value"
+        ],
         "properties": {
-          "entity_name": {"type": "string", "description": "Name of the entity (e.g. CVE-2024-1234)"},
-          "entity_kind": {"type": "string", "description": "Kind of entity", "enum": ["cve", "malware", "actor", "ip_address", "domain", "hash", "url"]},
-          "tenant_id": {"type": "string", "description": "Tenant identifier"}
-        },
-        "required": ["entity_name", "entity_kind", "tenant_id"]
+          "entity_kind": {
+            "type": "string",
+            "description": "Kind of entity to enrich (e.g. cve, ip_address, domain, malware)"
+          },
+          "entity_value": {
+            "type": "string",
+            "description": "The entity value to look up (e.g. CVE-2024-1234, 1.2.3.4)"
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional provider names to restrict enrichment to; omit to run all matching providers"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_object_by_attack_id",
+      "parameters": {
+        "attack_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_object_by_stix_id",
+      "parameters": {
+        "stix_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_objects_by_name",
+      "parameters": {
+        "name": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_objects_by_content",
+      "parameters": {
+        "content": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_techniques_used_by_group",
+      "parameters": {
+        "group_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_software_used_by_group",
+      "parameters": {
+        "group_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_campaigns_attributed_to_group",
+      "parameters": {
+        "group_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_groups_using_technique",
+      "parameters": {
+        "technique_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_groups_using_software",
+      "parameters": {
+        "software_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_techniques_used_by_software",
+      "parameters": {
+        "software_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_all_techniques",
+      "parameters": {
+        "domain": "string",
+        "include_description": "boolean"
+      }
+    },
+    {
+      "name": "get_all_subtechniques",
+      "parameters": {
+        "domain": "string",
+        "include_description": "boolean"
+      }
+    },
+    {
+      "name": "get_all_groups",
+      "parameters": {
+        "domain": "string",
+        "include_description": "boolean"
+      }
+    },
+    {
+      "name": "get_all_software",
+      "parameters": {
+        "domain": "string",
+        "include_description": "boolean"
+      }
+    },
+    {
+      "name": "get_all_mitigations",
+      "parameters": {
+        "domain": "string",
+        "include_description": "boolean"
+      }
+    },
+    {
+      "name": "get_all_tactics",
+      "parameters": {
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_all_campaigns",
+      "parameters": {
+        "domain": "string",
+        "include_description": "boolean"
+      }
+    },
+    {
+      "name": "get_subtechniques_of_technique",
+      "parameters": {
+        "technique_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_parent_technique_of_subtechnique",
+      "parameters": {
+        "subtechnique_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_techniques_by_tactic",
+      "parameters": {
+        "tactic": "string",
+        "domain": "string",
+        "include_description": "boolean"
+      }
+    },
+    {
+      "name": "get_techniques_by_platform",
+      "parameters": {
+        "platform": "string",
+        "domain": "string",
+        "include_description": "boolean"
+      }
+    },
+    {
+      "name": "get_mitigations_mitigating_technique",
+      "parameters": {
+        "technique_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_datacomponents_detecting_technique",
+      "parameters": {
+        "technique_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_procedure_examples_by_technique",
+      "parameters": {
+        "technique_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_techniques_used_by_campaign",
+      "parameters": {
+        "campaign_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_campaigns_using_technique",
+      "parameters": {
+        "technique_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_techniques_mitigated_by_mitigation",
+      "parameters": {
+        "mitigation_id": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_objects_created_after",
+      "parameters": {
+        "date": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_objects_modified_after",
+      "parameters": {
+        "date": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_revoked_techniques",
+      "parameters": {
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_groups_by_alias",
+      "parameters": {
+        "alias": "string",
+        "domain": "string"
+      }
+    },
+    {
+      "name": "get_software_by_alias",
+      "parameters": {
+        "alias": "string",
+        "domain": "string"
       }
     }
-  ],
-  "mcp_servers": {
-    "falcon-mcp": {
-      "description": "CrowdStrike Falcon MCP server — detections, threat intel, hosts, IOC, Spotlight, NGSIEM, RTR",
-      "source": "https://github.com/CrowdStrike/falcon-mcp",
-      "sdk": "https://github.com/CrowdStrike/falconpy",
-      "transport": "stdio",
-      "run": {
-        "uvx": {
-          "command": "uvx",
-          "args": ["falcon-mcp"]
-        },
-        "uvx_modules": {
-          "command": "uvx",
-          "args": ["falcon-mcp", "--modules", "detections,intel,hosts,ioc,spotlight"]
-        },
-        "docker": {
-          "command": "docker",
-          "args": ["run", "-i", "--rm", "--env-file", "/path/to/.env", "quay.io/crowdstrike/falcon-mcp:latest"]
-        }
-      },
-      "env": {
-        "FALCON_CLIENT_ID": "settings.CROWDSTRIKE_CLIENT_ID",
-        "FALCON_CLIENT_SECRET": "settings.CROWDSTRIKE_CLIENT_SECRET",
-        "FALCON_BASE_URL": "settings.CROWDSTRIKE_BASE_URL"
-      },
-      "modules": [
-        "core", "detections", "hosts", "intel", "ioc", "spotlight",
-        "cloud", "discover", "firewall", "idp", "ngsiem", "rtr",
-        "custom-ioa", "scheduled-reports", "sensor-usage", "serverless", "shield"
-      ]
-    }
-  }
+  ]
 }
-

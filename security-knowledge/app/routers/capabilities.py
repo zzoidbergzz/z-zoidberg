@@ -1,4 +1,5 @@
 """GET /api/v1/capabilities — live machine-readable service inventory."""
+
 from __future__ import annotations
 
 import subprocess
@@ -13,7 +14,9 @@ def _git_sha() -> str:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, timeout=3,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         return result.stdout.strip() or "unknown"
     except Exception:
@@ -23,27 +26,25 @@ def _git_sha() -> str:
 @router.get("", summary="Live service capability inventory")
 async def get_capabilities(request: Request) -> dict[str, Any]:
     """Return what this service can do right now — honest about stubs."""
-    from app.enrichment.registry import list_providers
+    import app.mcp  # noqa: F401 — trigger tool registration side-effects
     from app.config import settings
+    from app.enrichment.registry import list_providers
+    from app.mcp.registry import list_tools
 
     registered = list_providers()
-    configured = [
-        p for p in registered
-        if _provider_has_creds(p, settings)
-    ]
-    missing_providers = [
-        p for p in ["ipinfo", "greynoise", "crowdstrike"]
-        if p not in registered
-    ]
+    configured = [p for p in registered if _provider_has_creds(p, settings)]
+    missing_providers = [p for p in ["ipinfo", "greynoise", "crowdstrike"] if p not in registered]
 
-    routes = sorted(set(
-        route.path for route in request.app.routes
-        if hasattr(route, "path") and route.path.startswith("/api/")
-    ))
+    routes = sorted(
+        set(route.path for route in request.app.routes if hasattr(route, "path") and route.path.startswith("/api/"))
+    )
+
+    mcp_tools = [t.name for t in list_tools()]
 
     return {
         "version": _git_sha(),
         "endpoints": routes,
+        "mcp_tools": mcp_tools,
         "providers": {
             "registered": registered,
             "configured": configured,
@@ -52,9 +53,13 @@ async def get_capabilities(request: Request) -> dict[str, Any]:
         "feature_flags": {
             "ingest_worker_pipeline": True,
             "fts_search": True,
-            "graphql_resolvers": "stub",
+            "graphql_resolvers": True,
             "enrich_entity_mcp_tool": True,
         },
+        "stale_paths": [
+            "POST /api/v1/ingest/  (queues job; pipeline runs in worker — verify with fixture URL)",
+            "POST /api/v1/mcp/call enrich_entity  (works; returns empty if no providers configured)",
+        ],
     }
 
 
