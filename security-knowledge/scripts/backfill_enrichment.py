@@ -52,8 +52,8 @@ _SKIP_ALWAYS = {"misp", "opencti", "crowdstrike"}
 
 # Per-kind allow-list of providers that are actually useful
 _KIND_PROVIDERS: dict[str, set[str]] = {
-    "ip_address": {"virustotal", "greynoise", "shodan", "ipinfo", "bgp_he"},
-    "ip":         {"virustotal", "greynoise", "shodan", "ipinfo", "bgp_he"},
+    "ip_address": {"virustotal", "greynoise", "shodan", "ipinfo", "bgp_he", "abuseipdb"},
+    "ip":         {"virustotal", "greynoise", "shodan", "ipinfo", "bgp_he", "abuseipdb"},
     "domain":     {"virustotal", "greynoise", "ipinfo", "bgp_he"},
     "hostname":   {"virustotal", "greynoise", "ipinfo"},
     "asn":        {"bgp_he"},

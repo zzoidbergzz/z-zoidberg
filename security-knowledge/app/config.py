@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     SHODAN_API_KEY: str = ""
     IPINFO_TOKEN: str = ""
     GREYNOISE_API_KEY: str = ""
+    ABUSEIPDB_API_KEY: str = ""
     CROWDSTRIKE_CLIENT_ID: str = ""
     CROWDSTRIKE_CLIENT_SECRET: str = ""
     CROWDSTRIKE_BASE_URL: str = "https://api.crowdstrike.com"
@@ -61,6 +62,7 @@ class Settings(BaseSettings):
     GREYNOISE_DAILY_BUDGET: int = 1000
     CROWDSTRIKE_DAILY_BUDGET: int = 1000
     BGP_HE_DAILY_BUDGET: int = 200  # scraping — be conservative
+    ABUSEIPDB_DAILY_BUDGET: int = 1000  # free tier: 1000 checks/day
 
     # TTLs (seconds)
     ENRICHMENT_TTL_VIRUSTOTAL: int = 86400
@@ -69,6 +71,7 @@ class Settings(BaseSettings):
     ENRICHMENT_TTL_GREYNOISE: int = 3600
     ENRICHMENT_TTL_CROWDSTRIKE: int = 3600
     ENRICHMENT_TTL_BGP_HE: int = 43200  # 12 h — BGP routing tables change slowly
+    ENRICHMENT_TTL_ABUSEIPDB: int = 3600  # 1 h — abuse reports change frequently
 
     # NVD
     NVD_API_KEY: str = ""

@@ -15,6 +15,7 @@ _BUDGET_ATTR: dict[str, str] = {
     "greynoise": "GREYNOISE_DAILY_BUDGET",
     "crowdstrike": "CROWDSTRIKE_DAILY_BUDGET",
     "bgp_he": "BGP_HE_DAILY_BUDGET",
+    "abuseipdb": "ABUSEIPDB_DAILY_BUDGET",
 }
 _DEFAULT_BUDGET = 1000
 

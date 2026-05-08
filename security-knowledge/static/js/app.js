@@ -39,113 +39,164 @@ window.ZjeApp = (() => {
   }
 
   // ---------------------------------------------------------------------------
-  // Enrichment card rendering — per-provider rich layouts
+  // Enrichment rendering — tabbed panel layout
   // ---------------------------------------------------------------------------
 
-  function renderEnrichmentItem(item) {
-    const d = item.data || {};
-    const hasData = d && Object.keys(d).length > 0 && !d.not_found;
-    const providerIcons = {
-      virustotal:  "🦠", greynoise: "🔇", shodan: "🔍", ipinfo: "📍",
-      bgp_he:      "🌐", mitre_attack: "⚔️", nvd: "🛡", crowdstrike: "🦅",
-      misp: "🔗", opencti: "🕵️",
-    };
-    const icon = providerIcons[item.source] || "🔌";
-    const cachedBadge = item.expired
-      ? `<span class="tiny-pill" style="background:rgba(255,100,50,0.18);color:#f87">⏰ expired</span>`
-      : `<span class="tiny-pill" style="opacity:.5">cached</span>`;
+  const _PROVIDER_ICONS = {
+    virustotal: "🦠", greynoise: "🔇", shodan: "🔍", ipinfo: "📍",
+    bgp_he: "🌐", mitre_attack: "⚔️", nvd: "🛡", crowdstrike: "🦅",
+    abuseipdb: "⚠️", misp: "🔗", opencti: "🕵️",
+  };
 
-    let body = "";
-    if (!hasData) {
-      body = `<p class="subtle" style="margin-top:.5rem;font-style:italic;">No data returned${item.success ? "" : " (provider error)"}.</p>`;
-    } else if (item.source === "virustotal") {
-      const stats = [
-        ["malicious",  d.malicious,  "#f44"],
-        ["suspicious", d.suspicious, "#fb6"],
-        ["harmless",   d.harmless,   "#4c4"],
-        ["undetected", d.undetected, "#888"],
-      ];
-      const detScore = (d.malicious ?? 0) + (d.suspicious ?? 0);
-      body = `
-        <div style="margin:.6rem 0;display:flex;gap:.6rem;flex-wrap:wrap;">
-          ${stats.map(([k,v,c]) => `<span style="background:rgba(0,0,0,.25);border-radius:.5rem;padding:.25rem .6rem;color:${c};">${k}: <b>${v ?? 0}</b></span>`).join("")}
+  function _providerBody(item) {
+    const d = item.data || {};
+    if (item.source === "virustotal") {
+      const stats = [["malicious",d.malicious,"#f44"],["suspicious",d.suspicious,"#fb6"],["harmless",d.harmless,"#4c4"],["undetected",d.undetected,"#888"]];
+      return `
+        <div class="enrich-stats-row">
+          ${stats.map(([k,v,c])=>`<div class="enrich-stat"><div class="enrich-stat-val" style="color:${c}">${v??0}</div><div class="enrich-stat-lbl">${k}</div></div>`).join("")}
         </div>
-        <div class="grid-2" style="gap:.5rem;margin-top:.5rem;">
-          ${d.country    ? `<div class="grid-card" style="padding:.5rem .75rem;"><small>Country</small><div>${escapeHtml(d.country)}</div></div>` : ""}
-          ${d.asn        ? `<div class="grid-card" style="padding:.5rem .75rem;"><small>ASN</small><div>${escapeHtml(String(d.asn))}</div></div>` : ""}
-          ${d.as_owner   ? `<div class="grid-card" style="padding:.5rem .75rem;"><small>AS Owner</small><div>${escapeHtml(d.as_owner)}</div></div>` : ""}
-          ${d.network    ? `<div class="grid-card" style="padding:.5rem .75rem;"><small>Network</small><div>${escapeHtml(d.network)}</div></div>` : ""}
-          ${d.reputation != null ? `<div class="grid-card" style="padding:.5rem .75rem;"><small>Reputation</small><div style="color:${d.reputation>0?'#4c4':d.reputation<0?'#f44':'#aaa'}">${d.reputation}</div></div>` : ""}
-        </div>
-        ${d.tags?.length ? `<div style="margin-top:.4rem;">${d.tags.map(t=>`<span class="tiny-pill">${escapeHtml(t)}</span>`).join(" ")}</div>` : ""}
-        ${d.vt_link     ? `<a class="button-muted" href="${escapeHtml(d.vt_link)}" target="_blank" rel="noopener" style="margin-top:.6rem;display:inline-block;">View on VirusTotal ↗</a>` : ""}
+        <dl class="enrich-dl">
+          ${d.country    ?`<dt>Country</dt><dd>${escapeHtml(d.country)}</dd>`:""}
+          ${d.asn        ?`<dt>ASN</dt><dd class="mono">${escapeHtml(String(d.asn))}</dd>`:""}
+          ${d.as_owner   ?`<dt>AS Owner</dt><dd>${escapeHtml(d.as_owner)}</dd>`:""}
+          ${d.network    ?`<dt>Network</dt><dd class="mono">${escapeHtml(d.network)}</dd>`:""}
+          ${d.reputation!=null?`<dt>Reputation</dt><dd style="color:${d.reputation>0?"#4c4":d.reputation<0?"#f44":"#aaa"}">${d.reputation}</dd>`:""}
+        </dl>
+        ${d.tags?.length?`<div class="enrich-pills">${d.tags.map(t=>`<span class="tiny-pill">${escapeHtml(t)}</span>`).join("")}</div>`:""}
+        ${d.vt_link?`<a class="button-muted enrich-link" href="${escapeHtml(d.vt_link)}" target="_blank" rel="noopener">View on VirusTotal ↗</a>`:""}
       `;
-    } else if (item.source === "greynoise") {
+    }
+    if (item.source === "abuseipdb") {
+      const score = d.abuse_score ?? 0;
+      const scoreColor = score >= 75 ? "#f44" : score >= 25 ? "#fb6" : "#4c4";
+      const flags = [
+        d.is_tor     && "🧅 Tor exit",
+        d.is_proxy   && "🔀 Proxy/DC",
+        d.is_whitelisted && "✅ Whitelisted",
+      ].filter(Boolean);
+      return `
+        <div class="enrich-score-hero">
+          <div class="enrich-score-circle" style="border-color:${scoreColor};color:${scoreColor}">${score}%</div>
+          <div>
+            <div style="font-size:1rem;font-weight:600;">Abuse Confidence</div>
+            <div class="subtle">${d.total_reports ?? 0} reports · ${d.num_distinct_users ?? 0} distinct users</div>
+            ${d.last_reported_at?`<div class="subtle">Last reported: ${escapeHtml(d.last_reported_at)}</div>`:""}
+          </div>
+        </div>
+        <dl class="enrich-dl">
+          ${d.isp          ?`<dt>ISP</dt><dd>${escapeHtml(d.isp)}</dd>`:""}
+          ${d.domain       ?`<dt>Domain</dt><dd class="mono">${escapeHtml(d.domain)}</dd>`:""}
+          ${d.country_code ?`<dt>Country</dt><dd>${escapeHtml(d.country_code)}</dd>`:""}
+          ${d.usage_type   ?`<dt>Usage Type</dt><dd>${escapeHtml(d.usage_type)}</dd>`:""}
+        </dl>
+        ${flags.length?`<div class="enrich-pills">${flags.map(f=>`<span class="tiny-pill">${f}</span>`).join("")}</div>`:""}
+        ${d.hostnames?.length?`<p class="subtle" style="margin-top:.4rem;">rDNS: ${d.hostnames.slice(0,3).map(h=>escapeHtml(h)).join(", ")}</p>`:""}
+        ${d.abuseipdb_link?`<a class="button-muted enrich-link" href="${escapeHtml(d.abuseipdb_link)}" target="_blank" rel="noopener">View on AbuseIPDB ↗</a>`:""}
+      `;
+    }
+    if (item.source === "greynoise") {
       const cls = d.classification === "malicious" ? "#f44" : d.classification === "benign" ? "#4c4" : "#aaa";
-      body = `
-        <div style="margin:.4rem 0;display:flex;gap:.5rem;flex-wrap:wrap;">
-          <span class="tiny-pill" style="color:${cls};">${escapeHtml(d.classification || "unknown")}</span>
-          ${d.noise   ? `<span class="tiny-pill">📡 noise</span>` : ""}
-          ${d.riot    ? `<span class="tiny-pill" style="color:#4c4;">✅ riot (trusted infra)</span>` : ""}
+      return `
+        <div class="enrich-pills" style="margin-bottom:.5rem;">
+          <span class="tiny-pill" style="color:${cls};border:1px solid ${cls};">${escapeHtml(d.classification||"unknown")}</span>
+          ${d.noise ?`<span class="tiny-pill">📡 noise</span>`:""}
+          ${d.riot  ?`<span class="tiny-pill" style="color:#4c4;">✅ riot</span>`:""}
         </div>
-        ${d.name       ? `<p style="margin:.3rem 0;"><b>${escapeHtml(d.name)}</b></p>` : ""}
-        ${d.last_seen  ? `<p class="subtle">Last seen: ${escapeHtml(d.last_seen)}</p>` : ""}
-        ${d.link       ? `<a class="button-muted" href="${escapeHtml(d.link)}" target="_blank" rel="noopener" style="margin-top:.4rem;display:inline-block;">GreyNoise ↗</a>` : ""}
+        <dl class="enrich-dl">
+          ${d.name     ?`<dt>Name</dt><dd>${escapeHtml(d.name)}</dd>`:""}
+          ${d.last_seen?`<dt>Last Seen</dt><dd>${escapeHtml(d.last_seen)}</dd>`:""}
+        </dl>
+        ${d.link?`<a class="button-muted enrich-link" href="${escapeHtml(d.link)}" target="_blank" rel="noopener">GreyNoise ↗</a>`:""}
       `;
-    } else if (item.source === "shodan") {
-      body = `
-        <div class="grid-2" style="gap:.4rem;margin:.4rem 0;">
-          ${d.org     ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Org</small><div>${escapeHtml(d.org)}</div></div>` : ""}
-          ${d.country ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Country</small><div>${escapeHtml(d.country)}</div></div>` : ""}
-        </div>
-        ${d.ports?.length   ? `<p style="margin:.3rem 0;">Ports: ${d.ports.map(p=>`<span class="mono">${p}</span>`).join(", ")}</p>` : ""}
-        ${d.hostnames?.length ? `<p class="subtle">Hostnames: ${d.hostnames.slice(0,5).map(h=>escapeHtml(h)).join(", ")}</p>` : ""}
-        ${d.tags?.length    ? `<div>${d.tags.map(t=>`<span class="tiny-pill">${escapeHtml(t)}</span>`).join(" ")}</div>` : ""}
+    }
+    if (item.source === "shodan") {
+      return `
+        <dl class="enrich-dl">
+          ${d.org     ?`<dt>Org</dt><dd>${escapeHtml(d.org)}</dd>`:""}
+          ${d.country ?`<dt>Country</dt><dd>${escapeHtml(d.country)}</dd>`:""}
+          ${d.isp     ?`<dt>ISP</dt><dd>${escapeHtml(d.isp)}</dd>`:""}
+          ${d.os      ?`<dt>OS</dt><dd>${escapeHtml(d.os)}</dd>`:""}
+        </dl>
+        ${d.ports?.length?`<div style="margin:.4rem 0;">Ports: ${d.ports.map(p=>`<span class="mono" style="background:rgba(0,0,0,.3);padding:.1rem .35rem;border-radius:.3rem;">${p}</span>`).join(" ")}</div>`:""}
+        ${d.hostnames?.length?`<p class="subtle">Hostnames: ${d.hostnames.slice(0,5).map(h=>escapeHtml(h)).join(", ")}</p>`:""}
+        ${d.tags?.length?`<div class="enrich-pills">${d.tags.map(t=>`<span class="tiny-pill">${escapeHtml(t)}</span>`).join("")}</div>`:""}
       `;
-    } else if (item.source === "ipinfo") {
-      body = `
-        <div class="grid-2" style="gap:.4rem;margin:.4rem 0;">
-          ${d.city     ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>City</small><div>${escapeHtml(d.city)}, ${escapeHtml(d.region||"")}</div></div>` : ""}
-          ${d.country  ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Country</small><div>${escapeHtml(d.country)}</div></div>` : ""}
-          ${d.org      ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Org</small><div>${escapeHtml(d.org)}</div></div>` : ""}
-          ${d.hostname ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>rDNS</small><div>${escapeHtml(d.hostname)}</div></div>` : ""}
-        </div>
-        ${d.latitude && d.longitude ? `<p class="subtle">Coords: ${d.latitude}, ${d.longitude}</p>` : ""}
+    }
+    if (item.source === "ipinfo") {
+      return `
+        <dl class="enrich-dl">
+          ${d.city    ?`<dt>Location</dt><dd>${escapeHtml(d.city)}, ${escapeHtml(d.region||"")} ${escapeHtml(d.country||"")}</dd>`:""}
+          ${d.org     ?`<dt>Org</dt><dd>${escapeHtml(d.org)}</dd>`:""}
+          ${d.hostname?`<dt>rDNS</dt><dd class="mono">${escapeHtml(d.hostname)}</dd>`:""}
+          ${d.latitude&&d.longitude?`<dt>Coords</dt><dd class="mono">${d.latitude}, ${d.longitude}</dd>`:""}
+        </dl>
       `;
-    } else if (item.source === "bgp_he") {
+    }
+    if (item.source === "bgp_he") {
       const asn = d.asn_detail || {};
+      const asnNum = d.origin_asn || asn.asn || "";
       const routes = d.routes || [];
-      const prefixCount = asn.prefix_count_v4 || 0;
-      const peerCount   = asn.peer_count || 0;
-      const asnNum      = d.origin_asn || asn.asn || "";
-      body = `
-        <div class="grid-2" style="gap:.4rem;margin:.4rem 0;">
-          ${d.containing_prefix ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Containing Prefix</small><div class="mono">${escapeHtml(d.containing_prefix)}</div></div>` : ""}
-          ${d.origin_asn ? `<div class="grid-card" style="padding:.4rem .6rem;"><small>Origin AS</small><div class="mono">AS${escapeHtml(String(d.origin_asn))}</div></div>` : ""}
-        </div>
-        ${asn.name ? `<p style="margin:.3rem 0;"><b>${escapeHtml(asn.name)}</b></p>` : ""}
-        ${prefixCount ? `<p class="subtle">Advertised prefixes: ${prefixCount} v4 · ${asn.prefix_count_v6 || 0} v6 · ${peerCount} peers</p>` : ""}
-        ${routes.slice(0,6).map(r=>`<div style="font-size:.8rem;opacity:.8;" class="mono">${escapeHtml(r.prefix)} via AS${escapeHtml(String(r.origin_asn))} — ${escapeHtml(r.description)}</div>`).join("")}
-        ${asnNum ? `<a class="button-muted" href="https://bgp.he.net/AS${escapeHtml(String(asnNum))}" target="_blank" rel="noopener" style="margin-top:.5rem;display:inline-block;">bgp.he.net ↗</a>` : ""}
+      return `
+        <dl class="enrich-dl">
+          ${d.containing_prefix?`<dt>Prefix</dt><dd class="mono">${escapeHtml(d.containing_prefix)}</dd>`:""}
+          ${asnNum?`<dt>Origin AS</dt><dd class="mono">AS${escapeHtml(String(asnNum))}</dd>`:""}
+          ${asn.name?`<dt>AS Name</dt><dd>${escapeHtml(asn.name)}</dd>`:""}
+          ${asn.prefix_count_v4?`<dt>Prefixes</dt><dd>${asn.prefix_count_v4} v4 · ${asn.prefix_count_v6||0} v6</dd>`:""}
+          ${asn.peer_count?`<dt>Peers</dt><dd>${asn.peer_count}</dd>`:""}
+        </dl>
+        ${routes.length?`<div style="margin-top:.5rem;font-size:.8rem;opacity:.8;">${routes.slice(0,5).map(r=>`<div class="mono">${escapeHtml(r.prefix)} via AS${escapeHtml(String(r.origin_asn))} — ${escapeHtml(r.description)}</div>`).join("")}</div>`:""}
+        ${asnNum?`<a class="button-muted enrich-link" href="https://bgp.he.net/AS${escapeHtml(String(asnNum))}" target="_blank" rel="noopener">bgp.he.net ↗</a>`:""}
       `;
-    } else {
-      // Generic fallback — show non-empty fields
-      const entries = Object.entries(d).filter(([,v]) => v != null && v !== "" && !(Array.isArray(v) && v.length === 0));
-      body = entries.length
-        ? `<dl style="margin:.4rem 0;display:grid;grid-template-columns:auto 1fr;gap:.15rem .75rem;">
-            ${entries.slice(0,20).map(([k,v]) => `<dt class="subtle" style="white-space:nowrap;">${escapeHtml(k)}</dt><dd class="mono" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(Array.isArray(v)?v.join(", "):String(v)).slice(0,120)}</dd>`).join("")}
-           </dl>`
-        : `<p class="subtle" style="margin-top:.5rem;font-style:italic;">No data returned.</p>`;
+    }
+    // Generic fallback
+    const entries = Object.entries(d).filter(([,v]) => v != null && v !== "" && !(Array.isArray(v) && !v.length));
+    return entries.length
+      ? `<dl class="enrich-dl">${entries.slice(0,24).map(([k,v])=>`<dt>${escapeHtml(k)}</dt><dd class="mono">${escapeHtml(Array.isArray(v)?v.join(", "):String(v)).slice(0,160)}</dd>`).join("")}</dl>`
+      : `<p class="subtle" style="font-style:italic;">No data returned.</p>`;
+  }
+
+  function renderEnrichmentTabs(allEnrichments) {
+    const rich = allEnrichments.filter(e => e.data && Object.keys(e.data).length > 0 && !e.data.not_found);
+    const empty = allEnrichments.filter(e => !e.data || !Object.keys(e.data).length || e.data.not_found);
+
+    if (!rich.length) {
+      const msg = allEnrichments.length
+        ? `Enrichment running — ${allEnrichments.length} provider${allEnrichments.length>1?"s":""} queried, no results yet.`
+        : "No enrichment results yet.";
+      return `<div class="empty-state">${msg}</div>`;
     }
 
-    return `
-      <article class="result-card${!hasData ? ' result-card--empty' : ''}">
-        <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap;">
-          <h3 style="display:flex;align-items:center;gap:.4rem;">${icon} ${escapeHtml(item.source)}</h3>
-          <div style="display:flex;gap:.4rem;align-items:center;">${cachedBadge}</div>
+    const tabId = "enrich-tabs-" + Math.random().toString(36).slice(2);
+    const tabs = rich.map((item, i) => {
+      const icon = _PROVIDER_ICONS[item.source] || "🔌";
+      const isCached = !item.expired;
+      const expiredDot = item.expired ? ' <span style="color:#f87;font-size:.7rem;">↻</span>' : "";
+      return `<button class="enrich-tab${i===0?" enrich-tab--active":""}" data-tab="${tabId}-${i}" type="button">${icon} ${escapeHtml(item.source)}${expiredDot}</button>`;
+    }).join("");
+
+    const panels = rich.map((item, i) => `
+      <div class="enrich-panel${i===0?"":" enrich-panel--hidden"}" id="${tabId}-${i}">
+        <div class="enrich-panel-meta">
+          ${item.expired
+            ? `<span class="tiny-pill" style="background:rgba(255,100,50,.18);color:#f87;">⏰ expired</span>`
+            : `<span class="tiny-pill" style="opacity:.5;">cached</span>`}
+          ${item.cached_at ? `<span class="subtle" style="font-size:.78rem;">as of ${escapeHtml(item.cached_at.slice(0,16).replace("T"," "))}</span>` : ""}
         </div>
-        ${body}
-      </article>
+        ${_providerBody(item)}
+      </div>
+    `).join("");
+
+    const emptyNote = empty.length
+      ? `<div class="enrich-empty-note">${empty.length} provider${empty.length>1?"s":""} returned no data: ${empty.map(e=>`<span class="tiny-pill" style="opacity:.5;">${escapeHtml(e.source)}</span>`).join(" ")}</div>`
+      : "";
+
+    return `
+      <div class="enrich-tabs-container" id="${tabId}">
+        <div class="enrich-tab-bar" role="tablist">${tabs}</div>
+        <div class="enrich-tab-content">${panels}</div>
+        ${emptyNote}
+      </div>
     `;
   }
 
@@ -328,17 +379,7 @@ window.ZjeApp = (() => {
     `;
 
     const allEnrichments = payload.enrichments || [];
-    const richEnrichments = allEnrichments.filter(e => e.data && Object.keys(e.data).length > 0);
-    const emptyEnrichments = allEnrichments.filter(e => !e.data || Object.keys(e.data).length === 0);
-
-    enrichments.innerHTML = richEnrichments.length
-      ? richEnrichments.map(renderEnrichmentItem).join("") +
-        (emptyEnrichments.length
-          ? `<details style="margin-top:.75rem;"><summary class="subtle" style="cursor:pointer;">${emptyEnrichments.length} providers returned no data</summary><div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem;">${emptyEnrichments.map(e=>`<span class="tiny-pill" style="opacity:.6;">${escapeHtml(e.source)}</span>`).join("")}</div></details>`
-          : "")
-      : (allEnrichments.length
-          ? `<div class='empty-state'>Enrichment is running — ${allEnrichments.length} providers queried, no results yet.</div>`
-          : "<div class='empty-state'>No enrichment results yet. Polling is still running.</div>");
+    enrichments.innerHTML = renderEnrichmentTabs(allEnrichments);
 
     relationships.innerHTML = payload.relationships?.length
       ? payload.relationships
@@ -740,6 +781,18 @@ window.ZjeApp = (() => {
         if (state.selectedGraphNode?.id) {
           await loadEntity(state.selectedGraphNode.id);
         }
+      }
+      // Enrichment tab switching
+      if (event.target.matches(".enrich-tab")) {
+        const container = event.target.closest(".enrich-tabs-container");
+        if (!container) return;
+        container.querySelectorAll(".enrich-tab").forEach(t => t.classList.remove("enrich-tab--active"));
+        container.querySelectorAll(".enrich-panel").forEach(p => p.classList.add("enrich-panel--hidden"));
+        event.target.classList.add("enrich-tab--active");
+        const panelId = event.target.dataset.tab;
+        const panel = document.getElementById(panelId);
+        if (panel) panel.classList.remove("enrich-panel--hidden");
+        return;
       }
       if (event.target.matches("[data-context-action]")) {
         await handleGraphContextAction(event.target.dataset.contextAction);
