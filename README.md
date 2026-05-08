@@ -97,6 +97,72 @@ curl -H "X-API-Key: $SK_API_KEY" \
   https://z.je/api/v1/mcp/call -d '{"tool":"enrich_entity","args":{...}}'
 ```
 
+## Dark-Moon MCP Integration
+
+[Dark-Moon](https://github.com/ASCIT31/Dark-Moon) is an autonomous pentesting platform that
+wraps 50+ security tools (naabu, nuclei, httpx, subfinder, and more) inside a Docker toolbox
+and exposes them via a FastMCP stdio server. The bridge in `security-knowledge/app/mcp/dark_moon_bridge.py`
+discovers Dark-Moon tools at startup via MCP JSON-RPC and registers them with the `dm_` prefix.
+
+### Enabling
+
+1. Clone Dark-Moon and install its dependencies:
+   ```bash
+   git clone https://github.com/ASCIT31/Dark-Moon /opt/dark-moon
+   cd /opt/dark-moon && pip install -r mcp/requirements.txt
+   ```
+2. Pull and start the Docker toolbox (see upstream README):
+   ```bash
+   docker compose -f /opt/dark-moon/docker-compose.yml up -d
+   ```
+3. Add to `security-knowledge/.env`:
+   ```env
+   DARK_MOON_ENABLED=true
+   DARK_MOON_PATH=/opt/dark-moon/mcp
+   DARK_MOON_PYTHON=/opt/dark-moon/.venv/bin/python   # optional
+   DARK_MOON_DOCKER_CONTAINER=darkmoon               # default
+   DARK_MOON_DOCKER_TIMEOUT=300                      # seconds
+   DARK_MOON_OUTPUT_DIR=/opt/darkmoon/out
+   ```
+4. Restart: `sudo systemctl restart security-knowledge`
+
+### Tool prefix convention
+
+All Dark-Moon tools are registered as `dm_<upstream_name>`:
+
+| MCP tool name | Upstream name | Description |
+|---|---|---|
+| `dm_get_session` | `get_session` | Current MCP session ID |
+| `dm_health_check` | `health_check` | Container + tool health |
+| `dm_check_tool` | `check_tool` | Check one tool is available |
+| `dm_diagnose` | `diagnose` | Full environment diagnostics |
+| `dm_execute_command` | `execute_command` | Run a whitelisted command in container |
+| `dm_list_allowed_tools` | `list_allowed_tools` | All 30+ available tools |
+| `dm_list_workflows` | `list_workflows` | Pre-built security workflows |
+| `dm_run_workflow` | `run_workflow` | Execute port scan, subdomain discovery, vuln scan, etc. |
+
+### Examples
+
+```bash
+# List all registered tools (look for dm_* entries)
+curl -s -H "X-API-Key: <key>" https://z.je/api/v1/mcp/tools | python3 -m json.tool | grep dm_
+
+# Health check
+curl -X POST -H "X-API-Key: <key>" -H "Content-Type: application/json" \
+  -d '{"tool":"dm_health_check","args":{}}' \
+  https://z.je/api/v1/mcp/call
+
+# Run a port scan workflow
+curl -X POST -H "X-API-Key: <key>" -H "Content-Type: application/json" \
+  -d '{"tool":"dm_run_workflow","args":{"workflow":"port_scan","method":"scan_ports","params":{"target":"example.com"}}}' \
+  https://z.je/api/v1/mcp/call
+```
+
+### License note
+
+Dark-Moon is licensed under **GPL v3**. It is invoked as an independent subprocess (external tool),
+not incorporated into this codebase, so it does not impose GPL requirements on this project.
+
 ## Known Gaps
 
 - Ingestion worker (`process_ingest_job`) is a stub — creates job record but does not fetch/parse/embed.

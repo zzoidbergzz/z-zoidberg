@@ -22,3 +22,8 @@ from app.mcp.tools import (  # noqa: F401
     searxng_search,
     sources,
 )
+
+# Dark-Moon bridge — registers dm_* tools when DARK_MOON_ENABLED=true.
+from app.mcp.dark_moon_bridge import register_dark_moon_tools as _dm_register  # noqa: E402
+
+_dm_register()
