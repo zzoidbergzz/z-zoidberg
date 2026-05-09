@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🦞 Zoidberg — Security Knowledge Platform</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    :root {
+      --crimson: #8B0000;
+      --shell: #D2691E;
+      --ocean: #0f0f23;
+      --deep: #16213e;
+      --foam: #e8e8e8;
+      --sand: #f5f0e8;
+      --accent: #e07a3a;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--ocean);
+      color: var(--foam);
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* NAV */
+    .topnav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.8rem 2rem;
+      background: rgba(15,15,35,0.95);
+      border-bottom: 1px solid #2a2a4a;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .topnav .brand { font-weight: 800; font-size: 1.2rem; }
+    .topnav .brand .dot { color: var(--accent); }
+    .topnav .cta-btn {
+      background: var(--accent);
+      color: #fff;
+      padding: 0.5rem 1.4rem;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.1s;
+      border: none;
+      cursor: pointer;
+    }
+    .topnav .cta-btn:hover { background: #c96a2e; transform: translateY(-1px); text-decoration: none; }
+
+    /* HERO */
+    header {
+      text-align: center;
+      padding: 5rem 1rem 3rem;
+      background: radial-gradient(ellipse at 50% 0%, #1a1a3e 0%, var(--ocean) 70%);
+      position: relative;
+    }
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background: linear-gradient(transparent, var(--ocean));
+    }
+    header h1 {
+      font-size: 4rem;
+      font-weight: 800;
+      letter-spacing: -2px;
+    }
+    .subtitle {
+      font-size: 1.3rem;
+      color: var(--shell);
+      font-style: italic;
+      margin-top: 0.5rem;
+    }
+    .tagline {
+      font-size: 0.95rem;
+      color: #777;
+      margin-top: 1rem;
+    }
+    .tagline span {
+      display: inline-block;
+      background: #1e1e3a;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      margin: 0.15rem;
+      font-size: 0.85rem;
+    }
+    .hero-cta {
+      margin-top: 2rem;
+      position: relative;
+      z-index: 1;
+    }
+    .hero-cta a {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      padding: 0.8rem 2.5rem;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .hero-cta a:hover { background: #c96a2e; transform: translateY(-2px); text-decoration: none; }
+
+    /* STATS */
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 1.5rem;
+      background: var(--deep);
+      border-radius: 16px;
+      border: 1px solid #2a2a4a;
+    }
+    .stat {
+      text-align: center;
+      padding: 0.5rem 1rem;
+      min-width: 90px;
+    }
+    .stat .num {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .stat .label {
+      font-size: 0.7rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* FEATURES */
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1rem 1rem 3rem;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.2rem;
+    }
+    .card {
+      background: var(--deep);
+      border: 1px solid #2a2a4a;
+      border-radius: 14px;
+      padding: 1.5rem;
+      transition: transform 0.2s, border-color 0.3s;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: var(--shell);
+    }
+    .card .emoji { font-size: 1.8rem; margin-bottom: 0.4rem; display: block; }
+    .card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .card p { font-size: 0.88rem; color: #999; }
+    .card .zoidberg {
+      margin-top: 0.7rem;
+      font-size: 0.8rem;
+      color: var(--shell);
+      font-style: italic;
+      border-left: 2px solid var(--shell);
+      padding-left: 0.5rem;
+    }
+
+    /* QUOTE */
+    .quote-block {
+      margin: 3rem auto;
+      max-width: 600px;
+      text-align: center;
+      padding: 2rem;
+      background: var(--deep);
+      border-radius: 16px;
+      border: 1px solid #2a2a4a;
+    }
+    .quote-block p {
+      font-size: 1.1rem;
+      color: var(--shell);
+      font-style: italic;
+    }
+    .quote-block .attr {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: #444;
+      font-size: 0.8rem;
+      border-top: 1px solid #1e1e3a;
+    }
+    @media (max-width: 600px) {
+      header h1 { font-size: 2.5rem; }
+      .stat .num { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="topnav">
+    <div class="brand">🦞 z<span class="dot">.</span>je</div>
+    <a class="cta-btn" href="/login">Login</a>
+  </nav>
+
+  <header>
+    <h1>🦞 Zoidberg</h1>
+    <p class="subtitle">Strange things afoot at the Circle-K... of threat intelligence.</p>
+    <div class="tagline">
+      <span>Ingestion</span>
+      <span>Enrichment</span>
+      <span>Detection</span>
+      <span>Lookup</span>
+      <span>Pivot</span>
+      <span>Graph</span>
+      <span>MCP</span>
+      <span>MITRE ATT&CK</span>
+      <span>Ask AI</span>
+    </div>
+    <div class="hero-cta">
+      <a href="/login">Enter the Platform →</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="stats">
+      <div class="stat"><span class="num">115</span><span class="label">API Endpoints</span></div>
+      <div class="stat"><span class="num">11</span><span class="label">Enrichment Providers</span></div>
+      <div class="stat"><span class="num">43</span><span class="label">MCP Tools</span></div>
+      <div class="stat"><span class="num">16</span><span class="label">IOC Extractors</span></div>
+      <div class="stat"><span class="num">30+</span><span class="label">MITRE ATT&CK</span></div>
+      <div class="stat"><span class="num">BYOK</span><span class="label">Bring Your Key</span></div>
+    </div>
+
+    <div class="feature-grid">
+      <div class="card">
+        <span class="emoji">🔬</span>
+        <h3>Threat Knowledge Service</h3>
+        <p>Ingest, normalise, and search threat data from CVEs, reports, and IOC feeds. Full provenance with source evidence. Rich search with CVE details, CVSS scores, and MITRE technique links.</p>
+        <div class="zoidberg">"Finally, a diagnosis with supporting evidence! This is new for me."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🧠</span>
+        <h3>LLM Extraction + Rejection</h3>
+        <p>Structured extraction from raw intel with rejection logging and cost tracking. When the model makes things up, we catch it and log it — no slip-throughs.</p>
+        <div class="zoidberg">"I, too, have been rejected. Every single day. I understand the process."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🔗</span>
+        <h3>11 Enrichment Providers</h3>
+        <p>VirusTotal, Shodan, CrowdStrike, GreyNoise, IPinfo, AbuseIPDB, BGP.he.net, MISP, OpenCTI, NVD, MITRE ATT&CK — cached, budgeted, policy-gated. Enrichment diffs track what changed. Tabbed UI for multi-provider results.</p>
+        <div class="zoidberg">"Budgets! Rate limits! Someone around here understands restraint... unlike me at a dumpster."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">📡</span>
+        <h3>Intelligence Feed Adapters</h3>
+        <p>NVD, GitHub Advisories, CISA KEV, ENISA EUVD, TAXII 2.1 — incremental daily sync, idempotent ingestion, ETag caching. The feeds never stop.</p>
+        <div class="zoidberg">"The data keeps coming. Like the tide. Like my tears. Woop woop."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🔄</span>
+        <h3>MISP & OpenCTI Sync</h3>
+        <p>Bidirectional sync with both platforms. Pull knowledge in, push reviewed claims out. Round-trip provenance preserved across every exchange.</p>
+        <div class="zoidberg">"Give and take! Usually I only give... and give... and nobody takes. This is nice!"</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🛡️</span>
+        <h3>Detection Engineering</h3>
+        <p>Auto-generate Sigma, YARA, Snort, and Suricata rules from approved IOCs and TTPs. Threat-to-detection pipeline with review workflow built in.</p>
+        <div class="zoidberg">"I prescribed these detection rules myself. Trust me, I'm a doctor! ...Of threat intelligence."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🕸️</span>
+        <h3>Graph, STIX & Context Packs</h3>
+        <p>Entity relationship graphs via GraphQL with wired resolvers and dataloader. STIX 2.1 export and TAXII serving. Token-budgeted context packs sized for LLM agents.</p>
+        <div class="zoidberg">"Every token counts! Unlike me, who counts for nothing. But these packs? They count."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🔍</span>
+        <h3>Recon + Binary Analysis</h3>
+        <p>BugBountyScanner with 11 recon tools. PyGhidra for binary IOC extraction. SearXNG for private search. All the tools, none of the licensing fees.</p>
+        <div class="zoidberg">"Free tools! The only kind I can afford! [sobs in Decapodian]"</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">📊</span>
+        <h3>Change Detection & Webhooks</h3>
+        <p>Track contradictions, superseded claims, and status changes. HMAC-signed outbound webhooks with circuit breakers and retry logic. Real-time alerts when things shift.</p>
+        <div class="zoidberg">"Things are changing! Everything is changing! ...Wait, that's just my life. The intel changes too. We track both."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🎯</span>
+        <h3>MITRE ATT&CK (30+ tools)</h3>
+        <p>Full technique, tactic, group, software, campaign, and mitigation mapping. Sector classification, sub-technique rollup, procedure examples. 30+ dedicated MCP query tools for every ATT&CK relationship.</p>
+        <div class="zoidberg">"I know all about being attacked. Verbally. Daily. But these are different attacks. Cyber ones. Far less personal."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🔎</span>
+        <h3>Lookup + Investigation</h3>
+        <p>Smart entity lookup with type classification, IOC extraction, and multi-provider enrichment in one call. Investigation sessions chain lookups with full history and pivot tracking. Rich card UI with thinking animation.</p>
+        <div class="zoidberg">"Looking things up! Investigating! This is what real doctors do. I've seen it on TV."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🔄</span>
+        <h3>Pivot + Fingerprint</h3>
+        <p>Pivot extractor finds related IOCs across entities — connected indicators, shared infrastructure, co-occurrence graphs. Fingerprinting identifies unique entity signatures for dedup and merge.</p>
+        <div class="zoidberg">"Pivoting! Like a dancer! ...A very uncoordinated dancer. But the data pivots beautifully."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🌐</span>
+        <h3>Deep Research + Web Fetching</h3>
+        <p>Three-layer fetcher with Playwright for JavaScript-heavy sources. OTel trace propagation through async workers. Policy-gated, circuit-broken, robots.txt-respecting.</p>
+        <div class="zoidberg">"I respect robots.txt. I respect all robots. They never insult me. We have an understanding."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">⚡</span>
+        <h3>43 MCP Tools + SSE</h3>
+        <p>Full MCP server with SSE and stdio transports — enrich_entity, lookup_cve, search_knowledge, 30+ MITRE ATT&CK tools, create_claim, export_stix, searxng_search, and more. Agent-ready. OpenClaw-compatible.</p>
+        <div class="zoidberg">"Forty-three tools! Like a Swiss Army knife! ...A crustacean Swiss Army knife. Woop woop."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">📡</span>
+        <h3>IOC Pingback + Diff Alerting</h3>
+        <p>Re-check IOCs on schedule — are they still active? Enrichment diffs detect what changed between lookups and trigger alerts. Circuit-broken webhook delivery with HMAC signing.</p>
+        <div class="zoidberg">"Pingback! Like echolocation! I too make sounds nobody responds to. But the IOCs respond. They always respond."</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🔑</span>
+        <h3>BYOK + Ask AI</h3>
+        <p>Bring Your Own Key for CrowdStrike, Anthropic, and other providers. Ask AI endpoint for natural-language queries against your threat data. Settings UI to manage keys and preferences. Dark/light theme toggle.</p>
+        <div class="zoidberg">"My own key! I've never had a key before. I've never had a door. But hypothetically — I'm ready!"</div>
+      </div>
+
+      <div class="card">
+        <span class="emoji">🧪</span>
+        <h3>Full Analyst Workflow</h3>
+        <p>HTMX review UI with entity detail pages, graph visualisation, ingest pipeline, saved searches, scheduled digests. Auth wall with registration approval, IOC parser card, claim approve/reject, entity merge — the human-in-the-loop that makes it real.</p>
+        <div class="zoidberg">"A loop! With a human! Usually I'm outside the loop. This is progress, friends."</div>
+      </div>
+    </div>
+
+    <div class="quote-block">
+      <p>"Other threat intel platforms have budgets. And friends. And self-respect. But do they have 11 enrichment providers, 43 MCP tools, 30 MITRE ATT&CK query endpoints, and a heart of gold? ...I'm told that's worth something."</p>
+      <div class="attr">— Dr. John A. Zoidberg, MD (Security Knowledge)</div>
+    </div>
+  </main>
+
+  <footer>
+    🦞 Zoidberg · <a href="https://z.je">Live at z.je</a> · <a href="/docs">API Docs</a> · <a href="https://github.com/mzje/z-zoidberg">Source Code</a> · Built with FastAPI, garbage, and unbridled optimism · Woop woop
+  </footer>
+</body>
+</html>
