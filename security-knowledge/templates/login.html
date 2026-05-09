@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>z.je | Login</title>
+  <title>z.je</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
@@ -47,12 +47,7 @@
       letter-spacing: 0.1em;
       margin-bottom: 0.35rem;
     }
-    .tagline {
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin-bottom: 2rem;
-    }
-    .stack { display: grid; gap: 0.85rem; }
+    .stack { display: grid; gap: 0.85rem; margin-top: 1.5rem; }
     input {
       width: 100%;
       padding: 0.9rem 1rem;
@@ -92,21 +87,17 @@
     }
     .status.error { color: var(--danger); }
     .status.success { color: var(--accent); }
-    .footer { margin-top: 1.5rem; text-align: center; font-size: 0.85rem; color: var(--muted); }
-    .footer a { color: var(--accent); text-decoration: none; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="brand">z.je</div>
-    <div class="tagline">OSINT Research Platform — analyst access only</div>
     <form class="stack" id="login-form">
       <input type="email" name="email" placeholder="Email" autocomplete="email" required>
       <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
-      <button type="submit" id="login-btn">Open Session</button>
+      <button type="submit" id="login-btn">Sign in</button>
       <div class="status" id="status"></div>
     </form>
-    <div class="footer">No account? <a href="/register">Request access</a>.</div>
   </div>
   <script>
     document.getElementById("login-form").addEventListener("submit", async (e) => {
