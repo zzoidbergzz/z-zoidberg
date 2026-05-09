@@ -47,26 +47,27 @@
 .tile-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.7rem 1rem;
+  padding: 0.55rem 1rem;
   border-bottom: 1px solid #2a2a4a;
   font-weight: 700;
   font-size: 0.92rem;
   color: var(--foam);
   background: rgba(255,255,255,0.03);
+  text-align: center;
 }
-.tile-header-left { display: flex; align-items: center; gap: 0.4rem; }
+.tile-header-left { display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
 .tile-body {
   flex: 1;
   overflow-y: auto;
-  max-height: 320px;
+  max-height: 256px;
 }
 .tile-item {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.4rem 0.9rem;
+  padding: 0.32rem 0.9rem;
   font-size: 0.86rem;
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
@@ -232,8 +233,13 @@
 {% block content %}
 <main class="search-home">
 
+  <!-- Tiles toggle (persisted via cookie tiles_on=1|0; default off) -->
+  <div class="tiles-toggle-row" style="width:100%;display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
+    <button id="tiles-toggle" type="button" class="button-muted" style="font-size:0.78rem;padding:0.32rem 0.65rem;">Show tiles</button>
+  </div>
+
   <!-- Dashboard Tiles -->
-  <div class="dashboard-tiles">
+  <div class="dashboard-tiles" id="dashboard-tiles" style="display:none;">
 
     <!-- Local Trends -->
     <div class="tile">
@@ -519,10 +525,33 @@ async function loadFlagged(period) {
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-loadTile("tile-trends",  "/api/v1/ticker/trends",  renderTrend);
-loadTile("tile-news",    "/api/v1/ticker/news",    renderNews);
-loadTile("tile-breaches","/api/v1/ticker/breaches",renderBreach);
-loadFlagged("today");
+// Tiles are gated by the `tiles_on` cookie (default off). Only fetch when on.
+function getCookie(n){const m=document.cookie.match(new RegExp('(^|; )'+n+'=([^;]*)'));return m?decodeURIComponent(m[2]):null;}
+function setCookie(n,v){document.cookie=n+'='+encodeURIComponent(v)+'; max-age=31536000; path=/; SameSite=Lax';}
+
+let _tilesLoaded = false;
+function loadAllTiles() {
+  if (_tilesLoaded) return;
+  _tilesLoaded = true;
+  loadTile("tile-trends",  "/api/v1/ticker/trends",  renderTrend);
+  loadTile("tile-news",    "/api/v1/ticker/news",    renderNews);
+  loadTile("tile-breaches","/api/v1/ticker/breaches",renderBreach);
+  loadFlagged("today");
+}
+function applyTilesState(on) {
+  const wrap = document.getElementById("dashboard-tiles");
+  const btn  = document.getElementById("tiles-toggle");
+  if (wrap) wrap.style.display = on ? "" : "none";
+  if (btn)  btn.textContent = on ? "Hide tiles" : "Show tiles";
+  if (on) loadAllTiles();
+}
+const _tilesOn = getCookie("tiles_on") === "1";
+applyTilesState(_tilesOn);
+document.getElementById("tiles-toggle")?.addEventListener("click", () => {
+  const next = getCookie("tiles_on") !== "1";
+  setCookie("tiles_on", next ? "1" : "0");
+  applyTilesState(next);
+});
 
 // Period filter buttons
 document.querySelectorAll("#flagged-period-row .period-btn").forEach(btn => {
