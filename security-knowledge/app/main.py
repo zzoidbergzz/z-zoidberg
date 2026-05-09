@@ -28,6 +28,7 @@ from app.routers.capabilities import router as capabilities_router
 from app.routers.import_corpus import router as import_corpus_router
 from app.routers.graph import router as graph_router
 from app.routers.shortcuts import router as shortcuts_router
+from app.routers.ticker import router as ticker_router
 from app.routers.ask import router as ask_router
 from app.routers.lookup import router as lookup_router
 from app.routers.health import router as health_router
@@ -184,6 +185,7 @@ app.include_router(graphql_router, prefix="/graphql")
 app.include_router(shortcuts_router)
 app.include_router(lookup_router, prefix="/api/v1")
 app.include_router(ask_router, prefix="/api/v1")
+app.include_router(ticker_router, prefix="/api/v1")
 
 # Static files (UI)
 templates_path = Path(__file__).parent.parent / "templates"

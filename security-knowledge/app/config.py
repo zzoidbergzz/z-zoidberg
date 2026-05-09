@@ -160,5 +160,22 @@ class Settings(BaseSettings):
     LOOKUP_DISPATCH_DEBOUNCE_MINUTES: int = 5
     LOOKUP_FORCE_REPOLL_MINUTES: int = 30
 
+    # Recorded Future
+    RECORDED_FUTURE_API_KEY: str = ""
+
+    # Feed poller
+    FEED_POLL_USER_AGENT: str = "Zoidberg/1.0 (Security Knowledge Platform; https://z.je)"
+    FEED_POLL_INTERVAL_SECONDS: int = 1200  # 20 minutes
+
+    # Tor scraping
+    TOR_SOCKS_HOST: str = "127.0.0.1"
+    TOR_SOCKS_PORT: int = 9050
+    TOR_SCRAPE_INTERVAL_SECONDS: int = 1200  # 20 minutes
+    TOR_SCRAPE_ENABLED: bool = False
+
+    # AI enrichment (post-scrape)
+    AI_ENRICHMENT_PROVIDER: str = ""  # "openai" or "anthropic"
+    AI_ENRICHMENT_MODEL: str = "gpt-4o-mini"
+
 
 settings = Settings()

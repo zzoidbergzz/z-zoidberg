@@ -155,10 +155,15 @@ async def _fetch_source(source: SourceRecord) -> tuple[FetchOutcome, int]:
     Returns (outcome, new_items) where new_items is the number of new feed
     entries enqueued (0 for non-feed sources or when parsing fails).
     """
+    from app.config import settings as app_settings
+    custom_headers = {}
+    if app_settings.FEED_POLL_USER_AGENT:
+        custom_headers["User-Agent"] = app_settings.FEED_POLL_USER_AGENT
+
     t0 = time.monotonic()
     new_items = 0
     try:
-        result = await fetch(source.url)
+        result = await fetch(source.url, headers=custom_headers if custom_headers else None)
         duration_ms = int((time.monotonic() - t0) * 1000)
 
         if result.ok:

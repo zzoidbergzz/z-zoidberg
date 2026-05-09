@@ -38,5 +38,11 @@ services:
     ports:
       - "6379:6379"
 
+  tor:
+    image: dperson/torproxy
+    ports:
+      - "9050:9050"
+    restart: unless-stopped
+
 volumes:
   pgdata:
