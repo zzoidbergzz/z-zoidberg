@@ -62,10 +62,18 @@ async def search(
     limit: int = Query(20, le=100),
     corpus: Optional[str] = Query(None, description="Filter to corpus: cve, gcve, exploitdb"),
     web_fallback: bool = Query(True, description="Use SearXNG web fallback when DB results are sparse"),
+    web_only: bool = Query(False, description="Bypass DB and search only SearXNG web results"),
     web_categories: str = Query("general", description="SearXNG categories for fallback"),
     db: AsyncSession = Depends(get_db),
     auth = Depends(require_read),
 ):
+    if web_only:
+        try:
+            web = await searxng_search(q, categories=web_categories, limit=limit)
+        except (httpx.HTTPError, ValueError):
+            web = []
+        return [_web_to_search_result(item) for item in web][:limit]
+
     if corpus:
         results = await corpus_search(db, _tenant_id(auth), q, corpus=corpus, limit=limit)
     else:

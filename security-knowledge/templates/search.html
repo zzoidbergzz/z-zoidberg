@@ -13,6 +13,22 @@
              placeholder="CVE-2021-44228, T1059, Log4Shell, APT29…"
              style="flex:1;min-width:14rem;" autocomplete="off">
       <button class="button" id="search-btn">Search</button>
+      <button class="button-muted" id="search-web-btn">Extend Web</button>
+    </div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;align-items:center;">
+      <label style="display:flex;align-items:center;gap:0.35rem;" class="muted">
+        <input type="checkbox" id="web-fallback-toggle" checked>
+        Auto web fallback
+      </label>
+      <label style="display:flex;align-items:center;gap:0.35rem;" class="muted">
+        Category
+        <select id="web-category" class="form-input" style="padding:0.25rem 0.45rem; min-width:8rem;">
+          <option value="general" selected>general</option>
+          <option value="news">news</option>
+          <option value="it">it</option>
+          <option value="science">science</option>
+        </select>
+      </label>
     </div>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.6rem;" id="filter-bar">
       <button class="tiny-pill filter-chip active" data-filter="">All</button>
@@ -192,18 +208,24 @@
   }
 
   // ── Search ─────────────────────────────────────────────────────────────
-  async function doSearch(q) {
+  async function doSearch(q, opts = {}) {
     if (!q.trim()) { resultsDiv.innerHTML = ""; status.textContent = ""; allItems = []; return; }
     status.textContent = "Searching…";
     resultsDiv.innerHTML = "";
     try {
-      const resp = await fetch(`/api/v1/search/?q=${encodeURIComponent(q)}&limit=30`, { credentials: "same-origin" });
+      const webFallback = opts.webFallback ?? document.getElementById("web-fallback-toggle").checked;
+      const webOnly = !!opts.webOnly;
+      const webCategory = document.getElementById("web-category").value || "general";
+      const resp = await fetch(
+        `/api/v1/search/?q=${encodeURIComponent(q)}&limit=30&web_fallback=${webFallback ? "true" : "false"}&web_only=${webOnly ? "true" : "false"}&web_categories=${encodeURIComponent(webCategory)}`,
+        { credentials: "same-origin" }
+      );
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       const data = await resp.json();
       allItems = Array.isArray(data) ? data : (data.items || data.results || []);
       status.textContent = allItems.length ? `${allItems.length} result(s)` : "";
       if (!allItems.length) {
-        resultsDiv.innerHTML = '<div class="empty-state">No results found.</div>';
+        resultsDiv.innerHTML = '<div class="empty-state">No results found. Try <strong>Extend Web</strong>.</div>';
         return;
       }
       renderResults();
@@ -214,8 +236,9 @@
   }
 
   // ── Events ─────────────────────────────────────────────────────────────
-  document.getElementById("search-btn").addEventListener("click", () => doSearch(qInput.value));
-  qInput.addEventListener("keydown", e => { if (e.key === "Enter") doSearch(qInput.value); });
+  document.getElementById("search-btn").addEventListener("click", () => doSearch(qInput.value, { webOnly: false }));
+  document.getElementById("search-web-btn").addEventListener("click", () => doSearch(qInput.value, { webOnly: true, webFallback: true }));
+  qInput.addEventListener("keydown", e => { if (e.key === "Enter") doSearch(qInput.value, { webOnly: false }); });
 
   document.getElementById("filter-bar").addEventListener("click", e => {
     const chip = e.target.closest(".filter-chip");
