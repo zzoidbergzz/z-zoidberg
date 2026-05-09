@@ -78,5 +78,5 @@ register_tool(
         },
     },
     description="Classify and look up any IoC. Auto-dispatches enrichment (urlscan/VT/etc) using your BYOK keys when registered.",
-    scope="read",
+    scope="write",
 )

@@ -22,3 +22,9 @@ async def test_create_webhook_validates_missing_url(client, mock_db):
 async def test_create_webhook_validates_url_type(client, mock_db):
     resp = await client.post("/api/v1/webhooks/", json={"url": 123})
     assert resp.status_code in (200, 201, 422)
+
+
+@pytest.mark.asyncio
+async def test_create_webhook_rejects_private_targets(client, mock_db):
+    resp = await client.post("/api/v1/webhooks/", json={"url": "http://127.0.0.1:8080/hook"})
+    assert resp.status_code == 422

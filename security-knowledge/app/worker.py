@@ -23,6 +23,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.config import settings
 from app.observability.trace_propagation import trace_from_job
 from app.observability.worker import record_job_end, record_job_start
+from app.services.audit import record_audit_event
 from app.workers.feed_poller import poll_feeds
 from app.workers.tor_scraper import scrape_onion_sources
 
@@ -225,7 +226,6 @@ async def process_ingest_job(
             from app.database import AsyncSessionLocal
             from app.extractors.base import run_all
             from app.fetcher import _is_denied, fetch
-            from app.models.audit import AuditEvent
             from app.models.claims import Claim
             from app.models.documents import DocumentSection, ParsedDocument
             from app.models.entities import Entity
@@ -758,7 +758,8 @@ async def process_ingest_job(
                 # ----------------------------------------------------------
                 # 10. Emit AuditEvent
                 # ----------------------------------------------------------
-                audit = AuditEvent(
+                await record_audit_event(
+                    db,
                     tenant_id=tenant_id,
                     actor="worker",
                     action="ingest_complete",
@@ -771,9 +772,9 @@ async def process_ingest_job(
                         "sections": len(sections),
                         "entities_extracted": entity_count,
                         "content_sha256": content_sha256,
+                        "source_kind": "internal automation",
                     },
                 )
-                db.add(audit)
 
                 # ----------------------------------------------------------
                 # 11. Update job to complete

@@ -19,6 +19,7 @@ from app.models.enrichment import EnrichmentCache, EnrichmentDiff
 from app.models.entities import Entity
 from app.models.relationships import Relationship
 from app.pivot.graph import shortest_path
+from app.services.audit import record_audit_event
 
 router = APIRouter(tags=["lookup"])
 
@@ -190,7 +191,7 @@ async def lookup(
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_auth),
 ):
-    auth.require_scope(Scope.read)
+    auth.require_scope(Scope.write)
     classified = classify_input(body.query)
     if classified["type"] in ("empty",):
         raise HTTPException(status_code=400, detail="Empty or unclassifiable query")
@@ -214,6 +215,24 @@ async def lookup(
         await db.commit()
 
     enrichments = await _get_enrichment_results(db, auth.tenant_id, kind, canonical)
+    await record_audit_event(
+        db,
+        tenant_id=auth.tenant_id,
+        actor=auth.user_email or auth.user_id or "external-user",
+        action="lookup_performed",
+        resource_type="lookup",
+        resource_id=str(entity.id),
+        details={
+            "entity_id": str(entity.id),
+            "query": body.query,
+            "kind": kind,
+            "canonical_name": canonical,
+            "classified_as": classified["type"],
+            "dispatch_mode": "in_process" if should_dispatch else ("debounced" if enrichments else "cached"),
+            "source_kind": "external users",
+        },
+    )
+    await db.commit()
     dispatch_mode = "in_process" if should_dispatch else ("debounced" if enrichments else "cached")
     return {
         # JS-compatible fields
@@ -239,6 +258,7 @@ async def bulk_lookup(
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(get_auth),
 ):
+    auth.require_scope(Scope.write)
     results = []
     for query in body.queries[:50]:  # cap at 50
         classified = classify_input(query)
@@ -256,6 +276,23 @@ async def bulk_lookup(
                 await _add_entity_to_investigation(
                     db, body.investigation_id, str(entity.id), auth.tenant_id, auth.user_id
                 )
+            await record_audit_event(
+                db,
+                tenant_id=auth.tenant_id,
+                actor=auth.user_email or auth.user_id or "external-user",
+                action="lookup_performed",
+                resource_type="lookup",
+                resource_id=str(entity.id),
+                details={
+                    "entity_id": str(entity.id),
+                    "query": query,
+                    "kind": kind,
+                    "canonical_name": canonical,
+                    "classified_as": classified["type"],
+                    "bulk": True,
+                    "source_kind": "external users",
+                },
+            )
             results.append(
                 {
                     "query": query,

@@ -103,7 +103,9 @@ async def get_token(req: TokenRequest, db: AsyncSession = Depends(get_db)):
     api_key = result.scalar_one_or_none()
     if not api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
-    token = create_access_token({"sub": str(api_key.tenant_id), "tenant_id": str(api_key.tenant_id)})
+    if not api_key.user_id:
+        raise HTTPException(status_code=403, detail="Bearer token exchange requires a user-bound API key")
+    token = create_access_token({"sub": str(api_key.user_id), "tenant_id": str(api_key.tenant_id)})
     return {"access_token": token, "token_type": "bearer"}
 
 

@@ -70,10 +70,12 @@ async def test_post_token_valid(open_client, mock_db):
     """POST /auth/token with valid API key returns JWT."""
     from app.models.auth import ApiKey
     from app.auth.api_key import generate_api_key
+    from app.auth.jwt import decode_token
 
     raw, key_hash = generate_api_key()
     api_key = MagicMock(spec=ApiKey)
     api_key.tenant_id = uuid.uuid4()
+    api_key.user_id = uuid.uuid4()
     api_key.active = True
 
     import hashlib
@@ -85,7 +87,30 @@ async def test_post_token_valid(open_client, mock_db):
 
     resp = await open_client.post("/api/v1/auth/token", json={"api_key": raw})
     assert resp.status_code == 200
-    assert "access_token" in resp.json()
+    token = resp.json()["access_token"]
+    payload = decode_token(token)
+    assert payload["sub"] == str(api_key.user_id)
+    assert payload["tenant_id"] == str(api_key.tenant_id)
+
+
+@pytest.mark.asyncio
+async def test_post_token_requires_user_bound_key(open_client, mock_db):
+    """Tenant-only API keys cannot be exchanged for bearer tokens."""
+    from app.models.auth import ApiKey
+    from app.auth.api_key import generate_api_key
+
+    raw, key_hash = generate_api_key()
+    api_key = MagicMock(spec=ApiKey)
+    api_key.tenant_id = uuid.uuid4()
+    api_key.user_id = None
+    api_key.active = True
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = api_key
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    resp = await open_client.post("/api/v1/auth/token", json={"api_key": raw})
+    assert resp.status_code == 403
 
 
 @pytest.mark.asyncio

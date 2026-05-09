@@ -69,9 +69,17 @@
 
   <section class="card">
     <h3>Recent audit events</h3>
+    <div class="row" style="gap:0.5rem; margin-bottom:0.5rem;">
+      <select id="audit-source-filter">
+        <option value="all" selected>both</option>
+        <option value="internal">internal automation</option>
+        <option value="external">external users</option>
+      </select>
+      <button class="button-muted" id="audit-refresh">Refresh</button>
+    </div>
     <table class="data-table" id="audit-table">
-      <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Resource</th><th>Status</th></tr></thead>
-      <tbody><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+      <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Source</th><th>Resource</th><th>Activity</th><th>Status</th></tr></thead>
+      <tbody><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
     </table>
   </section>
 </main>
@@ -300,17 +308,20 @@
 
   async function loadAudit() {
     const tbody = document.querySelector("#audit-table tbody");
-    const r = await fetch("/api/v1/audit/?limit=25", {credentials:"same-origin"});
-    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="5" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
+    const source = document.getElementById("audit-source-filter").value;
+    const r = await fetch(`/api/v1/audit/?limit=25&source=${encodeURIComponent(source)}`, {credentials:"same-origin"});
+    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="7" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
     const events = await r.json();
-    if (!events.length) { tbody.innerHTML = `<tr><td colspan="5" class="muted">No audit events.</td></tr>`; return; }
+    if (!events.length) { tbody.innerHTML = `<tr><td colspan="7" class="muted">No audit events.</td></tr>`; return; }
     tbody.innerHTML = events.map(e =>
       `<tr>
         <td>${fmt(e.created_at || e.timestamp)}</td>
-        <td>${escape(e.actor_email || e.actor_id || "system")}</td>
+        <td>${escape(e.actor || e.actor_email || e.actor_id || "system")}</td>
         <td>${escape(e.action)}</td>
-        <td>${escape(e.resource_type || "")} ${escape(e.resource_id || "")}</td>
-        <td><span class="tiny-pill ${e.status === 'success' ? '' : 'warn'}">${escape(e.status || '—')}</span></td>
+        <td><span class="tiny-pill">${escape(e.source_kind || "external users")}</span></td>
+        <td>${escape(e.resource_type || e.resource_kind || "")} ${escape(e.resource_id || "")}</td>
+        <td>${e.activity_url ? `<a class="button-muted" href="${escape(e.activity_url)}">Open</a>` : "—"}</td>
+        <td><span class="tiny-pill ${((e.status || (e.details && e.details.status)) === 'success') ? '' : 'warn'}">${escape(e.status || (e.details && e.details.status) || 'success')}</span></td>
        </tr>`
     ).join("");
   }
@@ -320,6 +331,8 @@
   document.getElementById("tenant-refresh").addEventListener("click", loadTenants);
   document.getElementById("source-refresh").addEventListener("click", loadSources);
   document.getElementById("source-search").addEventListener("input", () => loadSources());
+  document.getElementById("audit-refresh").addEventListener("click", loadAudit);
+  document.getElementById("audit-source-filter").addEventListener("change", loadAudit);
 
   (async () => {
     await loadTenants();

@@ -11,6 +11,7 @@ from app.auth.dependencies import get_auth_optional, AuthContext
 from app.ui.deps import get_template_user
 from app.database import get_db
 from app.fingerprint import request_ip, server_side_fingerprint
+from app.services.audit import record_audit_event
 from datetime import datetime, timezone
 
 router = APIRouter(tags=["shortcuts"])
@@ -94,6 +95,23 @@ async def fingerprint_collect(
         "client_data": json.dumps(client_data),
         "combined": json.dumps(combined),
     })
+    if auth:
+        actor = auth.user_email or auth.user_id or "anonymous"
+        await record_audit_event(
+            db,
+            tenant_id=auth.tenant_id,
+            actor=actor,
+            action="fingerprint_collected",
+            resource_type="fingerprint",
+            resource_id=event_id,
+            details={
+                "fingerprint_hash": client_data.get("hash"),
+                "path": str(request.url),
+                "source_kind": "external users",
+            },
+            ip_address=request_ip(request),
+            user_agent=request.headers.get("user-agent"),
+        )
     await db.commit()
     combined["event_id"] = event_id
     return combined

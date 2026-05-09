@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.models.webhooks import WebhookSubscription, WebhookDelivery
 from app.events.types import BaseEvent
 from app.events.filters import matches_filter
+from app.fetcher import validate_url_for_fetch
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -21,6 +22,16 @@ async def dispatch_webhooks(db: AsyncSession, event: BaseEvent) -> None:
     for sub in subscriptions:
         if not matches_filter(event, sub.filters or {}):
             continue
+        validation_error = await validate_url_for_fetch(sub.url)
+        if validation_error:
+            delivery = WebhookDelivery(
+                subscription_id=sub.id,
+                payload=event.model_dump(mode="json"),
+                status="failed",
+                error=f"Invalid webhook URL: {validation_error}",
+            )
+            db.add(delivery)
+            continue
         payload = event.model_dump(mode="json")
         delivery = WebhookDelivery(
             subscription_id=sub.id,
@@ -30,7 +41,7 @@ async def dispatch_webhooks(db: AsyncSession, event: BaseEvent) -> None:
         db.add(delivery)
         await db.flush()
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
                 resp = await client.post(
                     sub.url,
                     json=payload,

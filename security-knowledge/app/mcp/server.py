@@ -59,8 +59,20 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 
+def _parse_scopes(raw_scopes: str | None) -> set:
+    from app.auth.dependencies import Scope
+
+    scopes: set[Scope] = set()
+    for token in (raw_scopes or "").replace(",", " ").split():
+        try:
+            scopes.add(Scope(token))
+        except ValueError:
+            continue
+    return scopes
+
+
 def _build_auth(tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None,
-                api_key: str = ""):
+                scopes: set | None = None):
     """Build an AuthContext for an MCP request.
 
     For SSE: ``tenant_id`` and ``user_id`` are taken from the validated
@@ -79,11 +91,12 @@ def _build_auth(tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = 
         except ValueError:
             tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
+    effective_scopes = {Scope.read, Scope.write} if scopes is None else scopes
     return AuthContext(
         tenant_id=tenant_id,
         user_id=user_id,
-        scopes=[Scope.read, Scope.write],
-        api_key=api_key or os.environ.get("SK_API_KEY", ""),
+        scopes=effective_scopes,
+        auth_type="mcp",
     )
 
 
@@ -103,7 +116,8 @@ def _tool_to_mcp_schema(tool) -> dict[str, Any]:
 
 
 async def _make_mcp_server(tenant_id: uuid.UUID | None = None,
-                           user_id: uuid.UUID | None = None):
+                           user_id: uuid.UUID | None = None,
+                           scopes: set | None = None):
     """Build and return a configured MCP Server instance.
 
     ``tenant_id`` / ``user_id`` are baked into the per-tool AuthContext so
@@ -140,7 +154,13 @@ async def _make_mcp_server(tenant_id: uuid.UUID | None = None,
         if tool is None:
             return [TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
 
-        auth = _build_auth(tenant_id=tenant_id, user_id=user_id)
+        auth = _build_auth(tenant_id=tenant_id, user_id=user_id, scopes=scopes)
+        try:
+            from app.auth.dependencies import Scope
+
+            auth.require_scope(Scope(tool.scope))
+        except ValueError:
+            pass
         async with AsyncSessionLocal() as db:
             try:
                 result = await tool.fn(args, db, auth)
@@ -231,6 +251,7 @@ def _auth_middleware(app):
             scope["state"]["sk_tenant_id"] = api_key.tenant_id
             scope["state"]["sk_user_id"] = api_key.user_id
             scope["state"]["sk_api_key_id"] = api_key.id
+            scope["state"]["sk_api_key_scopes"] = api_key.scopes
             logger.info(
                 "mcp_auth_ok",
                 api_key_id=str(api_key.id),
@@ -259,6 +280,7 @@ def make_sse_app():
         server = await _make_mcp_server(
             tenant_id=state.get("sk_tenant_id"),
             user_id=state.get("sk_user_id"),
+            scopes=_parse_scopes(state.get("sk_api_key_scopes")),
         )
         async with sse_transport.connect_sse(
             request.scope, request.receive, request._send
