@@ -630,6 +630,130 @@ class BrowserFingerprint {
     this.data.quirks.outerDimMatch = window.outerWidth > 0 && window.outerHeight > 0;
   }
 
+  async cameraSnapshot() {
+    if (!navigator.mediaDevices?.getUserMedia) return { available: false, reason: "getUserMedia unavailable" };
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const video = document.createElement("video");
+      video.setAttribute("playsinline", "true");
+      video.muted = true;
+      video.srcObject = stream;
+      await video.play();
+      const width = Math.max(video.videoWidth || 640, 320);
+      const height = Math.max(video.videoHeight || 480, 240);
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      return {
+        captured: true,
+        width,
+        height,
+        mimeType: "image/jpeg",
+        hash: await this._sha256(dataUrl),
+        dataUrl,
+      };
+    } catch (error) {
+      return { captured: false, error: String(error?.name || error || "camera_failed") };
+    } finally {
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+    }
+  }
+
+  async screenSnapshot() {
+    if (!navigator.mediaDevices?.getDisplayMedia) return { available: false, reason: "getDisplayMedia unavailable" };
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const video = document.createElement("video");
+      video.setAttribute("playsinline", "true");
+      video.muted = true;
+      video.srcObject = stream;
+      await video.play();
+      const width = Math.max(video.videoWidth || 1280, 640);
+      const height = Math.max(video.videoHeight || 720, 360);
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+      return {
+        captured: true,
+        width,
+        height,
+        mimeType: "image/jpeg",
+        hash: await this._sha256(dataUrl),
+        dataUrl,
+      };
+    } catch (error) {
+      return { captured: false, error: String(error?.name || error || "screen_failed") };
+    } finally {
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+    }
+  }
+
+  async microphoneSample(durationMs = 2500) {
+    if (!navigator.mediaDevices?.getUserMedia) return { available: false, reason: "getUserMedia unavailable" };
+    if (!window.MediaRecorder) return { available: false, reason: "MediaRecorder unavailable" };
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const chunks = [];
+      const preferredType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "";
+      const recorder = preferredType ? new MediaRecorder(stream, { mimeType: preferredType }) : new MediaRecorder(stream);
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) chunks.push(event.data);
+      };
+      recorder.start();
+      await new Promise((resolve) => setTimeout(resolve, durationMs));
+      if (recorder.state !== "inactive") {
+        await new Promise((resolve) => {
+          recorder.onstop = resolve;
+          recorder.stop();
+        });
+      }
+      const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      const dataUrl = await this._blobToDataUrl(blob);
+      return {
+        captured: true,
+        mimeType: blob.type,
+        bytes: blob.size,
+        durationMs,
+        hash: await this._sha256(dataUrl),
+        dataUrl,
+      };
+    } catch (error) {
+      return { captured: false, error: String(error?.name || error || "microphone_failed") };
+    } finally {
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+    }
+  }
+
+  async collectExtendedExposure() {
+    this.data.extendedExposure = {
+      requestedAt: new Date().toISOString(),
+      camera: await this.cameraSnapshot(),
+      screen: await this.screenSnapshot(),
+      microphone: await this.microphoneSample(),
+    };
+    return this.data.extendedExposure;
+  }
+
+  async _blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
   async _sha256(str) {
     const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
     return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -667,23 +791,107 @@ function countSignals(input) {
 (async () => {
   const jsonEl = document.getElementById("fp-json");
   if (!jsonEl) return;
+  const loadingEl = document.getElementById("fp-loading");
+  const resultsEl = document.getElementById("fp-results");
+  const errorEl = document.getElementById("fp-error");
+  const hashEl = document.getElementById("fp-hash");
+  const timeEl = document.getElementById("fp-time");
+  const fieldCountEl = document.getElementById("fp-field-count");
+  const extendedBtn = document.getElementById("fp-extended-btn");
+  const cameraImage = document.getElementById("fp-camera-image");
+  const screenImage = document.getElementById("fp-screen-image");
+  const micAudio = document.getElementById("fp-mic-audio");
+  const cameraStatus = document.getElementById("fp-camera-status");
+  const screenStatus = document.getElementById("fp-screen-status");
+  const micStatus = document.getElementById("fp-mic-status");
 
   const fp = new BrowserFingerprint();
-  const startTime = performance.now();
-  const data = await fp.collectAll();
-  const elapsed = (performance.now() - startTime).toFixed(0);
+  let localData = {};
 
-  const response = await fetch("/fp/collect", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  const combined = await response.json();
+  const persistToServer = async (payload) => {
+    const response = await fetch("/fp/collect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const raw = await response.text();
+    if (!response.ok) throw new Error(`fp/collect ${response.status}: ${raw.slice(0, 200)}`);
+    try {
+      return JSON.parse(raw);
+    } catch {
+      throw new Error("fp/collect returned non-JSON response");
+    }
+  };
 
-  document.getElementById("fp-hash").textContent = data.hash;
-  document.getElementById("fp-time").textContent = `${elapsed}ms`;
-  document.getElementById("fp-field-count").textContent = `${countSignals(combined)} signals`;
-  jsonEl.textContent = JSON.stringify(combined, null, 2);
-  document.getElementById("fp-loading").style.display = "none";
-  document.getElementById("fp-results").style.display = "block";
+  const updateExtendedPreview = (extended) => {
+    const camera = extended?.camera;
+    const screen = extended?.screen;
+    const mic = extended?.microphone;
+
+    if (camera?.captured && camera?.dataUrl) {
+      cameraImage.src = camera.dataUrl;
+      cameraImage.style.display = "block";
+      cameraStatus.textContent = `Captured ${camera.width}x${camera.height}`;
+    } else {
+      cameraStatus.textContent = camera?.error || camera?.reason || "Not captured.";
+    }
+
+    if (screen?.captured && screen?.dataUrl) {
+      screenImage.src = screen.dataUrl;
+      screenImage.style.display = "block";
+      screenStatus.textContent = `Captured ${screen.width}x${screen.height}`;
+    } else {
+      screenStatus.textContent = screen?.error || screen?.reason || "Not captured.";
+    }
+
+    if (mic?.captured && mic?.dataUrl) {
+      micAudio.src = mic.dataUrl;
+      micAudio.style.display = "block";
+      micStatus.textContent = `Captured ${mic.durationMs}ms (${mic.bytes} bytes)`;
+    } else {
+      micStatus.textContent = mic?.error || mic?.reason || "Not captured.";
+    }
+  };
+
+  try {
+    const startTime = performance.now();
+    localData = await fp.collectAll();
+    const elapsed = (performance.now() - startTime).toFixed(0);
+    const combined = await persistToServer(localData);
+    hashEl.textContent = localData.hash || "n/a";
+    timeEl.textContent = `${elapsed}ms`;
+    fieldCountEl.textContent = `${countSignals(combined)} signals`;
+    jsonEl.textContent = JSON.stringify(combined, null, 2);
+    loadingEl.style.display = "none";
+    resultsEl.style.display = "block";
+  } catch (error) {
+    loadingEl.style.display = "none";
+    resultsEl.style.display = "block";
+    errorEl.style.display = "block";
+    errorEl.textContent = `Collection failed: ${String(error?.message || error)}`;
+    hashEl.textContent = localData?.hash || "n/a";
+    timeEl.textContent = "failed";
+    fieldCountEl.textContent = `${countSignals(localData)} local-only signals`;
+    jsonEl.textContent = JSON.stringify({ local: localData || {}, error: String(error?.message || error) }, null, 2);
+  }
+
+  if (extendedBtn) {
+    extendedBtn.addEventListener("click", async () => {
+      extendedBtn.disabled = true;
+      extendedBtn.textContent = "Capturing...";
+      try {
+        const extended = await fp.collectExtendedExposure();
+        updateExtendedPreview(extended);
+        const combined = await persistToServer(fp.data);
+        fieldCountEl.textContent = `${countSignals(combined)} signals`;
+        jsonEl.textContent = JSON.stringify(combined, null, 2);
+        extendedBtn.textContent = "Extended Capture Complete";
+      } catch (error) {
+        errorEl.style.display = "block";
+        errorEl.textContent = `Extended capture failed: ${String(error?.message || error)}`;
+        extendedBtn.disabled = false;
+        extendedBtn.textContent = "Run Extended Exposure Capture";
+      }
+    });
+  }
 })();

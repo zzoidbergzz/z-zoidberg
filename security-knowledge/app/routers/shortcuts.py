@@ -1,6 +1,6 @@
 from __future__ import annotations
-import secrets
 import json
+import uuid
 from pathlib import Path
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
@@ -72,10 +72,16 @@ async def fingerprint_collect(
     client_data = await request.json()
     server_data = server_side_fingerprint(request)
     combined = {"server": server_data, "client": client_data, "generated_at": _utcnow_str()}
-    event_id = secrets.token_hex(16)
+    event_id = str(uuid.uuid4())
     await db.execute(text("""
         INSERT INTO fingerprint_events (id, user_id, tenant_id, ip_address, user_agent, fingerprint_hash, path, server_data, client_data, combined_data, created_at)
-        VALUES (:id, :user_id, :tenant_id, :ip, :ua, :fhash, :path, :server_data::jsonb, :client_data::jsonb, :combined::jsonb, now())
+        VALUES (
+            :id, :user_id, :tenant_id, :ip, :ua, :fhash, :path,
+            CAST(:server_data AS jsonb),
+            CAST(:client_data AS jsonb),
+            CAST(:combined AS jsonb),
+            now()
+        )
     """), {
         "id": event_id,
         "user_id": auth.user_id if auth else None,

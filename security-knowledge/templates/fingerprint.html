@@ -25,6 +25,7 @@
 </section>
 <section class="panel" style="margin-top:1.5rem;">
   <div id="fp-loading" class="empty-state">Collecting high-entropy client signals…</div>
+  <div id="fp-error" class="empty-state" style="display:none;color:#fca5a5;"></div>
   <div id="fp-results" style="display:none;">
     <div class="grid-2">
       <div class="card">
@@ -35,7 +36,26 @@
       <div class="card">
         <div class="section-title">Capture Notes</div>
         <p class="subtle" style="margin-top:0.75rem;">Signals include WebGL, canvas, audio, fonts, media devices, storage APIs, CSS media, performance, Intl, and browser quirks.</p>
+        <button class="button-muted" id="fp-extended-btn" style="margin-top:0.75rem;">Run Extended Exposure Capture</button>
+        <p class="subtle" style="margin-top:0.5rem;">Extended capture requests permission for camera, microphone, and screen snapshot, then appends results to your report.</p>
       </div>
+    </div>
+    <div class="grid-2" style="margin-top:1rem;">
+      <div class="card">
+        <div class="section-title">Camera Snapshot</div>
+        <img id="fp-camera-image" alt="Camera snapshot" style="margin-top:0.75rem;max-width:100%;display:none;border:1px solid var(--line);border-radius:10px;" />
+        <p id="fp-camera-status" class="subtle" style="margin-top:0.75rem;">Not captured.</p>
+      </div>
+      <div class="card">
+        <div class="section-title">Screen Snapshot</div>
+        <img id="fp-screen-image" alt="Screen snapshot" style="margin-top:0.75rem;max-width:100%;display:none;border:1px solid var(--line);border-radius:10px;" />
+        <p id="fp-screen-status" class="subtle" style="margin-top:0.75rem;">Not captured.</p>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1rem;">
+      <div class="section-title">Microphone Sample</div>
+      <audio id="fp-mic-audio" controls style="margin-top:0.75rem;display:none;width:100%;"></audio>
+      <p id="fp-mic-status" class="subtle" style="margin-top:0.75rem;">Not captured.</p>
     </div>
     <div class="panel" style="margin-top:1rem;padding:0;">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--line);">
