@@ -503,9 +503,10 @@ function renderTrend(item) {
 
 // ── News ─────────────────────────────────────────────────────────────────────
 function renderNews(item) {
+  const hoverAttr = item.hover_text ? ` title=${JSON.stringify(item.hover_text)}` : "";
   const link = item.url
-    ? `<a href="${esc(item.url)}" target="_blank" rel="noopener">${esc(item.title)}</a>`
-    : esc(item.title);
+    ? `<a href="${esc(item.url)}" target="_blank" rel="noopener"${hoverAttr}>${esc(item.title)}</a>`
+    : `<span${hoverAttr}>${esc(item.title)}</span>`;
   return `<div class="tile-item">
     <span class="tile-meta">${esc(item.meta)}</span>
     <span class="tile-title">${link}</span>
