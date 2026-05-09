@@ -1,20 +1,24 @@
 """Ticker router — feed ticker data for the UI dashboard."""
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select, and_
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import require_read, AuthContext
+from app.auth.dependencies import AuthContext, require_read
 from app.database import get_db
 from app.models.claims import Claim
+from app.models.documents import ParsedDocument
 from app.models.entities import Entity
 from app.models.flags import FlaggedItem
-from app.models.documents import ParsedDocument
+from app.models.sources import SourceRecord
 
 router = APIRouter(prefix="/ticker", tags=["ticker"])
 
@@ -25,6 +29,78 @@ class TickerItem(BaseModel):
     meta: str
     source: str
     url: str | None = None
+    context: str | None = None
+    source_url: str | None = None
+    screenshot_url: str | None = None
+
+
+_SCREENSHOT_NAME_RE = re.compile(r"^[0-9a-fA-F-]{36}\.png$")
+_ARTIFACT_NAME_RE = re.compile(
+    r"^[0-9a-fA-F-]{36}_[0-9]{8}T[0-9]{6}Z_[0-9a-f]{12}\.[A-Za-z0-9]{1,8}$"
+)
+_SCREENSHOT_NAME_RE = re.compile(
+    r"^[0-9a-fA-F-]{36}(?:_[0-9]{8}T[0-9]{6}Z_[0-9a-f]{8})?\.png$"
+)
+
+
+def _tor_screenshot_url(path_value: str | None) -> str | None:
+    if not path_value:
+        return None
+    filename = Path(path_value).name
+    if not _SCREENSHOT_NAME_RE.match(filename):
+        return None
+    return f"/api/v1/claims/tor-screenshot/{filename}"
+
+
+def _tor_artifact_url(filename: str, *, download: bool = False) -> str | None:
+    if not _ARTIFACT_NAME_RE.match(filename):
+        return None
+    suffix = "?download=1" if download else ""
+    return f"/api/v1/claims/tor-artifact/{filename}{suffix}"
+
+
+def _victim_names(value: dict) -> list[str]:
+    deterministic = value.get("deterministic", {}) or {}
+    ai = value.get("ai_enrichment", {}) or {}
+    names: list[str] = []
+    for item in deterministic.get("victims", []) or []:
+        if isinstance(item, str) and item.strip():
+            names.append(item.strip())
+    for item in ai.get("victims", []) or []:
+        if isinstance(item, str) and item.strip():
+            names.append(item.strip())
+            continue
+        if isinstance(item, dict):
+            name = str(item.get("name", "")).strip()
+            if name:
+                names.append(name)
+    seen: set[str] = set()
+    out: list[str] = []
+    for n in names:
+        key = n.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(n)
+    return out
+
+
+def _source_display_name(source_url: str | None, source: SourceRecord | None) -> str:
+    if source and source.title:
+        return source.title
+    if source_url:
+        host = urlparse(source_url).netloc or source_url
+        return host.replace(".onion", "")
+    return "Unknown actor"
+
+
+def _onion_view_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    host = urlparse(url).netloc or url
+    if ".onion" not in host.lower():
+        return None
+    return f"/onion/view?url={quote(url)}"
 
 
 class FlaggedItemOut(BaseModel):
@@ -50,6 +126,30 @@ class FlagBody(BaseModel):
 
 class AckBody(BaseModel):
     acked_by: str = "anonymous"
+
+
+class BreachArtifactOut(BaseModel):
+    filename: str
+    content_type: str
+    size_bytes: int | None = None
+    sha256: str | None = None
+    source_url: str | None = None
+    view_url: str | None = None
+    download_url: str | None = None
+
+
+class BreachSummaryOut(BaseModel):
+    claim_id: uuid.UUID
+    victim_name: str
+    victim_profile_url: str
+    actor_name: str
+    actor_profile_url: str
+    source_url: str
+    source_analysis_url: str | None = None
+    scraped_at: str | None = None
+    screenshot_url: str | None = None
+    leaked_evidence: list[BreachArtifactOut]
+    mentions: list[str]
 
 
 # ── Ticker endpoints ──────────────────────────────────────────────────────────
@@ -127,33 +227,175 @@ async def ticker_breaches(
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(require_read),
 ):
-    """Recent breach/ransomware claims from entities."""
+    """Recent victim rows from tor leak-site findings."""
     since = datetime.now(UTC) - timedelta(days=7)
-    breach_kinds = {"actor", "campaign"}
     stmt = (
-        select(Entity, func.max(Claim.created_at).label("latest_claim"))
-        .join(Claim, Claim.entity_id == Entity.id)
+        select(Claim)
         .where(
             Claim.tenant_id == auth.tenant_id,
             Claim.created_at >= since,
-            Entity.kind.in_(breach_kinds),
+            Claim.claim_type == "tor_site_findings",
         )
-        .group_by(Entity.id)
-        .order_by(func.max(Claim.created_at).desc())
-        .limit(limit)
+        .order_by(Claim.created_at.desc())
+        .limit(max(limit * 5, 50))
     )
-    rows = (await db.execute(stmt)).all()
+    claims = (await db.execute(stmt)).scalars().all()
+
+    source_urls = {
+        str(v.get("source_url", "")).strip()
+        for c in claims
+        for v in [c.value if isinstance(c.value, dict) else {}]
+        if str(v.get("source_url", "")).strip()
+    }
+    source_rows = (
+        await db.execute(
+            select(SourceRecord).where(
+                SourceRecord.tenant_id == auth.tenant_id,
+                SourceRecord.url.in_(list(source_urls)),
+            )
+        )
+    ).scalars().all()
+    source_map = {s.url: s for s in source_rows}
+
     items = []
-    for entity, latest in rows:
-        ago = _human_ago(latest)
-        items.append(TickerItem(
-            id=f"breach-{entity.id}",
-            title=entity.canonical_name,
-            meta=f"{entity.kind} · {ago}",
-            source="breaches",
-            url=f"/entities/{entity.id}",
-        ))
+    for claim in claims:
+        value = claim.value if isinstance(claim.value, dict) else {}
+        source_url = str(value.get("source_url", "")).strip()
+        source = source_map.get(source_url)
+        actor_name = _source_display_name(source_url, source)
+        victims = _victim_names(value)
+        deterministic = value.get("deterministic", {}) or {}
+        artifacts = value.get("artifact_files", []) or []
+        summary_bits: list[str] = []
+        if deterministic.get("payment_addresses"):
+            summary_bits.append(f"{len(deterministic.get('payment_addresses', []))} wallets")
+        if deterministic.get("binaries"):
+            summary_bits.append(f"{len(deterministic.get('binaries', []))} binaries")
+        if artifacts:
+            summary_bits.append(f"{len(artifacts)} cached files")
+        context = " · ".join(summary_bits) if summary_bits else None
+        screenshot_url = _tor_screenshot_url(value.get("screenshot_path"))
+        ago = _human_ago(claim.created_at)
+
+        for idx, victim in enumerate(victims):
+            items.append(
+                TickerItem(
+                    id=f"breach-{claim.id}-{idx}",
+                    title=victim,
+                    meta=f"{actor_name} · {ago}",
+                    source="breaches",
+                    url=f"/breaches/{claim.id}?victim={quote(victim)}",
+                    context=context,
+                    source_url=source_url or None,
+                    screenshot_url=screenshot_url,
+                )
+            )
+            if len(items) >= limit:
+                return items
+
+    # Fallback: keep tile non-empty even when victim names are absent.
+    if not items:
+        for claim in claims[:limit]:
+            value = claim.value if isinstance(claim.value, dict) else {}
+            source_url = str(value.get("source_url", "")).strip()
+            source = source_map.get(source_url)
+            actor_name = _source_display_name(source_url, source)
+            items.append(
+                TickerItem(
+                    id=f"breach-source-{claim.id}",
+                    title=actor_name,
+                    meta=f"leak-site activity · {_human_ago(claim.created_at)}",
+                    source="breaches",
+                    url=f"/breaches/{claim.id}",
+                    source_url=source_url or None,
+                    screenshot_url=_tor_screenshot_url(value.get("screenshot_path")),
+                )
+            )
+            if len(items) >= limit:
+                break
     return items
+
+
+@router.get("/breaches/{claim_id}/summary", response_model=BreachSummaryOut)
+async def breach_summary(
+    claim_id: uuid.UUID,
+    victim: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    auth: AuthContext = Depends(require_read),
+):
+    claim = (
+        await db.execute(
+            select(Claim).where(
+                Claim.id == claim_id,
+                Claim.tenant_id == auth.tenant_id,
+                Claim.claim_type == "tor_site_findings",
+            )
+        )
+    ).scalar_one_or_none()
+    if claim is None:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Breach summary not found")
+
+    value = claim.value if isinstance(claim.value, dict) else {}
+    source_url = str(value.get("source_url", "")).strip()
+    source = (
+        await db.execute(
+            select(SourceRecord).where(
+                SourceRecord.tenant_id == auth.tenant_id,
+                SourceRecord.url == source_url,
+            ).limit(1)
+        )
+    ).scalar_one_or_none()
+    actor_name = _source_display_name(source_url, source)
+
+    victims = _victim_names(value)
+    victim_name = victim if victim and victim.strip() else (victims[0] if victims else "Unknown victim")
+    ai = value.get("ai_enrichment", {}) or {}
+    deterministic = value.get("deterministic", {}) or {}
+    mentions = []
+    for bucket in ("binaries", "payment_addresses", "emails", "domains"):
+        vals = deterministic.get(bucket, []) or []
+        mentions.extend([str(v) for v in vals if str(v).strip()])
+    for entry in ai.get("other_extractions", []) or []:
+        if isinstance(entry, dict):
+            t = str(entry.get("type", "")).strip()
+            v = str(entry.get("value", "")).strip()
+            if t or v:
+                mentions.append(f"{t}: {v}".strip(": "))
+    mentions = list(dict.fromkeys(mentions))[:40]
+
+    leaked_evidence: list[BreachArtifactOut] = []
+    for artifact in value.get("artifact_files", []) or []:
+        if not isinstance(artifact, dict):
+            continue
+        filename = str(artifact.get("filename", "")).strip()
+        if not filename:
+            continue
+        leaked_evidence.append(
+            BreachArtifactOut(
+                filename=filename,
+                content_type=str(artifact.get("content_type", "")).strip() or "application/octet-stream",
+                size_bytes=artifact.get("size_bytes"),
+                sha256=str(artifact.get("sha256", "")).strip() or None,
+                source_url=str(artifact.get("original_url", "")).strip() or None,
+                view_url=_tor_artifact_url(filename, download=False),
+                download_url=_tor_artifact_url(filename, download=True),
+            )
+        )
+
+    return BreachSummaryOut(
+        claim_id=claim.id,
+        victim_name=victim_name,
+        victim_profile_url=f"/entities?q={quote(victim_name)}",
+        actor_name=actor_name,
+        actor_profile_url=f"/entities?q={quote(actor_name)}",
+        source_url=source_url,
+        source_analysis_url=_onion_view_url(source_url),
+        scraped_at=value.get("scraped_at"),
+        screenshot_url=_tor_screenshot_url(value.get("screenshot_path")),
+        leaked_evidence=leaked_evidence,
+        mentions=mentions,
+    )
 
 
 # ── Flag endpoints ─────────────────────────────────────────────────────────────

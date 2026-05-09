@@ -4,15 +4,17 @@ from urllib.parse import quote
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text as sql_text
 
 from app.config import settings
+from app.database import AsyncSessionLocal
 from app.ui.deps import get_template_user
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "templates"))
 
 ui_router = APIRouter(tags=["UI"])
 
-PROTECTED = ["/", "/graph", "/entities", "/search", "/admin", "/investigation", "/fp", "/settings", "/claims", "/digests"]
+PROTECTED = ["/", "/graph", "/entities", "/search", "/admin", "/investigation", "/fp", "/settings", "/claims", "/digests", "/breaches"]
 
 
 def _authed(request: Request) -> bool:
@@ -61,14 +63,12 @@ async def ui_entity_detail(request: Request, entity_id: str):
     import re as _re
     if _re.fullmatch(r"[0-9a-fA-F-]{36}", entity_id):
         try:
-            from app.database import AsyncSessionLocal
-            from sqlalchemy import text as _text
             async with AsyncSessionLocal() as db:
-                row = (await db.execute(_text(
+                row = (await db.execute(sql_text(
                     "SELECT id::text FROM entities WHERE id = :id LIMIT 1"
                 ), {"id": entity_id})).first()
                 if row is None:
-                    cd = (await db.execute(_text(
+                    cd = (await db.execute(sql_text(
                         "SELECT corpus, external_id FROM corpus_documents WHERE id = :id LIMIT 1"
                     ), {"id": entity_id})).first()
                     if cd:
@@ -77,7 +77,7 @@ async def ui_entity_detail(request: Request, entity_id: str):
                             return RedirectResponse(url=f"/cve/{ext}", status_code=302)
                         if corpus == "exploitdb":
                             return RedirectResponse(url=f"/exploit/{ext.replace('EDB-', '')}", status_code=302)
-                    cl = (await db.execute(_text(
+                    cl = (await db.execute(sql_text(
                         "SELECT entity_id::text FROM claims WHERE id = :id AND entity_id IS NOT NULL LIMIT 1"
                     ), {"id": entity_id})).first()
                     if cl and cl[0]:
@@ -153,6 +153,28 @@ async def ui_settings(request: Request):
     if not _authed(request):
         return _login_redirect("/settings")
     return templates.TemplateResponse(request, "settings.html", {"current_user": get_template_user(request)})
+
+
+@ui_router.get("/breaches/{claim_id}", response_class=HTMLResponse)
+async def ui_breach_summary(request: Request, claim_id: str):
+    if not _authed(request):
+        return _login_redirect(f"/breaches/{claim_id}")
+    return templates.TemplateResponse(
+        request,
+        "breach_summary.html",
+        {"current_user": get_template_user(request), "claim_id": claim_id},
+    )
+
+
+@ui_router.get("/onion/view", response_class=HTMLResponse)
+async def ui_onion_view(request: Request):
+    if not _authed(request):
+        return _login_redirect("/onion/view")
+    return templates.TemplateResponse(
+        request,
+        "onion_view.html",
+        {"current_user": get_template_user(request)},
+    )
 
 
 # Legacy /ui/* → root redirects (backward compat)

@@ -9,11 +9,15 @@ Requires Tor SOCKS proxy running on TOR_SOCKS_HOST:TOR_SOCKS_PORT.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import mimetypes
+import re
 import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urljoin, urlparse
 
 import structlog
 from sqlalchemy import select
@@ -31,6 +35,16 @@ _CONCURRENCY = 3
 _SCREENSHOT_TIMEOUT = 30
 _SCREENSHOT_DIR = Path(__file__).resolve().parents[2] / "data" / "tor_screenshots"
 _SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+_ARTIFACT_DIR = Path(__file__).resolve().parents[2] / "data" / "tor_artifacts"
+_ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+_MAX_ARTIFACTS = 5
+_MAX_ARTIFACT_BYTES = 25_000_000
+_FILE_EXTS = {
+    ".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz",
+    ".sql", ".db", ".csv", ".json", ".txt", ".pdf",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+}
+_LINK_RE = re.compile(r"""(?:href|src)\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
 
 
 def _is_onion_url(url: str) -> bool:
@@ -111,6 +125,81 @@ def _persist_screenshot(source_id: uuid.UUID, screenshot: bytes | None) -> str |
     path = _SCREENSHOT_DIR / fn
     path.write_bytes(screenshot)
     return str(path)
+
+
+def _extract_artifact_urls(html: str, base_url: str) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in _LINK_RE.findall(html):
+        url = urljoin(base_url, raw.strip())
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"}:
+            continue
+        ext = Path(parsed.path.lower()).suffix
+        if ext not in _FILE_EXTS:
+            continue
+        if url in seen:
+            continue
+        seen.add(url)
+        out.append(url)
+        if len(out) >= _MAX_ARTIFACTS:
+            break
+    return out
+
+
+async def _download_artifact_via_tor(url: str) -> dict | None:
+    import httpx
+
+    proxy_url = f"socks5h://{settings.TOR_SOCKS_HOST}:{settings.TOR_SOCKS_PORT}"
+    headers = {}
+    if settings.FEED_POLL_USER_AGENT:
+        headers["User-Agent"] = settings.FEED_POLL_USER_AGENT
+    try:
+        async with httpx.AsyncClient(
+            proxy=proxy_url,
+            timeout=45,
+            follow_redirects=True,
+            headers=headers,
+        ) as client:
+            resp = await client.get(url)
+            if not resp.is_success:
+                return None
+            body = resp.content
+            if not body or len(body) > _MAX_ARTIFACT_BYTES:
+                return None
+            return {
+                "url": str(resp.url),
+                "content_type": resp.headers.get("content-type", "").split(";")[0].strip(),
+                "data": body,
+            }
+    except Exception as exc:
+        logger.warning("tor_artifact_fetch_failed", url=url, error=str(exc))
+        return None
+
+
+def _persist_artifact(source_id: uuid.UUID, fetched: dict) -> dict | None:
+    data = fetched.get("data")
+    if not isinstance(data, (bytes, bytearray)) or not data:
+        return None
+    original_url = str(fetched.get("url", ""))
+    parsed = urlparse(original_url)
+    ext = Path(parsed.path).suffix.lower()
+    if not ext:
+        guessed = mimetypes.guess_extension(fetched.get("content_type", "") or "")
+        ext = guessed if guessed else ".bin"
+    digest = hashlib.sha256(data).hexdigest()
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    filename = f"{source_id}_{ts}_{digest[:12]}{ext}"
+    path = _ARTIFACT_DIR / filename
+    path.write_bytes(data)
+    return {
+        "original_url": original_url,
+        "cache_path": str(path),
+        "filename": filename,
+        "size_bytes": len(data),
+        "sha256": digest,
+        "content_type": fetched.get("content_type") or "application/octet-stream",
+    }
 
 
 def _coerce_json_payload(value) -> dict | None:
@@ -197,7 +286,6 @@ Content:
 
 async def _scrape_source(source: SourceRecord) -> tuple[FetchOutcome, int]:
     """Scrape a single onion source through Tor."""
-    t0 = time.monotonic()
     new_items = 0
 
     result = await _fetch_via_tor(source.url)
@@ -211,6 +299,14 @@ async def _scrape_source(source: SourceRecord) -> tuple[FetchOutcome, int]:
         ai_result = await _ai_enrich_content(result["text"], source.url)
         deterministic_findings = extract_onion_findings(result["text"])
         screenshot_path = _persist_screenshot(source.id, screenshot)
+        artifact_files: list[dict] = []
+        for artifact_url in _extract_artifact_urls(result["text"], source.url):
+            fetched = await _download_artifact_via_tor(artifact_url)
+            if not fetched:
+                continue
+            artifact = _persist_artifact(source.id, fetched)
+            if artifact:
+                artifact_files.append(artifact)
 
         # Create ingestion job for the scraped content
         from app.models.jobs import IngestionJob
@@ -234,6 +330,7 @@ async def _scrape_source(source: SourceRecord) -> tuple[FetchOutcome, int]:
                         "elapsed_ms": result["elapsed_ms"],
                         "headers": result.get("headers", {}),
                     },
+                    "artifact_files": artifact_files,
                     "deterministic_findings": deterministic_findings,
                     "ai_enrichment": ai_result,
                 },
@@ -289,7 +386,6 @@ async def scrape_onion_sources(ctx: dict) -> dict:
         return {"skipped": True, "reason": "TOR_SCRAPE_ENABLED=false"}
 
     semaphore = asyncio.Semaphore(_CONCURRENCY)
-    now = datetime.now(UTC)
 
     async with AsyncSessionLocal() as db:
         stmt = select(SourceRecord).where(

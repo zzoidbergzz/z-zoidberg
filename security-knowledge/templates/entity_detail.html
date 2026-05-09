@@ -45,6 +45,18 @@
     <div id="claims-body" style="margin-top:0.75rem;"></div>
   </section>
 
+  <!-- Tor context -->
+  <section class="panel" id="tor-context-card" style="margin-top:1rem;display:none;">
+    <div class="section-title">Tor Source Context (<span id="tor-context-count">0</span>)</div>
+    <div id="tor-context-body" style="margin-top:0.75rem;"></div>
+  </section>
+
+  <!-- Evidence -->
+  <section class="panel" id="evidence-card" style="margin-top:1rem;display:none;">
+    <div class="section-title">Evidence (<span id="evidence-count">0</span>)</div>
+    <div id="evidence-body" style="margin-top:0.75rem;"></div>
+  </section>
+
   <!-- Relationships -->
   <section class="panel" id="rels-card" style="margin-top:1rem;display:none;">
     <div class="section-title">Relationships</div>
@@ -96,6 +108,7 @@
 .claim-ioc-group { font-size:0.82rem; }
 .claim-ioc-group .label { color:var(--text-muted,#94a3b8); font-weight:600; margin-bottom:0.2rem; }
 .claim-ioc-group .items { display:flex; gap:0.25rem; flex-wrap:wrap; }
+.tor-shot { margin-top:0.6rem; max-width:100%; border:1px solid var(--border,#2a2a4a); border-radius:6px; }
 </style>
 
 <script>
@@ -110,6 +123,25 @@
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function onionViewUrl(url) {
+    if (!url) return null;
+    try {
+      var u = new URL(url, window.location.origin);
+      if ((u.hostname || "").toLowerCase().indexOf(".onion") >= 0) {
+        return "/onion/view?url=" + encodeURIComponent(url);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function analystLink(url, label) {
+    var onion = onionViewUrl(url);
+    if (onion) {
+      return '<a href="' + esc(onion) + '">' + esc(label || "onion context") + '</a>';
+    }
+    return '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(label || url) + ' ↗</a>';
   }
 
   function cvssClass(sev) {
@@ -127,24 +159,28 @@
   async function loadAll() {
     statusEl.textContent = "Loading…";
     try {
-      const [entityResp, enrichResp, claimsResp] = await Promise.all([
+      const [entityResp, enrichResp, claimsResp, torContextResp, evidenceResp] = await Promise.all([
         fetch("/api/v1/entities/" + entityId, { credentials: "same-origin" }),
         fetch("/api/v1/lookup/entity/" + entityId + "/results", { credentials: "same-origin" }).catch(() => null),
         fetch("/api/v1/claims/entity/" + entityId, { credentials: "same-origin" }).catch(() => null),
+        fetch("/api/v1/claims/entity/" + entityId + "/tor-context", { credentials: "same-origin" }).catch(() => null),
+        fetch("/api/v1/evidence/entity/" + entityId, { credentials: "same-origin" }).catch(() => null),
       ]);
       const e = entityResp.ok ? await entityResp.json() : null;
       const enrichData = enrichResp && enrichResp.ok ? await enrichResp.json() : null;
       const claimsData = claimsResp && claimsResp.ok ? await claimsResp.json() : null;
+      const torContext = torContextResp && torContextResp.ok ? await torContextResp.json() : null;
+      const evidenceData = evidenceResp && evidenceResp.ok ? await evidenceResp.json() : null;
 
       if (!e) { statusEl.textContent = "Entity not found."; return; }
       statusEl.textContent = "";
-      renderEntity(e, enrichData, claimsData);
+      renderEntity(e, enrichData, claimsData, torContext, evidenceData);
     } catch (err) {
       statusEl.textContent = "Error: " + err.message;
     }
   }
 
-  function renderEntity(e, enrichData, claimsData) {
+  function renderEntity(e, enrichData, claimsData, torContext, evidenceData) {
     const name = e.canonical_name || e.name || e.id;
     const kind = e.kind || "";
     const icon = KIND_ICONS[kind] || "📦";
@@ -279,13 +315,21 @@
     if (claimsData && claimsData.length) {
       renderClaims(claimsData);
     }
+    if (torContext && torContext.length) {
+      renderTorContext(torContext);
+    }
+    if (evidenceData && evidenceData.length) {
+      renderEvidence(evidenceData);
+    }
 
     // If nothing rendered, show helpful explanation
     setTimeout(function() {
       var enrShown = document.getElementById("enrichments-card").style.display !== "none";
       var vulnShown = document.getElementById("vuln-card").style.display !== "none";
       var claimsShown = document.getElementById("claims-card").style.display !== "none";
-      if (!enrShown && !vulnShown && !claimsShown) {
+      var torShown = document.getElementById("tor-context-card").style.display !== "none";
+      var evShown = document.getElementById("evidence-card").style.display !== "none";
+      if (!enrShown && !vulnShown && !claimsShown && !torShown && !evShown) {
         var note = document.createElement("section");
         note.className = "card";
         note.style.marginTop = "1rem";
@@ -317,6 +361,9 @@
       var confidence = claim.confidence;
       var status = claim.status;
       var claimType = claim.claim_type;
+      var sourceUrl = val.source_url || "";
+      var documentId = val.document_id || "";
+      var createdAt = claim.created_at ? new Date(claim.created_at).toLocaleString() : "";
 
       var html = '<div class="claim-card">';
       html += '<div class="claim-type">' + esc(claimType);
@@ -327,6 +374,19 @@
       // Assertion
       if (assertion) {
         html += '<div class="claim-assertion">' + esc(assertion) + '</div>';
+      }
+      if (sourceUrl || documentId || createdAt) {
+        html += '<div class="subtle" style="font-size:0.8rem;line-height:1.5;">';
+        if (sourceUrl) {
+          html += 'Source: ' + analystLink(sourceUrl, sourceUrl);
+        }
+        if (documentId) {
+          html += (sourceUrl ? ' · ' : '') + 'Document: <span class="mono">' + esc(documentId) + '</span>';
+        }
+        if (createdAt) {
+          html += (sourceUrl || documentId ? ' · ' : '') + 'Observed: ' + esc(createdAt);
+        }
+        html += '</div>';
       }
 
       // Tags
@@ -382,6 +442,82 @@
     }).join("");
 
     document.getElementById("claims-card").style.display = "";
+  }
+
+  function renderTorContext(items) {
+    document.getElementById("tor-context-count").textContent = items.length;
+    var body = document.getElementById("tor-context-body");
+    body.innerHTML = items.map(function(item) {
+      var deterministic = item.deterministic || {};
+      var ai = item.ai_enrichment || {};
+      var artifacts = Array.isArray(item.artifact_files) ? item.artifact_files : [];
+      var victims = deterministic.victims || [];
+      var wallets = deterministic.payment_addresses || [];
+      var binaries = deterministic.binaries || [];
+      var aiVictims = Array.isArray(ai.victims) ? ai.victims.map(function(v){ return typeof v === "string" ? v : (v.name || ""); }).filter(Boolean) : [];
+      var aiWallets = Array.isArray(ai.payment_addresses) ? ai.payment_addresses.map(function(v){ return typeof v === "string" ? v : (v.address || ""); }).filter(Boolean) : [];
+      var scraped = item.scraped_at ? new Date(item.scraped_at).toLocaleString() : "";
+      var html = '<div class="claim-card">';
+      html += '<div class="claim-type">tor_site_findings</div>';
+      if (item.source_url) {
+        html += '<div class="subtle" style="font-size:0.82rem;">Source: ' + analystLink(item.source_url, item.source_url) + '</div>';
+      }
+      if (scraped) {
+        html += '<div class="subtle" style="font-size:0.8rem;margin-top:0.2rem;">Scraped: ' + esc(scraped) + '</div>';
+      }
+      if (victims.length || aiVictims.length) {
+        var mergedVictims = Array.from(new Set(victims.concat(aiVictims)));
+        html += '<div style="margin-top:0.5rem;"><strong style="font-size:0.82rem;">Victims</strong><div class="claim-tags">' + mergedVictims.slice(0, 25).map(function(v){ return '<span class="tiny-pill">' + esc(v) + '</span>'; }).join("") + '</div></div>';
+      }
+      if (wallets.length || aiWallets.length) {
+        var mergedWallets = Array.from(new Set(wallets.concat(aiWallets)));
+        html += '<div style="margin-top:0.3rem;"><strong style="font-size:0.82rem;">Payment addresses</strong><div class="claim-tags">' + mergedWallets.slice(0, 20).map(function(v){ return '<span class="tiny-pill">' + esc(v) + '</span>'; }).join("") + '</div></div>';
+      }
+      if (binaries.length) {
+        html += '<div style="margin-top:0.3rem;"><strong style="font-size:0.82rem;">Binaries</strong><div class="claim-tags">' + binaries.slice(0, 20).map(function(v){ return '<span class="tiny-pill">' + esc(v) + '</span>'; }).join("") + '</div></div>';
+      }
+      if (item.screenshot_url) {
+        html += '<a href="' + esc(item.screenshot_url) + '" target="_blank" rel="noopener"><img loading="lazy" class="tor-shot" src="' + esc(item.screenshot_url) + '" alt="Tor screenshot"></a>';
+      }
+      if (artifacts.length) {
+        html += '<div style="margin-top:0.5rem;"><strong style="font-size:0.82rem;">Cached artifacts</strong><div class="claim-tags">' + artifacts.slice(0, 10).map(function(a){ var fn = a.filename || ""; var view = a.view_url || ""; return view ? ('<a class="tiny-pill" href="' + esc(view) + '" target="_blank" rel="noopener">' + esc(fn) + '</a>') : ('<span class="tiny-pill">' + esc(fn) + '</span>'); }).join("") + '</div></div>';
+      }
+      html += '</div>';
+      return html;
+    }).join("");
+    document.getElementById("tor-context-card").style.display = "";
+  }
+
+  function renderEvidence(items) {
+    document.getElementById("evidence-count").textContent = items.length;
+    var body = document.getElementById("evidence-body");
+    body.innerHTML = items.map(function(ev) {
+      var createdAt = ev.created_at ? new Date(ev.created_at).toLocaleString() : "";
+      var snippet = ev.text_snippet || "";
+      var content = ev.content || "";
+      var html = '<div class="claim-card">';
+      html += '<div class="claim-type">evidence</div>';
+      html += '<div style="font-size:0.9rem;font-weight:600;">' + esc(ev.title || "Evidence item") + '</div>';
+      if (ev.source_url || createdAt) {
+        html += '<div class="subtle" style="font-size:0.8rem;line-height:1.5;margin-top:0.2rem;">';
+        if (ev.source_url) {
+          html += 'Source: ' + analystLink(ev.source_url, ev.source_url);
+        }
+        if (createdAt) {
+          html += (ev.source_url ? ' · ' : '') + 'Captured: ' + esc(createdAt);
+        }
+        html += '</div>';
+      }
+      if (snippet) {
+        html += '<div class="claim-assertion" style="margin-top:0.5rem;">' + esc(snippet) + '</div>';
+      }
+      if (content && content !== snippet) {
+        html += '<details style="margin-top:0.4rem;"><summary style="cursor:pointer;font-size:0.82rem;">Full evidence</summary><pre class="mono" style="margin-top:0.4rem;font-size:0.72rem;background:#0f1117;padding:0.6rem;border-radius:6px;overflow:auto;max-height:260px;white-space:pre-wrap;">' + esc(content) + '</pre></details>';
+      }
+      html += '</div>';
+      return html;
+    }).join("");
+    document.getElementById("evidence-card").style.display = "";
   }
 
   // ── Enrichment rendering ──────────────────────────────────────────────

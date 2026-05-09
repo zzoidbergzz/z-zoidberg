@@ -77,6 +77,8 @@
 .tile-title a { color: var(--zl-accent); text-decoration: none; }
 .tile-title a:hover { text-decoration: underline; }
 .tile-title.bold { font-weight: 700; }
+.tile-context { color: var(--text-muted,#94a3b8); font-size: 0.74rem; margin-top: 0.15rem; line-height: 1.35; }
+.tile-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #2a2a4a; flex-shrink: 0; }
 .tile-empty { padding: 1.5rem; color: #666; font-size: 0.82rem; text-align: center; font-style: italic; }
 .tile-loading { padding: 1.5rem; color: #666; font-size: 0.82rem; text-align: center; }
 .tile-err { padding: 1rem 0.75rem; color: #e07a3a; font-size: 0.78rem; }
@@ -417,6 +419,23 @@ function esc(s) {
     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
+function onionViewUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url, window.location.origin);
+    if ((u.hostname || "").toLowerCase().includes(".onion")) {
+      return "/onion/view?url=" + encodeURIComponent(url);
+    }
+  } catch (_) {}
+  return null;
+}
+
+function analystLink(url, label) {
+  const onion = onionViewUrl(url);
+  if (onion) return `<a href="${esc(onion)}">${esc(label || "onion context")}</a>`;
+  return `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(label || url)}</a>`;
+}
+
 async function loadTile(id, url, renderer) {
   const el = document.getElementById(id);
   try {
@@ -499,9 +518,19 @@ function renderBreach(item) {
   const link = item.url
     ? `<a href="${esc(item.url)}">${esc(item.title)}</a>`
     : esc(item.title);
+  const sourceLink = item.source_url
+    ? analystLink(item.source_url, item.source_url)
+    : "";
+  const extra = (item.context || sourceLink)
+    ? `<div class="tile-context">${item.context ? esc(item.context) : ""}${item.context && sourceLink ? " · " : ""}${sourceLink}</div>`
+    : "";
+  const thumb = item.screenshot_url
+    ? `<a href="${esc(item.screenshot_url)}" target="_blank" rel="noopener"><img class="tile-thumb" loading="lazy" src="${esc(item.screenshot_url)}" alt="breach screenshot"></a>`
+    : "";
   return `<div class="tile-item">
     <span class="tile-meta">${esc(item.meta)}</span>
-    <span class="tile-title">${link}</span>
+    <span class="tile-title">${link}${extra}</span>
+    ${thumb}
     <button class="flag-btn" title="Flag" onclick='flagItem(this,${JSON.stringify(item)})'>🚩</button>
   </div>`;
 }

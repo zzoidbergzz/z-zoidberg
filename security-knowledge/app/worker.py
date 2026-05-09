@@ -306,6 +306,8 @@ async def process_ingest_job(
                             "deterministic": payload.get("deterministic_findings", {}),
                             "ai_enrichment": payload.get("ai_enrichment", {}),
                             "screenshot_path": payload.get("screenshot_path"),
+                            "artifact_files": payload.get("artifact_files", []),
+                            "raw_text_excerpt": str(payload.get("body", ""))[:12000],
                         },
                         confidence=0.75,
                         status="pending",
@@ -325,6 +327,27 @@ async def process_ingest_job(
                             confidence=0.75,
                         )
                     )
+                    for artifact in payload.get("artifact_files", []) or []:
+                        if not isinstance(artifact, dict):
+                            continue
+                        filename = str(artifact.get("filename", "")).strip() or "artifact.bin"
+                        original_url = str(artifact.get("original_url", "")).strip()
+                        sha256 = str(artifact.get("sha256", "")).strip()
+                        size_bytes = artifact.get("size_bytes")
+                        summary = f"{filename} sha256={sha256[:16]} size={size_bytes}"
+                        db.add(
+                            Evidence(
+                                tenant_id=tenant_id,
+                                document_id=doc_id,
+                                claim_id=tor_claim.id,
+                                entity_id=anchor_entity_id,
+                                title=f"Cached leaked artifact: {filename}",
+                                content=original_url,
+                                text_snippet=summary[:200],
+                                source_url=source_url,
+                                confidence=0.85,
+                            )
+                        )
                     await db.flush()
 
                 # ----------------------------------------------------------
@@ -588,6 +611,8 @@ async def process_ingest_job(
                             "deterministic": payload.get("deterministic_findings", {}),
                             "ai_enrichment": payload.get("ai_enrichment", {}),
                             "screenshot_path": payload.get("screenshot_path"),
+                            "artifact_files": payload.get("artifact_files", []),
+                            "raw_text_excerpt": parsed_text[:12000],
                         },
                         confidence=0.75,
                         status="pending",
@@ -607,6 +632,27 @@ async def process_ingest_job(
                             confidence=0.75,
                         )
                     )
+                    for artifact in payload.get("artifact_files", []) or []:
+                        if not isinstance(artifact, dict):
+                            continue
+                        filename = str(artifact.get("filename", "")).strip() or "artifact.bin"
+                        original_url = str(artifact.get("original_url", "")).strip()
+                        sha256 = str(artifact.get("sha256", "")).strip()
+                        size_bytes = artifact.get("size_bytes")
+                        summary = f"{filename} sha256={sha256[:16]} size={size_bytes}"
+                        db.add(
+                            Evidence(
+                                tenant_id=tenant_id,
+                                document_id=doc.id,
+                                claim_id=tor_claim.id,
+                                entity_id=anchor_entity_id,
+                                title=f"Cached leaked artifact: {filename}",
+                                content=original_url,
+                                text_snippet=summary[:200],
+                                source_url=source_url,
+                                confidence=0.85,
+                            )
+                        )
 
                 # Deduplicate by (kind, value)
                 seen: set[tuple[str, str]] = set()
@@ -897,7 +943,7 @@ async def refresh_corpora(
         # Cap at 4h — corpora pulls can be large
         try:
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=14400)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             await record_job_end(job_id, "corpus_refresh", "timeout", time.monotonic() - t0)
             logger.warning("refresh_corpora_timeout")

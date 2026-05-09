@@ -24,6 +24,7 @@ from sqlalchemy import or_, select
 from app.database import AsyncSessionLocal
 from app.fetcher import fetch
 from app.models.sources import FetchOutcome, SourceRecord
+from app.integrations.necti_translator import translate_if_needed
 
 logger = structlog.get_logger(__name__)
 
@@ -110,6 +111,24 @@ async def _parse_and_enqueue_feed(source: SourceRecord, body: str) -> int:
                 summary = entry.get("summary", "") or ""
                 published_at = _entry_published_at(entry)
 
+                # Auto-translate non-English content
+                title_original = title
+                summary_original = summary
+                if title and len(title) > 20:
+                    try:
+                        tr = await translate_if_needed(title)
+                        if tr["was_translated"]:
+                            title = tr["translated_text"][:512]
+                    except Exception:
+                        pass
+                if summary and len(summary) > 30:
+                    try:
+                        tr = await translate_if_needed(summary[:2000])
+                        if tr["was_translated"]:
+                            summary = tr["translated_text"][:4000]
+                    except Exception:
+                        pass
+
                 job = IngestionJob(
                     tenant_id=source.tenant_id,
                     source_id=source.id,
@@ -118,7 +137,9 @@ async def _parse_and_enqueue_feed(source: SourceRecord, body: str) -> int:
                     status="pending",
                     payload={
                         "title": title,
+                        "title_original": title_original[:512] if title_original != title else None,
                         "summary": summary[:4000],
+                        "summary_original": summary_original[:4000] if summary_original != summary else None,
                         "published_at": published_at.isoformat() if published_at else None,
                         "feed_source_id": str(source.id),
                     },
