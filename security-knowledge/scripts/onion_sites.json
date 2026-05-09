@@ -1,0 +1,77 @@
+[
+  {
+    "url": "http://lockbit3753ekiocyo5epmxsfips.onion",
+    "label": "LockBit Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://lockbitaptc2iq4atewz2ise62q7.onion",
+    "label": "LockBit Negotiation Portal",
+    "category": "ransomware_negotiation_portal"
+  },
+  {
+    "url": "http://alphvmmm27o3abo3r2mlmjrpdm.onion",
+    "label": "BlackCat/ALPHV Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://alphv5a2opv5o7mj3ej4on4ttg.onion",
+    "label": "BlackCat/ALPHV Negotiation Portal",
+    "category": "ransomware_negotiation_portal"
+  },
+  {
+    "url": "http://ssspbmocodo7k2as2klqsijr5amkyr2g3z3dh2bg7qx4e2kn7trq7dad.onion",
+    "label": "Cl0p Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://mbrlkbtq5jonaqkurjwmxftytyn2ethqvbxfu4rgjbkkknndqwae6byd.onion",
+    "label": "Play Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://akiral2iz6a7qgd3ayp3l6yub7xx2uep76iez7767hkd5qt7jcb5qid.onion",
+    "label": "Akira Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://akiral2iz6a7qgd3ayp3l6yub7xx2uep76iez7767hkd5qt7jcb5qid.onion/chat",
+    "label": "Akira Negotiation Portal",
+    "category": "ransomware_negotiation_portal"
+  },
+  {
+    "url": "http://royal2lnlbpag7q3ra2f3fhnq4wkdq5a2j7tg7d4g6b7x7e3hqv7bnid.onion",
+    "label": "Royal/BlackSuit Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://rhysidafohrhyy2aszi7bm32tnjat5xri65fopcxkdfxhi4tidsg7cad.onion",
+    "label": "Rhysida Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://medusaxko7jxtrojdkxo66j7ck4q5tsdmn2cuq7nxgqqed2e5gc6did.onion",
+    "label": "Medusa Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://bianlianlbc5an4kgnay3opdemgcryg2bvy.onion",
+    "label": "BianLian Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://hunters55rdakq7wd3z6ah3otikruw7jtb5ihmb4vs5jm5coqc5svhuyd.onion",
+    "label": "Hunters International Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://ransomxifxwc5eteopdobynonjcalls2yber7x2gsz5j7f3op5bidqd.onion",
+    "label": "RansomHub Leak Site",
+    "category": "ransomware_leak_site"
+  },
+  {
+    "url": "http://fog4k6wby3uzgtxfpw5wj3zmjkwsdrcokflikjm3sxauqr4k7hcbvqd.onion",
+    "label": "Fog Leak Site",
+    "category": "ransomware_leak_site"
+  }
+]
