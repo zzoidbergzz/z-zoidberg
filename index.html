@@ -14,6 +14,10 @@
       --foam: #e8e8e8;
       --sand: #f5f0e8;
       --accent: #e07a3a;
+      --flag: #e5c07b;
+      --ack: #98c379;
+      --breach: #e06c75;
+      --trend: #61afef;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -26,7 +30,6 @@
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
 
-    /* HERO */
     header {
       text-align: center;
       padding: 5rem 1rem 3rem;
@@ -36,133 +39,126 @@
     header::after {
       content: '';
       position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
+      bottom: 0; left: 0; right: 0;
       height: 80px;
       background: linear-gradient(transparent, var(--ocean));
     }
-    header h1 {
-      font-size: 4rem;
-      font-weight: 800;
-      letter-spacing: -2px;
-    }
-    .subtitle {
-      font-size: 1.3rem;
-      color: var(--shell);
-      font-style: italic;
-      margin-top: 0.5rem;
-    }
-    .tagline {
-      font-size: 0.95rem;
-      color: #777;
-      margin-top: 1rem;
-    }
-    .tagline span {
-      display: inline-block;
-      background: #1e1e3a;
-      padding: 0.2rem 0.6rem;
-      border-radius: 4px;
-      margin: 0.15rem;
-      font-size: 0.85rem;
-    }
+    header h1 { font-size: 4rem; font-weight: 800; letter-spacing: -2px; }
+    .subtitle { font-size: 1.3rem; color: var(--shell); font-style: italic; margin-top: 0.5rem; }
+    .tagline { font-size: 0.95rem; color: #777; margin-top: 1rem; }
+    .tagline span { display: inline-block; background: #1e1e3a; padding: 0.2rem 0.6rem; border-radius: 4px; margin: 0.15rem; font-size: 0.85rem; }
 
-    /* STATS */
     .stats {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      justify-content: center;
-      max-width: 800px;
-      margin: 2rem auto;
-      padding: 1.5rem;
-      background: var(--deep);
-      border-radius: 16px;
-      border: 1px solid #2a2a4a;
+      display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center;
+      max-width: 800px; margin: 2rem auto; padding: 1.5rem;
+      background: var(--deep); border-radius: 16px; border: 1px solid #2a2a4a;
     }
-    .stat {
-      text-align: center;
-      padding: 0.5rem 1rem;
-      min-width: 90px;
+    .stat { text-align: center; padding: 0.5rem 1rem; min-width: 90px; }
+    .stat .num { font-size: 1.8rem; font-weight: 800; color: var(--accent); }
+    .stat .label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* FEED TICKER */
+    .feed-ticker { max-width: 960px; margin: 0 auto 1.5rem; padding: 0 1rem; }
+    .ticker-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .ticker-box { background: var(--deep); border: 1px solid #2a2a4a; border-radius: 14px; overflow: hidden; }
+    .ticker-box .ticker-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.7rem 1rem; border-bottom: 1px solid #2a2a4a; font-weight: 700; font-size: 0.9rem;
     }
-    .stat .num {
-      font-size: 1.8rem;
-      font-weight: 800;
-      color: var(--accent);
+    .ticker-box .ticker-header.trends { color: var(--trend); }
+    .ticker-box .ticker-header.news { color: var(--accent); }
+    .ticker-box .ticker-header.breaches { color: var(--breach); }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--ack);
+      display: inline-block; margin-left: 6px; animation: pulse 2s infinite;
     }
-    .stat .label {
-      font-size: 0.7rem;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .ticker-body { max-height: 220px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2a2a4a transparent; }
+    .ticker-body::-webkit-scrollbar { width: 4px; }
+    .ticker-body::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
+    .ticker-item {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 0.6rem 1rem; border-bottom: 1px solid #1a1a3a; transition: background 0.15s;
     }
+    .ticker-item:hover { background: #1a1a3a; }
+    .ticker-item:last-child { border-bottom: none; }
+    .ticker-item .item-content { flex: 1; min-width: 0; }
+    .ticker-item .item-title { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ticker-item .item-meta { font-size: 0.72rem; color: #666; margin-top: 2px; }
+    .flag-btn {
+      background: transparent; border: 1px solid var(--flag); color: var(--flag); border-radius: 4px;
+      padding: 2px 8px; font-size: 0.7rem; cursor: pointer; white-space: nowrap; margin-left: 8px;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .flag-btn:hover { background: var(--flag); color: var(--ocean); }
+    .flag-btn.flagged { background: var(--flag); color: var(--ocean); }
+
+    /* SEARCH BOX */
+    .search-section { max-width: 960px; margin: 0 auto 1.5rem; padding: 0 1rem; }
+    .search-box { display: flex; background: var(--deep); border: 1px solid #2a2a4a; border-radius: 14px; overflow: hidden; }
+    .search-box input { flex: 1; background: transparent; border: none; color: var(--foam); padding: 1rem 1.2rem; font-size: 1rem; outline: none; }
+    .search-box input::placeholder { color: #555; }
+    .search-box button { background: var(--accent); color: var(--ocean); border: none; padding: 1rem 2rem; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+    .search-box button:hover { opacity: 0.85; }
+
+    /* FLAGGED ITEMS */
+    .flagged-section { max-width: 960px; margin: 0 auto 2rem; padding: 0 1rem; }
+    .flagged-box { background: var(--deep); border: 1px solid var(--flag); border-radius: 14px; overflow: hidden; }
+    .flagged-header { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; border-bottom: 1px solid #2a2a4a; }
+    .flagged-header .flagged-title { font-weight: 700; font-size: 0.9rem; color: var(--flag); }
+    .flagged-header .flagged-count { font-size: 0.75rem; color: #888; }
+    .flagged-tabs { display: flex; gap: 0; border-bottom: 1px solid #2a2a4a; overflow-x: auto; }
+    .flagged-tabs button {
+      background: transparent; border: none; color: #777; padding: 0.5rem 1rem;
+      font-size: 0.78rem; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap;
+    }
+    .flagged-tabs button:hover { color: var(--foam); }
+    .flagged-tabs button.active { color: var(--flag); border-bottom-color: var(--flag); }
+    .flagged-body { max-height: 300px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #2a2a4a transparent; }
+    .flagged-body::-webkit-scrollbar { width: 4px; }
+    .flagged-body::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
+    .flagged-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.6rem 1rem; border-bottom: 1px solid #1a1a3a; transition: background 0.15s;
+    }
+    .flagged-item:hover { background: #1a1a3a; }
+    .flagged-item:last-child { border-bottom: none; }
+    .flagged-item .fi-content { flex: 1; min-width: 0; }
+    .flagged-item .fi-title { font-size: 0.82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .flagged-item .fi-meta { font-size: 0.72rem; color: #666; margin-top: 2px; }
+    .flagged-item.acked .fi-title { font-weight: 400; color: #888; }
+    .flagged-item .ack-tick { color: var(--ack); font-size: 1rem; margin-left: 8px; flex-shrink: 0; }
+    .ack-btn {
+      background: transparent; border: 1px solid var(--ack); color: var(--ack); border-radius: 4px;
+      padding: 2px 8px; font-size: 0.7rem; cursor: pointer; white-space: nowrap; margin-left: 8px;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .ack-btn:hover { background: var(--ack); color: var(--ocean); }
+    .flagged-empty { padding: 2rem; text-align: center; color: #555; font-size: 0.85rem; }
 
     /* FEATURES */
-    main {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 1rem 1rem 3rem;
-    }
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.2rem;
-    }
+    main { max-width: 960px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; }
     .card {
-      background: var(--deep);
-      border: 1px solid #2a2a4a;
-      border-radius: 14px;
-      padding: 1.5rem;
+      background: var(--deep); border: 1px solid #2a2a4a; border-radius: 14px; padding: 1.5rem;
       transition: transform 0.2s, border-color 0.3s;
     }
-    .card:hover {
-      transform: translateY(-3px);
-      border-color: var(--shell);
-    }
+    .card:hover { transform: translateY(-3px); border-color: var(--shell); }
     .card .emoji { font-size: 1.8rem; margin-bottom: 0.4rem; display: block; }
     .card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem; }
     .card p { font-size: 0.88rem; color: #999; }
-    .card .zoidberg {
-      margin-top: 0.7rem;
-      font-size: 0.8rem;
-      color: var(--shell);
-      font-style: italic;
-      border-left: 2px solid var(--shell);
-      padding-left: 0.5rem;
-    }
+    .card .zoidberg { margin-top: 0.7rem; font-size: 0.8rem; color: var(--shell); font-style: italic; border-left: 2px solid var(--shell); padding-left: 0.5rem; }
 
-    /* QUOTE */
     .quote-block {
-      margin: 3rem auto;
-      max-width: 600px;
-      text-align: center;
-      padding: 2rem;
-      background: var(--deep);
-      border-radius: 16px;
-      border: 1px solid #2a2a4a;
+      margin: 3rem auto; max-width: 600px; text-align: center; padding: 2rem;
+      background: var(--deep); border-radius: 16px; border: 1px solid #2a2a4a;
     }
-    .quote-block p {
-      font-size: 1.1rem;
-      color: var(--shell);
-      font-style: italic;
-    }
-    .quote-block .attr {
-      margin-top: 0.5rem;
-      font-size: 0.85rem;
-      color: #666;
-    }
+    .quote-block p { font-size: 1.1rem; color: var(--shell); font-style: italic; }
+    .quote-block .attr { margin-top: 0.5rem; font-size: 0.85rem; color: #666; }
 
-    footer {
-      text-align: center;
-      padding: 2rem;
-      color: #444;
-      font-size: 0.8rem;
-      border-top: 1px solid #1e1e3a;
-    }
-    @media (max-width: 600px) {
-      header h1 { font-size: 2.5rem; }
-      .stat .num { font-size: 1.4rem; }
-    }
+    footer { text-align: center; padding: 2rem; color: #444; font-size: 0.8rem; border-top: 1px solid #1e1e3a; }
+    @media (max-width: 900px) { .ticker-row { grid-template-columns: 1fr; } }
+    @media (max-width: 600px) { header h1 { font-size: 2.5rem; } .stat .num { font-size: 1.4rem; } }
   </style>
 </head>
 <body>
@@ -170,18 +166,59 @@
     <h1>🦞 Zoidberg</h1>
     <p class="subtitle">Strange things afoot at the Circle-K... of threat intelligence.</p>
     <div class="tagline">
-      <span>Ingestion</span>
-      <span>Enrichment</span>
-      <span>Detection</span>
-      <span>Lookup</span>
-      <span>Pivot</span>
-      <span>Graph</span>
-      <span>MCP</span>
-      <span>MITRE ATT&CK</span>
-      <span>Ask AI</span>
+      <span>Ingestion</span> <span>Enrichment</span> <span>Detection</span> <span>Lookup</span>
+      <span>Pivot</span> <span>Graph</span> <span>MCP</span> <span>MITRE ATT&CK</span> <span>Ask AI</span>
     </div>
   </header>
 
+  <!-- FEED TICKER -->
+  <div class="feed-ticker">
+    <div class="ticker-row">
+      <div class="ticker-box">
+        <div class="ticker-header trends"><span>📈 Observed Trends <span class="live-dot"></span></span></div>
+        <div class="ticker-body" id="trends-body"></div>
+      </div>
+      <div class="ticker-box">
+        <div class="ticker-header news"><span>📰 Cyber News <span class="live-dot"></span></span></div>
+        <div class="ticker-body" id="news-body"></div>
+      </div>
+      <div class="ticker-box">
+        <div class="ticker-header breaches"><span>🔓 Recent Breaches <span class="live-dot"></span></span></div>
+        <div class="ticker-body" id="breaches-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH BOX -->
+  <div class="search-section">
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Search CVEs, threat actors, IOCs, malware families..." />
+      <button onclick="doSearch()">🔍 Search</button>
+    </div>
+  </div>
+
+  <!-- FLAGGED ITEMS -->
+  <div class="flagged-section">
+    <div class="flagged-box">
+      <div class="flagged-header">
+        <span class="flagged-title">🚩 Flagged Items</span>
+        <span class="flagged-count" id="flagged-count">0 items</span>
+      </div>
+      <div class="flagged-tabs" id="flagged-tabs">
+        <button class="active" data-period="today">Today</button>
+        <button data-period="yesterday">Yesterday</button>
+        <button data-period="week">This Week</button>
+        <button data-period="lastweek">Last Week</button>
+        <button data-period="30d">Last 30 Days</button>
+        <button data-period="all">All Time</button>
+      </div>
+      <div class="flagged-body" id="flagged-body">
+        <div class="flagged-empty">No flagged items for this period. Flag something from the feed above!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS + FEATURES -->
   <main>
     <div class="stats">
       <div class="stat"><span class="num">115</span><span class="label">API Endpoints</span></div>
@@ -193,124 +230,23 @@
     </div>
 
     <div class="feature-grid">
-      <div class="card">
-        <span class="emoji">🔬</span>
-        <h3>Threat Knowledge Service</h3>
-        <p>Ingest, normalise, and search threat data from CVEs, reports, and IOC feeds. Full provenance with source evidence. Rich search with CVE details, CVSS scores, and MITRE technique links.</p>
-        <div class="zoidberg">"Finally, a diagnosis with supporting evidence! This is new for me."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🧠</span>
-        <h3>LLM Extraction + Rejection</h3>
-        <p>Structured extraction from raw intel with rejection logging and cost tracking. When the model makes things up, we catch it and log it — no slip-throughs.</p>
-        <div class="zoidberg">"I, too, have been rejected. Every single day. I understand the process."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🔗</span>
-        <h3>11 Enrichment Providers</h3>
-        <p>VirusTotal, Shodan, CrowdStrike, GreyNoise, IPinfo, AbuseIPDB, BGP.he.net, MISP, OpenCTI, NVD, MITRE ATT&CK — cached, budgeted, policy-gated. Enrichment diffs track what changed. Tabbed UI for multi-provider results.</p>
-        <div class="zoidberg">"Budgets! Rate limits! Someone around here understands restraint... unlike me at a dumpster."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">📡</span>
-        <h3>Intelligence Feed Adapters</h3>
-        <p>NVD, GitHub Advisories, CISA KEV, ENISA EUVD, TAXII 2.1 — incremental daily sync, idempotent ingestion, ETag caching. The feeds never stop.</p>
-        <div class="zoidberg">"The data keeps coming. Like the tide. Like my tears. Woop woop."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🔄</span>
-        <h3>MISP & OpenCTI Sync</h3>
-        <p>Bidirectional sync with both platforms. Pull knowledge in, push reviewed claims out. Round-trip provenance preserved across every exchange.</p>
-        <div class="zoidberg">"Give and take! Usually I only give... and give... and nobody takes. This is nice!"</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🛡️</span>
-        <h3>Detection Engineering</h3>
-        <p>Auto-generate Sigma, YARA, Snort, and Suricata rules from approved IOCs and TTPs. Threat-to-detection pipeline with review workflow built in.</p>
-        <div class="zoidberg">"I prescribed these detection rules myself. Trust me, I'm a doctor! ...Of threat intelligence."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🕸️</span>
-        <h3>Graph, STIX & Context Packs</h3>
-        <p>Entity relationship graphs via GraphQL with wired resolvers and dataloader. STIX 2.1 export and TAXII serving. Token-budgeted context packs sized for LLM agents.</p>
-        <div class="zoidberg">"Every token counts! Unlike me, who counts for nothing. But these packs? They count."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🔍</span>
-        <h3>Recon + Binary Analysis</h3>
-        <p>BugBountyScanner with 11 recon tools. PyGhidra for binary IOC extraction. SearXNG for private search. All the tools, none of the licensing fees.</p>
-        <div class="zoidberg">"Free tools! The only kind I can afford! [sobs in Decapodian]"</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">📊</span>
-        <h3>Change Detection & Webhooks</h3>
-        <p>Track contradictions, superseded claims, and status changes. HMAC-signed outbound webhooks with circuit breakers and retry logic. Real-time alerts when things shift.</p>
-        <div class="zoidberg">"Things are changing! Everything is changing! ...Wait, that's just my life. The intel changes too. We track both."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🎯</span>
-        <h3>MITRE ATT&CK (30+ tools)</h3>
-        <p>Full technique, tactic, group, software, campaign, and mitigation mapping. Sector classification, sub-technique rollup, procedure examples. 30+ dedicated MCP query tools for every ATT&CK relationship.</p>
-        <div class="zoidberg">"I know all about being attacked. Verbally. Daily. But these are different attacks. Cyber ones. Far less personal."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🔎</span>
-        <h3>Lookup + Investigation</h3>
-        <p>Smart entity lookup with type classification, IOC extraction, and multi-provider enrichment in one call. Investigation sessions chain lookups with full history and pivot tracking. Rich card UI with thinking animation.</p>
-        <div class="zoidberg">"Looking things up! Investigating! This is what real doctors do. I've seen it on TV."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🔄</span>
-        <h3>Pivot + Fingerprint</h3>
-        <p>Pivot extractor finds related IOCs across entities — connected indicators, shared infrastructure, co-occurrence graphs. Fingerprinting identifies unique entity signatures for dedup and merge.</p>
-        <div class="zoidberg">"Pivoting! Like a dancer! ...A very uncoordinated dancer. But the data pivots beautifully."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🌐</span>
-        <h3>Deep Research + Web Fetching</h3>
-        <p>Three-layer fetcher with Playwright for JavaScript-heavy sources. OTel trace propagation through async workers. Policy-gated, circuit-broken, robots.txt-respecting.</p>
-        <div class="zoidberg">"I respect robots.txt. I respect all robots. They never insult me. We have an understanding."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">⚡</span>
-        <h3>43 MCP Tools + SSE</h3>
-        <p>Full MCP server with SSE and stdio transports — enrich_entity, lookup_cve, search_knowledge, 30+ MITRE ATT&CK tools, create_claim, export_stix, searxng_search, and more. Agent-ready. OpenClaw-compatible.</p>
-        <div class="zoidberg">"Forty-three tools! Like a Swiss Army knife! ...A crustacean Swiss Army knife. Woop woop."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">📡</span>
-        <h3>IOC Pingback + Diff Alerting</h3>
-        <p>Re-check IOCs on schedule — are they still active? Enrichment diffs detect what changed between lookups and trigger alerts. Circuit-broken webhook delivery with HMAC signing.</p>
-        <div class="zoidberg">"Pingback! Like echolocation! I too make sounds nobody responds to. But the IOCs respond. They always respond."</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🔑</span>
-        <h3>BYOK + Ask AI</h3>
-        <p>Bring Your Own Key for CrowdStrike, Anthropic, and other providers. Ask AI endpoint for natural-language queries against your threat data. Settings UI to manage keys and preferences. Dark/light theme toggle.</p>
-        <div class="zoidberg">"My own key! I've never had a key before. I've never had a door. But hypothetically — I'm ready!"</div>
-      </div>
-
-      <div class="card">
-        <span class="emoji">🧪</span>
-        <h3>Full Analyst Workflow</h3>
-        <p>HTMX review UI with entity detail pages, graph visualisation, ingest pipeline, saved searches, scheduled digests. Auth wall with registration approval, IOC parser card, claim approve/reject, entity merge — the human-in-the-loop that makes it real.</p>
-        <div class="zoidberg">"A loop! With a human! Usually I'm outside the loop. This is progress, friends."</div>
-      </div>
+      <div class="card"><span class="emoji">🔬</span><h3>Threat Knowledge Service</h3><p>Ingest, normalise, and search threat data from CVEs, reports, and IOC feeds. Full provenance with source evidence. Rich search with CVE details, CVSS scores, and MITRE technique links.</p><div class="zoidberg">"Finally, a diagnosis with supporting evidence! This is new for me."</div></div>
+      <div class="card"><span class="emoji">🧠</span><h3>LLM Extraction + Rejection</h3><p>Structured extraction from raw intel with rejection logging and cost tracking. When the model makes things up, we catch it and log it — no slip-throughs.</p><div class="zoidberg">"I, too, have been rejected. Every single day. I understand the process."</div></div>
+      <div class="card"><span class="emoji">🔗</span><h3>11 Enrichment Providers</h3><p>VirusTotal, Shodan, CrowdStrike, GreyNoise, IPinfo, AbuseIPDB, BGP.he.net, MISP, OpenCTI, NVD, MITRE ATT&CK — cached, budgeted, policy-gated. Enrichment diffs track what changed. Tabbed UI for multi-provider results.</p><div class="zoidberg">"Budgets! Rate limits! Someone around here understands restraint... unlike me at a dumpster."</div></div>
+      <div class="card"><span class="emoji">📡</span><h3>Intelligence Feed Adapters</h3><p>NVD, GitHub Advisories, CISA KEV, ENISA EUVD, TAXII 2.1 — incremental daily sync, idempotent ingestion, ETag caching. The feeds never stop.</p><div class="zoidberg">"The data keeps coming. Like the tide. Like my tears. Woop woop."</div></div>
+      <div class="card"><span class="emoji">🔄</span><h3>MISP & OpenCTI Sync</h3><p>Bidirectional sync with both platforms. Pull knowledge in, push reviewed claims out. Round-trip provenance preserved across every exchange.</p><div class="zoidberg">"Give and take! Usually I only give... and give... and nobody takes. This is nice!"</div></div>
+      <div class="card"><span class="emoji">🛡️</span><h3>Detection Engineering</h3><p>Auto-generate Sigma, YARA, Snort, and Suricata rules from approved IOCs and TTPs. Threat-to-detection pipeline with review workflow built in.</p><div class="zoidberg">"I prescribed these detection rules myself. Trust me, I'm a doctor! ...Of threat intelligence."</div></div>
+      <div class="card"><span class="emoji">🕸️</span><h3>Graph, STIX & Context Packs</h3><p>Entity relationship graphs via GraphQL with wired resolvers and dataloader. STIX 2.1 export and TAXII serving. Token-budgeted context packs sized for LLM agents.</p><div class="zoidberg">"Every token counts! Unlike me, who counts for nothing. But these packs? They count."</div></div>
+      <div class="card"><span class="emoji">🔍</span><h3>Recon + Binary Analysis</h3><p>BugBountyScanner with 11 recon tools. PyGhidra for binary IOC extraction. SearXNG for private search. All the tools, none of the licensing fees.</p><div class="zoidberg">"Free tools! The only kind I can afford! [sobs in Decapodian]"</div></div>
+      <div class="card"><span class="emoji">📊</span><h3>Change Detection & Webhooks</h3><p>Track contradictions, superseded claims, and status changes. HMAC-signed outbound webhooks with circuit breakers and retry logic. Real-time alerts when things shift.</p><div class="zoidberg">"Things are changing! Everything is changing! ...Wait, that's just my life. The intel changes too. We track both."</div></div>
+      <div class="card"><span class="emoji">🎯</span><h3>MITRE ATT&CK (30+ tools)</h3><p>Full technique, tactic, group, software, campaign, and mitigation mapping. Sector classification, sub-technique rollup, procedure examples. 30+ dedicated MCP query tools for every ATT&CK relationship.</p><div class="zoidberg">"I know all about being attacked. Verbally. Daily. But these are different attacks. Cyber ones. Far less personal."</div></div>
+      <div class="card"><span class="emoji">🔎</span><h3>Lookup + Investigation</h3><p>Smart entity lookup with type classification, IOC extraction, and multi-provider enrichment in one call. Investigation sessions chain lookups with full history and pivot tracking. Rich card UI with thinking animation.</p><div class="zoidberg">"Looking things up! Investigating! This is what real doctors do. I've seen it on TV."</div></div>
+      <div class="card"><span class="emoji">🔄</span><h3>Pivot + Fingerprint</h3><p>Pivot extractor finds related IOCs across entities — connected indicators, shared infrastructure, co-occurrence graphs. Fingerprinting identifies unique entity signatures for dedup and merge.</p><div class="zoidberg">"Pivoting! Like a dancer! ...A very uncoordinated dancer. But the data pivots beautifully."</div></div>
+      <div class="card"><span class="emoji">🌐</span><h3>Deep Research + Web Fetching</h3><p>Three-layer fetcher with Playwright for JavaScript-heavy sources. OTel trace propagation through async workers. Policy-gated, circuit-broken, robots.txt-respecting.</p><div class="zoidberg">"I respect robots.txt. I respect all robots. They never insult me. We have an understanding."</div></div>
+      <div class="card"><span class="emoji">⚡</span><h3>43 MCP Tools + SSE</h3><p>Full MCP server with SSE and stdio transports — enrich_entity, lookup_cve, search_knowledge, 30+ MITRE ATT&CK tools, create_claim, export_stix, searxng_search, and more. Agent-ready. OpenClaw-compatible.</p><div class="zoidberg">"Forty-three tools! Like a Swiss Army knife! ...A crustacean Swiss Army knife. Woop woop."</div></div>
+      <div class="card"><span class="emoji">📡</span><h3>IOC Pingback + Diff Alerting</h3><p>Re-check IOCs on schedule — are they still active? Enrichment diffs detect what changed between lookups and trigger alerts. Circuit-broken webhook delivery with HMAC signing.</p><div class="zoidberg">"Pingback! Like echolocation! I too make sounds nobody responds to. But the IOCs respond. They always respond."</div></div>
+      <div class="card"><span class="emoji">🔑</span><h3>BYOK + Ask AI</h3><p>Bring Your Own Key for CrowdStrike, Anthropic, and other providers. Ask AI endpoint for natural-language queries against your threat data. Settings UI to manage keys and preferences. Dark/light theme toggle.</p><div class="zoidberg">"My own key! I've never had a key before. I've never had a door. But hypothetically — I'm ready!"</div></div>
+      <div class="card"><span class="emoji">🧪</span><h3>Full Analyst Workflow</h3><p>HTMX review UI with entity detail pages, graph visualisation, ingest pipeline, saved searches, scheduled digests. Auth wall with registration approval, IOC parser card, claim approve/reject, entity merge — the human-in-the-loop that makes it real.</p><div class="zoidberg">"A loop! With a human! Usually I'm outside the loop. This is progress, friends."</div></div>
     </div>
 
     <div class="quote-block">
@@ -322,5 +258,179 @@
   <footer>
     🦞 Zoidberg · <a href="https://z.je">Live at z.je</a> · <a href="https://z.je/docs">API Docs</a> · <a href="https://github.com/mzje/z-zoidberg">Source Code</a> · Built with FastAPI, garbage, and unbridled optimism · Woop woop
   </footer>
+
+  <script>
+    // ---- FLAG SYSTEM (localStorage for gh-pages; API-backed in production) ----
+    const FLAG_KEY = 'zoidberg_flags';
+    const API_BASE = window.location.hostname === 'z.je' ? '' : 'https://z.je';
+
+    function getFlags() {
+      try { return JSON.parse(localStorage.getItem(FLAG_KEY) || '[]'); } catch { return []; }
+    }
+    function saveFlags(flags) {
+      localStorage.setItem(FLAG_KEY, JSON.stringify(flags));
+    }
+    function flagItem(id, title, source, url) {
+      const flags = getFlags();
+      if (flags.find(f => f.id === id)) return; // already flagged
+      flags.unshift({ id, title, source, url, flaggedAt: new Date().toISOString(), ackedBy: null, ackedAt: null });
+      saveFlags(flags);
+      // Update flag button state
+      document.querySelectorAll(`.flag-btn[data-id="${id}"]`).forEach(b => b.classList.add('flagged'));
+      renderFlagged();
+    }
+    function ackItem(id, user) {
+      const flags = getFlags();
+      const f = flags.find(f => f.id === id);
+      if (!f || f.ackedBy) return;
+      f.ackedBy = user || 'anonymous';
+      f.ackedAt = new Date().toISOString();
+      saveFlags(flags);
+      renderFlagged();
+    }
+    function unflagItem(id) {
+      let flags = getFlags();
+      flags = flags.filter(f => f.id !== id);
+      saveFlags(flags);
+      document.querySelectorAll(`.flag-btn[data-id="${id}"]`).forEach(b => b.classList.remove('flagged'));
+      renderFlagged();
+    }
+
+    // ---- TIME PERIOD FILTERS ----
+    function getPeriodStart(period) {
+      const now = new Date();
+      const start = new Date();
+      switch(period) {
+        case 'today': start.setHours(0,0,0,0); break;
+        case 'yesterday': start.setDate(start.getDate()-1); start.setHours(0,0,0,0); break;
+        case 'week': start.setDate(start.getDate()-start.getDay()); start.setHours(0,0,0,0); break;
+        case 'lastweek': start.setDate(start.getDate()-start.getDay()-7); start.setHours(0,0,0,0); break;
+        case '30d': start.setDate(start.getDate()-30); break;
+        case 'all': start.setTime(0); break;
+      }
+      return start;
+    }
+
+    let activePeriod = 'today';
+
+    function renderFlagged() {
+      const body = document.getElementById('flagged-body');
+      const flags = getFlags();
+      const periodStart = getPeriodStart(activePeriod);
+      const filtered = flags.filter(f => new Date(f.flaggedAt) >= periodStart);
+      const count = document.getElementById('flagged-count');
+      count.textContent = `${filtered.length} item${filtered.length !== 1 ? 's' : ''}`;
+
+      if (filtered.length === 0) {
+        body.innerHTML = '<div class="flagged-empty">No flagged items for this period. Flag something from the feed above!</div>';
+        return;
+      }
+      body.innerHTML = filtered.map(f => {
+        const acked = !!f.ackedBy;
+        const time = new Date(f.flaggedAt).toLocaleString();
+        return `<div class="flagged-item ${acked ? 'acked' : ''}">
+          <div class="fi-content">
+            <div class="fi-title">${escHtml(f.title)}</div>
+            <div class="fi-meta">${escHtml(f.source)} · ${time}${acked ? ' · ACK\'d by ' + escHtml(f.ackedBy) : ''}</div>
+          </div>
+          ${acked ? '<span class="ack-tick">✓</span>' : `<button class="ack-btn" onclick="ackItem('${f.id}','webuser');renderFlagged()">ACK ✓</button>`}
+          <button class="flag-btn flagged" onclick="unflagItem('${f.id}')" title="Remove flag">🚩</button>
+        </div>`;
+      }).join('');
+    }
+
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    // ---- TAB CLICK HANDLER ----
+    document.getElementById('flagged-tabs').addEventListener('click', e => {
+      if (e.target.tagName !== 'BUTTON') return;
+      document.querySelectorAll('#flagged-tabs button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      activePeriod = e.target.dataset.period;
+      renderFlagged();
+    });
+
+    // ---- TICKER RENDERING ----
+    function renderTicker(containerId, items) {
+      const body = document.getElementById(containerId);
+      const existingFlags = getFlags();
+      body.innerHTML = items.map(item => {
+        const isFlagged = existingFlags.find(f => f.id === item.id);
+        return `<div class="ticker-item">
+          <div class="item-content">
+            <div class="item-title" title="${escHtml(item.title)}">${escHtml(item.title)}</div>
+            <div class="item-meta">${escHtml(item.meta)}</div>
+          </div>
+          <button class="flag-btn ${isFlagged ? 'flagged' : ''}" data-id="${item.id}"
+            onclick="flagItem('${item.id}','${escHtml(item.title).replace(/'/g,"\\'")}','${escHtml(item.source)}','${escHtml(item.url || '')}')">🚩 FLAG</button>
+        </div>`;
+      }).join('') || '<div class="flagged-empty">No items yet. Feeds loading...</div>';
+    }
+
+    // ---- SEARCH ----
+    function doSearch() {
+      const q = document.getElementById('search-input').value.trim();
+      if (!q) return;
+      window.open(`${API_BASE}/search?q=${encodeURIComponent(q)}`, '_blank');
+    }
+    document.getElementById('search-input').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+    // ---- FETCH LIVE DATA ----
+    async function loadTickers() {
+      // Try API first, fall back to demo data
+      try {
+        const [trends, news, breaches] = await Promise.all([
+          fetch(`${API_BASE}/api/ticker/trends`).then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch(`${API_BASE}/api/ticker/news`).then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch(`${API_BASE}/api/ticker/breaches`).then(r => r.ok ? r.json() : null).catch(() => null),
+        ]);
+        if (trends) renderTicker('trends-body', trends);
+        else renderDemoTrends();
+        if (news) renderTicker('news-body', news);
+        else renderDemoNews();
+        if (breaches) renderTicker('breaches-body', breaches);
+        else renderDemoBreaches();
+      } catch {
+        renderDemoTrends();
+        renderDemoNews();
+        renderDemoBreaches();
+      }
+    }
+
+    // Demo data for gh-pages
+    function renderDemoTrends() {
+      renderTicker('trends', [
+        { id: 't1', title: 'Citrix Bleed (CVE-2023-4966) exploitation surge', meta: '3 new incidents · 2h ago', source: 'trends', url: '/cve/CVE-2023-4966' },
+        { id: 't2', title: 'LockBit 3.0 affiliate activity increase', meta: '5 new claims · 4h ago', source: 'trends', url: '/entities?q=lockbit' },
+        { id: 't3', title: 'Volt Typhoon — living-off-the-land campaigns', meta: 'CISA advisory · 6h ago', source: 'trends', url: '/entities?q=volt+typhoon' },
+        { id: 't4', title: 'MOVEit Transfer (CVE-2023-34362) — ongoing Cl0p', meta: '2 new victims · 8h ago', source: 'trends', url: '/cve/CVE-2023-34362' },
+        { id: 't5', title: 'Phishing-as-a-Service — BulletProfiLink surge', meta: 'Microsoft Threat Intel · 12h ago', source: 'trends', url: '/entities?q=bulletprofitlink' },
+      ]);
+    }
+    function renderDemoNews() {
+      renderTicker('news-body', [
+        { id: 'n1', title: 'CISA adds 3 new KEV entries', meta: 'Known Exploited Vulns · 1h ago', source: 'news', url: '/sources' },
+        { id: 'n2', title: 'NVD publishes 47 new CVEs', meta: 'Daily batch · 3h ago', source: 'news', url: '/search?q=cve' },
+        { id: 'n3', title: 'Europol dismantles major infostealer network', meta: 'Law Enforcement · 5h ago', source: 'news', url: '/entities?q=infostealer' },
+        { id: 'n4', title: 'GitHub Advisory: critical RCE in popular framework', meta: 'GitHub Security · 7h ago', source: 'news', url: '/sources' },
+        { id: 'n5', title: 'ENISA EUVD quarterly update published', meta: 'EU Vulnerability DB · 1d ago', source: 'news', url: '/sources' },
+      ]);
+    }
+    function renderDemoBreaches() {
+      renderTicker('breaches', [
+        { id: 'b1', title: 'RansomHub claims healthcare org (US)', meta: 'Ransomware · 30min ago', source: 'breaches', url: '/entities?q=ransomhub' },
+        { id: 'b2', title: 'Play ransomware — manufacturing (DE)', meta: 'Ransomware · 2h ago', source: 'breaches', url: '/entities?q=play+ransomware' },
+        { id: 'b3', title: 'Akira targets VMware ESXi infrastructure', meta: 'Ransomware · 4h ago', source: 'breaches', url: '/entities?q=akira' },
+        { id: 'b4', title: 'BlackSuit (Royal) — local government (UK)', meta: 'Ransomware · 6h ago', source: 'breaches', url: '/entities?q=blacksuit' },
+        { id: 'b5', title: 'Medusa ransomware — education sector (AU)', meta: 'Ransomware · 9h ago', source: 'breaches', url: '/entities?q=medusa+ransomware' },
+      ]);
+    }
+
+    // ---- INIT ----
+    loadTickers();
+    renderFlagged();
+    // Refresh tickers every 5 minutes
+    setInterval(loadTickers, 300000);
+  </script
 </body>
 </html>
