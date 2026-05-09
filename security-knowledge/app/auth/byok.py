@@ -75,7 +75,10 @@ BYOK_PROVIDERS: tuple[str, ...] = (
     "otx",
     "misp",
     "malshare",
+<<<<<<< HEAD
     "recordedfuture",
+=======
+>>>>>>> 06b0054cfce62f7f038d3eed0a7ce1c535c54010
 )
 
 
