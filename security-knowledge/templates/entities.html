@@ -9,7 +9,7 @@
 
   <section class="panel">
     <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
-      <input class="form-input mono" type="text" id="q-input" placeholder="Search by name…" style="flex:1;min-width:12rem;">
+      <input class="form-input mono" type="text" id="q-input" placeholder="Search by name…" style="flex:1;min-width:12rem;" autocomplete="off">
       <select class="form-input" id="kind-select" style="min-width:10rem;">
         <option value="">All kinds</option>
         <option value="cve">CVE</option>
@@ -17,6 +17,7 @@
         <option value="actor">Actor</option>
         <option value="tool">Tool</option>
         <option value="technique">Technique</option>
+        <option value="attack_pattern">Attack Pattern</option>
         <option value="tactic">Tactic</option>
         <option value="vulnerability">Vulnerability</option>
         <option value="domain">Domain</option>
@@ -24,72 +25,126 @@
         <option value="hash">Hash</option>
         <option value="campaign">Campaign</option>
         <option value="report">Report</option>
+        <option value="product">Product</option>
+        <option value="organization">Organization</option>
+        <option value="indicator">Indicator</option>
+        <option value="other">Other</option>
       </select>
       <button class="button" id="search-btn">Filter</button>
+      <span id="count" class="subtle" style="font-size:0.85rem;"></span>
     </div>
     <div id="status" class="status-bar"></div>
-    <table class="table" id="entities-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Kind</th>
-          <th>Aliases</th>
-          <th>Created</th>
-        </tr>
-      </thead>
-      <tbody id="entities-body">
-        <tr><td colspan="4" class="muted">Loading…</td></tr>
-      </tbody>
-    </table>
   </section>
+
+  <section id="results" style="margin-top:1rem;"></section>
+
+  <div style="display:flex;justify-content:center;gap:0.75rem;margin-top:1rem;">
+    <button class="button-muted" id="prev-btn" style="display:none;">← Prev</button>
+    <button class="button-muted" id="next-btn" style="display:none;">Next →</button>
+  </div>
 </main>
+
+<style>
+.ent-card {
+  background: var(--surface,#1a1a2e);
+  border: 1px solid var(--border,#2a2a4a);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.55rem;
+  transition: border-color .15s;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.ent-card:hover { border-color: var(--accent,#4af); }
+.ent-icon { font-size:1.6rem; flex-shrink:0; margin-top:0.1rem; }
+.ent-body { flex:1; min-width:0; }
+.ent-name { font-weight:700; font-size:0.95rem; color:var(--accent,#4af); text-decoration:none; line-height:1.3; }
+.ent-name:hover { text-decoration:underline; }
+.ent-desc { font-size:0.82rem; color:var(--text-muted,#94a3b8); line-height:1.5; margin:0.25rem 0; word-break:break-word; }
+.ent-meta { display:flex; gap:0.4rem; flex-wrap:wrap; align-items:center; margin-top:0.35rem; }
+</style>
 
 <script>
 (function () {
-  const body = document.getElementById("entities-body");
+  const KIND_ICONS = {
+    cve:'🔴', vulnerability:'🔓', malware:'🦠', actor:'🕵️', tool:'🔧',
+    technique:'⚡', subtechnique:'⚡', tactic:'🎯', attack_pattern:'⚡',
+    domain:'🌐', ip_address:'📍', hash:'#️⃣', campaign:'⚔️', report:'📄',
+    product:'📦', framework:'🏗️', indicator:'🔎', organization:'🏢', other:'📌'
+  };
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  const resultsDiv = document.getElementById("results");
   const status = document.getElementById("status");
+  const countEl = document.getElementById("count");
+  let offset = 0;
+  const PAGE = 40;
+  let currentItems = [];
 
   async function load() {
     const q = document.getElementById("q-input").value.trim();
     const kind = document.getElementById("kind-select").value;
-    const params = new URLSearchParams({ limit: 50 });
+    const params = new URLSearchParams({ limit: PAGE, offset: offset });
     if (q) params.set("q", q);
     if (kind) params.set("kind", kind);
     status.textContent = "Loading…";
-    body.innerHTML = '<tr><td colspan="4" class="muted">Loading…</td></tr>';
+    resultsDiv.innerHTML = "";
     try {
       const resp = await fetch("/api/v1/entities/?" + params, { credentials: "same-origin" });
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       const data = await resp.json();
-      const items = Array.isArray(data) ? data : (data.items || data.results || []);
+      currentItems = Array.isArray(data) ? data : (data.items || data.results || []);
       status.textContent = "";
-      if (!items.length) {
-        body.innerHTML = '<tr><td colspan="4"><div class="empty-state">No entities found.</div></td></tr>';
+      countEl.textContent = currentItems.length + " entities";
+      if (!currentItems.length) {
+        resultsDiv.innerHTML = '<div class="empty-state">No entities found.</div>';
         return;
       }
-      body.innerHTML = items.map(e => {
-        const aliases = (e.aliases || []).join(", ") || "—";
-        const created = e.created_at ? new Date(e.created_at).toLocaleDateString() : "—";
-        return `<tr>
-          <td><a href="/entities/${e.id}">${esc(e.name || e.id)}</a></td>
-          <td><span class="tiny-pill">${esc(e.kind || "")}</span></td>
-          <td class="subtle">${esc(aliases)}</td>
-          <td class="subtle">${esc(created)}</td>
-        </tr>`;
+      // For each entity, also try to get its description from claims (batch via search)
+      // But the entity API already has external_refs - use that for description
+      resultsDiv.innerHTML = currentItems.map(function(e) {
+        var name = e.canonical_name || e.name || e.id;
+        var icon = KIND_ICONS[e.kind] || "📌";
+        var desc = (e.external_refs && e.external_refs.description) || "";
+        var snippet = desc.length > 250 ? desc.slice(0, 250) + "…" : desc;
+        var mitre = e.mitre_attack_id || "";
+        var created = e.created_at ? new Date(e.created_at).toLocaleDateString() : "";
+        var source = (e.external_refs && e.external_refs.source) || "";
+        var tags = [];
+        if (e.kind) tags.push(e.kind);
+        if (mitre) tags.push(mitre);
+        if (source) tags.push(source);
+
+        return '<div class="ent-card">' +
+          '<span class="ent-icon">' + icon + '</span>' +
+          '<div class="ent-body">' +
+            '<a class="ent-name" href="/entities/' + esc(e.id) + '">' + esc(name) + '</a>' +
+            (snippet ? '<div class="ent-desc">' + esc(snippet) + '</div>' : '') +
+            '<div class="ent-meta">' +
+              tags.map(function(t) { return '<span class="tiny-pill">' + esc(t) + '</span>'; }).join("") +
+              (created ? ' <span class="subtle" style="font-size:0.78rem;">' + esc(created) + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>';
       }).join("");
+
+      document.getElementById("prev-btn").style.display = offset > 0 ? "" : "none";
+      document.getElementById("next-btn").style.display = currentItems.length >= PAGE ? "" : "none";
     } catch (err) {
       status.textContent = "Error: " + err.message;
-      body.innerHTML = '<tr><td colspan="4" class="muted">Failed to load.</td></tr>';
+      resultsDiv.innerHTML = '<div class="empty-state">Failed to load.</div>';
     }
   }
 
-  function esc(s) {
-    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
-
-  document.getElementById("search-btn").addEventListener("click", load);
-  document.getElementById("q-input").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
-  document.getElementById("kind-select").addEventListener("change", load);
+  document.getElementById("search-btn").addEventListener("click", function() { offset = 0; load(); });
+  document.getElementById("q-input").addEventListener("keydown", function(e) { if (e.key === "Enter") { offset = 0; load(); } });
+  document.getElementById("kind-select").addEventListener("change", function() { offset = 0; load(); });
+  document.getElementById("prev-btn").addEventListener("click", function() { offset = Math.max(0, offset - PAGE); load(); });
+  document.getElementById("next-btn").addEventListener("click", function() { offset += PAGE; load(); });
   load();
 })();
 </script>
