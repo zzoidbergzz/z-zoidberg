@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.auth.dependencies import require_scope, Scope, AuthContext
-from app.models.auth import User, UserStatus
+from app.models.auth import ApiKey, Tenant, User, UserProviderKey, UserStatus
 from app.models.pingback import IocWatch, IocSighting
 from app.models.enrichment import EnrichmentCache
 from app.models.sectors import Sector, SectorMembership
@@ -31,6 +31,15 @@ class ApproveUserBody(BaseModel):
     action: str  # "approve" | "reject"
 
 
+class CreateTenantBody(BaseModel):
+    name: str
+    slug: str
+
+
+class MoveUserTenantBody(BaseModel):
+    tenant_id: uuid.UUID
+
+
 @router.get("/users")
 async def list_users(
     status_filter: Optional[str] = Query(None, alias="status"),
@@ -40,6 +49,11 @@ async def list_users(
     db: AsyncSession = Depends(get_db),
 ):
     """List users, optionally filtered by status."""
+    if status_filter == "active":
+        status_filter = UserStatus.approved
+    if status_filter and status_filter not in {UserStatus.pending, UserStatus.approved, UserStatus.rejected}:
+        raise HTTPException(status_code=400, detail="Invalid status filter")
+
     q = select(User)
     if not _is_superadmin(auth):
         q = q.where(User.tenant_id == _tenant_uuid(auth))
@@ -61,6 +75,98 @@ async def list_users(
         }
         for u in users
     ]
+
+
+@router.get("/tenants")
+async def list_tenants(
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all tenants (superadmin only), including user counts."""
+    if not _is_superadmin(auth):
+        raise HTTPException(status_code=403, detail="Superadmin scope required")
+
+    tenants = (await db.execute(select(Tenant).order_by(Tenant.slug.asc()))).scalars().all()
+    rows = []
+    for tenant in tenants:
+        user_count = (await db.execute(
+            select(func.count()).select_from(User).where(User.tenant_id == tenant.id)
+        )).scalar_one()
+        rows.append({
+            "id": str(tenant.id),
+            "name": tenant.name,
+            "slug": tenant.slug,
+            "active": tenant.active,
+            "user_count": user_count,
+            "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
+        })
+    return rows
+
+
+@router.post("/tenants", status_code=201)
+async def create_tenant(
+    body: CreateTenantBody,
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a tenant (superadmin only)."""
+    if not _is_superadmin(auth):
+        raise HTTPException(status_code=403, detail="Superadmin scope required")
+
+    slug = body.slug.strip().lower()
+    if not slug:
+        raise HTTPException(status_code=400, detail="slug is required")
+    existing = (await db.execute(select(Tenant).where(Tenant.slug == slug))).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="Tenant slug already exists")
+
+    tenant = Tenant(name=body.name.strip(), slug=slug, active=True)
+    db.add(tenant)
+    await db.flush()
+    await db.commit()
+    return {
+        "id": str(tenant.id),
+        "name": tenant.name,
+        "slug": tenant.slug,
+        "active": tenant.active,
+        "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
+    }
+
+
+@router.post("/users/{user_id}/tenant")
+async def move_user_tenant(
+    user_id: uuid.UUID,
+    body: MoveUserTenantBody,
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Move a user to a different tenant (superadmin only)."""
+    if not _is_superadmin(auth):
+        raise HTTPException(status_code=403, detail="Superadmin scope required")
+
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == body.tenant_id))).scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    user.tenant_id = tenant.id
+
+    api_keys = (await db.execute(select(ApiKey).where(ApiKey.user_id == user.id))).scalars().all()
+    for key in api_keys:
+        key.tenant_id = tenant.id
+    provider_keys = (await db.execute(select(UserProviderKey).where(UserProviderKey.user_id == user.id))).scalars().all()
+    for provider_key in provider_keys:
+        provider_key.tenant_id = tenant.id
+
+    await db.flush()
+    await db.commit()
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "tenant_id": str(user.tenant_id),
+    }
 
 
 @router.post("/users/{user_id}/approve")
@@ -85,8 +191,6 @@ async def approve_user(
         user.approved_at = datetime.now(timezone.utc)
         # Auto-generate first API key on approval if user has none
         from app.auth.api_key import generate_api_key
-        from app.models.auth import ApiKey
-
         existing_keys = (await db.execute(
             select(func.count()).select_from(ApiKey).where(ApiKey.user_id == user.id)
         )).scalar_one()

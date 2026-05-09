@@ -161,6 +161,8 @@ class Settings(BaseSettings):
     BOOTSTRAP_ADMIN_PASSWORD: str = ""
     BOOTSTRAP_ADMIN_NAME: str = "Admin"
     BOOTSTRAP_ADMIN_TENANT: str = "z.je"
+    SUPERADMIN_EMAILS: str = "m@z.je"
+    PERSONAL_EMAIL_DOMAINS: str = "gmail.com,outlook.com,hotmail.com,hotmail.co.uk,googlemail.com,msn.com,btinternet.com,icloud.com"
 
     # Lookup / investigation settings
     LOOKUP_FRESH_CACHE_MINUTES: int = 30

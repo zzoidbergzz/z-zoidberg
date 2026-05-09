@@ -26,15 +26,30 @@
     <h3>Users</h3>
     <div class="row" style="gap:0.5rem; margin-bottom:0.5rem;">
       <select id="user-status-filter">
-        <option value="">all</option>
+        <option value="" selected>all</option>
         <option value="pending">pending</option>
-        <option value="approved" selected>approved</option>
+        <option value="approved">approved</option>
         <option value="rejected">rejected</option>
       </select>
       <button class="button-muted" id="user-refresh">Refresh</button>
     </div>
     <table class="data-table" id="users-table">
-      <thead><tr><th>Email</th><th>Status</th><th>Roles</th><th>Created</th></tr></thead>
+      <thead><tr><th>Email</th><th>Status</th><th>Role</th><th>Tenant</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card" id="tenant-admin-card" style="display:none;">
+    <h3>Tenants</h3>
+    <div id="tenants-status" class="muted"></div>
+    <div class="row" style="gap:0.5rem; margin-bottom:0.5rem;">
+      <input id="tenant-name" placeholder="Tenant name" />
+      <input id="tenant-slug" placeholder="tenant-slug" />
+      <button class="button" id="tenant-create">Create tenant</button>
+      <button class="button-muted" id="tenant-refresh">Refresh</button>
+    </div>
+    <table class="data-table" id="tenants-table">
+      <thead><tr><th>Name</th><th>Slug</th><th>Users</th><th>Created</th></tr></thead>
       <tbody><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
     </table>
   </section>
@@ -65,6 +80,8 @@
 (() => {
   const fmt = (s) => s ? new Date(s).toLocaleString() : "—";
   const escape = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  let tenants = [];
+  let isSuperadmin = false;
 
   async function loadStats() {
     const grid = document.getElementById("stats-grid");
@@ -90,15 +107,60 @@
 
   async function loadUsers(status) {
     const tbody = document.querySelector("#users-table tbody");
-    tbody.innerHTML = `<tr><td colspan="4" class="muted">Loading…</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
     const url = status ? `/api/v1/admin/users?status=${encodeURIComponent(status)}` : "/api/v1/admin/users";
     const r = await fetch(url, {credentials:"same-origin"});
-    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="4" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
+    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="6" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
     const users = await r.json();
-    if (!users.length) { tbody.innerHTML = `<tr><td colspan="4" class="muted">No users.</td></tr>`; return; }
-    tbody.innerHTML = users.map(u =>
-      `<tr><td>${escape(u.email)}</td><td><span class="tiny-pill ${u.status === 'approved' ? '' : (u.status === 'pending' ? 'warn' : 'danger')}">${escape(u.status)}</span></td><td>${escape(u.role || '')}</td><td>${fmt(u.created_at)}</td></tr>`
-    ).join("");
+    if (!users.length) { tbody.innerHTML = `<tr><td colspan="6" class="muted">No users.</td></tr>`; return; }
+    const tenantOptions = tenants.map(t => `<option value="${t.id}">${escape(t.slug)}</option>`).join("");
+    tbody.innerHTML = users.map(u => {
+      const canMove = isSuperadmin && tenants.length > 0;
+      const actions = canMove
+        ? `<select data-tenant-select="${u.id}">${tenantOptions}</select> <button class="button-muted" data-move-user="${u.id}">Move</button>`
+        : "—";
+      return `<tr>
+        <td>${escape(u.email)}</td>
+        <td><span class="tiny-pill ${u.status === 'approved' ? '' : (u.status === 'pending' ? 'warn' : 'danger')}">${escape(u.status)}</span></td>
+        <td>${escape(u.role || '')}</td>
+        <td><span class="mono small">${escape(u.tenant_id || '')}</span></td>
+        <td>${fmt(u.created_at)}</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join("");
+    if (isSuperadmin) {
+      users.forEach(u => {
+        const sel = document.querySelector(`select[data-tenant-select="${u.id}"]`);
+        if (sel) sel.value = u.tenant_id;
+      });
+    }
+  }
+
+  async function loadTenants() {
+    const tbody = document.querySelector("#tenants-table tbody");
+    const status = document.getElementById("tenants-status");
+    const r = await fetch("/api/v1/admin/tenants", {credentials:"same-origin"});
+    if (r.status === 403) {
+      isSuperadmin = false;
+      tenants = [];
+      document.getElementById("tenant-admin-card").style.display = "none";
+      return;
+    }
+    if (!r.ok) {
+      isSuperadmin = false;
+      tenants = [];
+      document.getElementById("tenant-admin-card").style.display = "none";
+      return;
+    }
+    isSuperadmin = true;
+    document.getElementById("tenant-admin-card").style.display = "";
+    tenants = await r.json();
+    status.textContent = `${tenants.length} tenants`;
+    if (!tenants.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">No tenants.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = tenants.map(t => `<tr><td>${escape(t.name)}</td><td>${escape(t.slug)}</td><td>${escape(t.user_count)}</td><td>${fmt(t.created_at)}</td></tr>`).join("");
   }
 
   async function loadPending() {
@@ -147,6 +209,50 @@
       status.textContent = `${action} failed: ${err.detail || r.status}`;
       btn.disabled = false;
     }
+  });
+
+  document.querySelector("#users-table").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button[data-move-user]");
+    if (!btn) return;
+    const id = btn.dataset.moveUser;
+    const select = document.querySelector(`select[data-tenant-select="${id}"]`);
+    if (!select) return;
+    btn.disabled = true;
+    const r = await fetch(`/api/v1/admin/users/${id}/tenant`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({tenant_id: select.value}),
+    });
+    if (r.ok) {
+      await loadTenants();
+      await loadUsers(document.getElementById("user-status-filter").value);
+      await loadStats();
+    } else {
+      const err = await r.json().catch(() => ({detail: "error"}));
+      alert(`move failed: ${err.detail || r.status}`);
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById("tenant-create").addEventListener("click", async () => {
+    const name = document.getElementById("tenant-name").value.trim();
+    const slug = document.getElementById("tenant-slug").value.trim();
+    if (!name || !slug) return alert("name and slug are required");
+    const r = await fetch("/api/v1/admin/tenants", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name, slug}),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({detail: "error"}));
+      return alert(`create failed: ${err.detail || r.status}`);
+    }
+    document.getElementById("tenant-name").value = "";
+    document.getElementById("tenant-slug").value = "";
+    await loadTenants();
+    await loadUsers(document.getElementById("user-status-filter").value);
   });
 
   async function loadSources() {
@@ -211,10 +317,18 @@
 
   document.getElementById("user-refresh").addEventListener("click", () => loadUsers(document.getElementById("user-status-filter").value));
   document.getElementById("user-status-filter").addEventListener("change", () => loadUsers(document.getElementById("user-status-filter").value));
+  document.getElementById("tenant-refresh").addEventListener("click", loadTenants);
   document.getElementById("source-refresh").addEventListener("click", loadSources);
   document.getElementById("source-search").addEventListener("input", () => loadSources());
 
-  loadStats(); loadPending(); loadUsers("active"); loadSources(); loadAudit();
+  (async () => {
+    await loadTenants();
+    await loadStats();
+    await loadPending();
+    await loadUsers(document.getElementById("user-status-filter").value);
+    await loadSources();
+    await loadAudit();
+  })();
 })();
 </script>
 {% endblock %}

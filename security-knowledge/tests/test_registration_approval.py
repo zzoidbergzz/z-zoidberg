@@ -40,6 +40,27 @@ async def admin_client(mock_db, tenant_id):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture
+async def superadmin_client(mock_db, tenant_id):
+    from app.main import app
+    from app.database import get_db
+    from app.auth.dependencies import get_auth, AuthContext, Scope
+
+    auth = AuthContext(
+        tenant_id=tenant_id,
+        scopes={Scope.superadmin, Scope.admin, Scope.read, Scope.write},
+        user_id=str(uuid.uuid4()),
+        auth_type="bearer",
+    )
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_auth] = lambda: auth
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # POST /auth/token
 # ──────────────────────────────────────────────────────────────────────────────
@@ -130,6 +151,38 @@ async def test_register_new_user(open_client, mock_db):
 
 
 @pytest.mark.asyncio
+async def test_register_personal_domain_gets_dedicated_tenant(open_client, mock_db):
+    """Personal mailbox domains get a one-user tenant keyed to that user ID."""
+    from app.models.auth import Tenant, User
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.flush = AsyncMock()
+    mock_db.refresh = AsyncMock()
+
+    with patch("bcrypt.hashpw", return_value=b"hashed"):
+        resp = await open_client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "person@gmail.com",
+                "password": "secret123",
+                "full_name": "Personal User",
+                "business_sector": "Technology",
+            },
+        )
+
+    assert resp.status_code == 201
+    assert mock_db.add.call_count == 2
+    tenant_obj = mock_db.add.call_args_list[0].args[0]
+    user_obj = mock_db.add.call_args_list[1].args[0]
+    assert isinstance(tenant_obj, Tenant)
+    assert isinstance(user_obj, User)
+    assert str(tenant_obj.id) == str(user_obj.id)
+    assert str(user_obj.tenant_id) == str(user_obj.id)
+
+
+@pytest.mark.asyncio
 async def test_register_duplicate_email(open_client, mock_db):
     """POST /auth/register with duplicate email returns 409."""
     from app.models.auth import User
@@ -194,6 +247,116 @@ async def test_admin_approve_user_not_found(admin_client, mock_db):
         json={"action": "approve"},
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_admin_list_users_active_alias(admin_client, mock_db, tenant_id):
+    """GET /admin/users?status=active maps to approved for backward compatibility."""
+    from app.models.auth import User
+    from datetime import datetime, timezone
+
+    user = MagicMock(spec=User)
+    user.id = uuid.uuid4()
+    user.email = "approved@example.com"
+    user.full_name = "Approved User"
+    user.business_sector = "Technology"
+    user.status = "approved"
+    user.role = "user"
+    user.tenant_id = uuid.UUID(tenant_id)
+    user.created_at = datetime.now(timezone.utc)
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [user]
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    resp = await admin_client.get("/api/v1/admin/users?status=active")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["status"] == "approved"
+
+
+@pytest.mark.asyncio
+async def test_admin_list_users_invalid_status(admin_client):
+    """GET /admin/users rejects unsupported status values."""
+    resp = await admin_client.get("/api/v1/admin/users?status=unknown")
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_admin_list_tenants_forbidden_for_admin(admin_client):
+    """GET /admin/tenants requires superadmin."""
+    resp = await admin_client.get("/api/v1/admin/tenants")
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_list_tenants_superadmin(superadmin_client, mock_db):
+    """GET /admin/tenants returns tenant rows for superadmin."""
+    from app.models.auth import Tenant
+    from datetime import datetime, timezone
+
+    t = MagicMock(spec=Tenant)
+    t.id = uuid.uuid4()
+    t.name = "Tenant A"
+    t.slug = "tenant-a"
+    t.active = True
+    t.created_at = datetime.now(timezone.utc)
+
+    first = MagicMock()
+    first.scalars.return_value.all.return_value = [t]
+    second = MagicMock()
+    second.scalar_one.return_value = 7
+    mock_db.execute = AsyncMock(side_effect=[first, second])
+
+    resp = await superadmin_client.get("/api/v1/admin/tenants")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["slug"] == "tenant-a"
+    assert data[0]["user_count"] == 7
+
+
+@pytest.mark.asyncio
+async def test_admin_move_user_tenant(superadmin_client, mock_db, tenant_id):
+    """POST /admin/users/{id}/tenant updates user and related key tenant IDs."""
+    from app.models.auth import User, Tenant, ApiKey, UserProviderKey
+
+    user = MagicMock(spec=User)
+    user.id = uuid.uuid4()
+    user.email = "u@example.com"
+    user.tenant_id = uuid.UUID(tenant_id)
+
+    tenant = MagicMock(spec=Tenant)
+    tenant.id = uuid.uuid4()
+
+    api_key = MagicMock(spec=ApiKey)
+    api_key.user_id = user.id
+    api_key.tenant_id = user.tenant_id
+    provider_key = MagicMock(spec=UserProviderKey)
+    provider_key.user_id = user.id
+    provider_key.tenant_id = user.tenant_id
+
+    user_result = MagicMock()
+    user_result.scalar_one_or_none.return_value = user
+    tenant_result = MagicMock()
+    tenant_result.scalar_one_or_none.return_value = tenant
+    api_key_result = MagicMock()
+    api_key_result.scalars.return_value.all.return_value = [api_key]
+    provider_key_result = MagicMock()
+    provider_key_result.scalars.return_value.all.return_value = [provider_key]
+    mock_db.execute = AsyncMock(side_effect=[user_result, tenant_result, api_key_result, provider_key_result])
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+
+    resp = await superadmin_client.post(
+        f"/api/v1/admin/users/{user.id}/tenant",
+        json={"tenant_id": str(tenant.id)},
+    )
+    assert resp.status_code == 200
+    assert str(user.tenant_id) == str(tenant.id)
+    assert str(api_key.tenant_id) == str(tenant.id)
+    assert str(provider_key.tenant_id) == str(tenant.id)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
