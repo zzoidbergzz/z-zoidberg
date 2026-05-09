@@ -592,6 +592,14 @@ document.querySelectorAll("#flagged-period-row .period-btn").forEach(btn => {
   });
 });
 
+function isMonitorableKind(kind) {
+  if (window.ZjeWatchlists?.isMonitorableKind) {
+    return window.ZjeWatchlists.isMonitorableKind(kind);
+  }
+  const k = String(kind || "").toLowerCase();
+  return ["url", "domain", "host", "hostname", "ip", "ip_address"].includes(k);
+}
+
 // IOC Lookup — POSTs to /api/v1/lookup. For multi-line input, falls back to
 // /api/v1/lookup/extract + /api/v1/bulk-lookup so each defanged IOC is
 // recognised individually (hxxp://, 8[.]8[.]8[.]8, user[at]evil[.]com, etc).
@@ -662,6 +670,9 @@ async function doLookup(enrich=false) {
       else html += `<strong>${esc(data.canonical_name)}</strong>`;
       html += ` <span class="ioc-kind">${esc(data.kind || data.entity_type || '')}</span>`;
       if (data.classified_as) html += ` <em>(${esc(data.classified_as)})</em>`;
+      if (isMonitorableKind(data.kind || data.entity_type || "")) {
+        html += ` <button type="button" class="button-muted" data-monitor-ioc="${esc(data.canonical_name)}" data-monitor-kind="${esc(data.kind || data.entity_type || '')}">Monitor IOC</button>`;
+      }
       html += `</div>`;
     }
     if (data.cached_results && data.cached_results.length) {
@@ -674,6 +685,7 @@ async function doLookup(enrich=false) {
     }
     if (!html) html = `<em>Not found. <a href="/search?q=${encodeURIComponent(lines[0])}">Search knowledge base</a></em>`;
     resultsDiv.innerHTML = html;
+    window.ZjeWatchlists?.syncButtons?.(resultsDiv);
   } catch(e) {
     resultsDiv.innerHTML = `<em>Error: ${esc(e.message)}</em>`;
   }

@@ -2,6 +2,7 @@ window.ZjeApp = (() => {
   const state = {
     entityId: null,
     currentEntity: null,
+    lastResultsPayload: null,
     selectedGraphNode: null,
     graphContextNode: null,
     bulkPreview: null,
@@ -37,6 +38,111 @@ window.ZjeApp = (() => {
     });
     return parseResponse(response);
   }
+
+  async function monitorIOC(ioc_value, ioc_kind, watchlist_id = null) {
+    const payload = {
+      ioc_value,
+      ioc_kind,
+      mode: "ping",
+    };
+    if (watchlist_id) payload.watchlist_id = watchlist_id;
+    const result = await api("/api/v1/iocs/watches", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    if (window.ZjeWatchlists?.refresh) {
+      await window.ZjeWatchlists.refresh();
+    }
+    return result;
+  }
+
+  window.ZjeWatchlists = window.ZjeWatchlists || {};
+  window.ZjeWatchlists.monitor = monitorIOC;
+
+  const MONITORABLE_KINDS = new Set(["url", "domain", "host", "hostname", "ip", "ip_address"]);
+  const watchState = {
+    loaded: false,
+    loading: null,
+    disabled: false,
+    items: new Map(),
+  };
+
+  function normalizeWatchKey(kind, value) {
+    return `${String(kind || "").toLowerCase()}|${String(value || "").trim().toLowerCase()}`;
+  }
+
+  function isMonitorableKind(kind) {
+    return MONITORABLE_KINDS.has(String(kind || "").toLowerCase());
+  }
+
+  async function loadWatches() {
+    if (watchState.loading || watchState.loaded || watchState.disabled) return watchState.loading;
+    watchState.loading = (async () => {
+      try {
+        const items = await api("/api/v1/iocs/watches");
+        watchState.items.clear();
+        (items || []).forEach((item) => {
+          watchState.items.set(normalizeWatchKey(item.ioc_kind, item.ioc_value_display), item);
+        });
+        watchState.loaded = true;
+      } catch (_) {
+        watchState.disabled = true;
+      } finally {
+        watchState.loading = null;
+      }
+    })();
+    return watchState.loading;
+  }
+
+  function setMonitorButtonState(btn, watch) {
+    if (!btn) return;
+    if (watch) {
+      btn.dataset.watchId = watch.id;
+      btn.textContent = "Remove monitor";
+      btn.dataset.monitorState = "active";
+    } else {
+      delete btn.dataset.watchId;
+      btn.textContent = "Monitor IOC";
+      btn.dataset.monitorState = "inactive";
+    }
+  }
+
+  function updateMonitorButtons(iocValue, iocKind, watch) {
+    const key = normalizeWatchKey(iocKind, iocValue);
+    document.querySelectorAll("[data-monitor-ioc]").forEach((btn) => {
+      if (normalizeWatchKey(btn.dataset.monitorKind, btn.dataset.monitorIoc) === key) {
+        setMonitorButtonState(btn, watch);
+      }
+    });
+  }
+
+  async function syncMonitorButtons(root = document) {
+    const buttons = Array.from(root.querySelectorAll("[data-monitor-ioc]"));
+    if (!buttons.length) return;
+    buttons.forEach((btn) => {
+      if (!isMonitorableKind(btn.dataset.monitorKind)) {
+        btn.remove();
+      }
+    });
+    if (watchState.disabled) return;
+    await loadWatches();
+    buttons.forEach((btn) => {
+      const watch = watchState.items.get(normalizeWatchKey(btn.dataset.monitorKind, btn.dataset.monitorIoc));
+      setMonitorButtonState(btn, watch);
+    });
+  }
+
+  async function removeWatch(watchId) {
+    const result = await api(`/api/v1/iocs/watches/${watchId}`, { method: "DELETE" });
+    if (window.ZjeWatchlists?.refresh) {
+      await window.ZjeWatchlists.refresh();
+    }
+    return result;
+  }
+
+  window.ZjeWatchlists.isMonitorableKind = isMonitorableKind;
+  window.ZjeWatchlists.syncButtons = syncMonitorButtons;
+  window.ZjeWatchlists.remove = removeWatch;
 
   // ---------------------------------------------------------------------------
   // Enrichment rendering — tabbed panel layout
@@ -525,17 +631,32 @@ window.ZjeApp = (() => {
     resultsPanel.hidden = false;
     const entity = payload.entity || {};
     state.currentEntity = entity;
+    state.lastResultsPayload = payload;
     if (entity.id) state.entityId = entity.id;
 
     const shortId = (entity.id || state.entityId || "pending");
     const displayId = shortId.length > 18 ? shortId.slice(0, 8) + "…" + shortId.slice(-4) : shortId;
     const tags = (entity.tags || []);
+    const availableWatchlists = window.ZjeWatchlists?.state?.watchlists || [];
+    const monitorTargetOptions = [
+      `<option value="">Default personal list</option>`,
+      ...availableWatchlists.map((wl) => `<option value="${escapeHtml(wl.id)}">${escapeHtml(wl.name)} (${escapeHtml(wl.scope)})</option>`),
+    ].join("");
+    const monitorButton = isMonitorableKind(entity.entity_type || "")
+      ? `<div style="display:flex;gap:0.45rem;align-items:center;flex-wrap:wrap;margin-left:0.5rem;">
+          <select data-monitor-target style="max-width:14rem;">
+            ${monitorTargetOptions}
+          </select>
+          <button class="button-muted" type="button" data-monitor-ioc="${escapeHtml(entity.entity_value || "")}" data-monitor-kind="${escapeHtml(entity.entity_type || "")}">Monitor IOC</button>
+        </div>`
+      : "";
 
     summary.innerHTML = `
       <div class="entity-header">
         <div class="entity-header-main">
           <span class="tiny-pill">${escapeHtml(entity.entity_type || "unknown")}</span>
           <span class="entity-value">${escapeHtml(entity.entity_value || "pending")}</span>
+          ${monitorButton}
         </div>
         <div class="entity-header-meta">
           <span class="subtle" style="font-size:.78rem;">ID&nbsp;<code class="mono" title="${escapeHtml(entity.id || "")}" style="font-size:.75rem;opacity:.7;">${escapeHtml(displayId)}</code></span>
@@ -544,6 +665,7 @@ window.ZjeApp = (() => {
         </div>
       </div>
     `;
+    syncMonitorButtons(summary);
 
     const allEnrichments = payload.enrichments || [];
     renderIntelSummary(entity, allEnrichments);
@@ -915,6 +1037,37 @@ window.ZjeApp = (() => {
   }
 
   function init() {
+    document.addEventListener("click", async (event) => {
+      const btn = event.target.closest("[data-monitor-ioc]");
+      if (!btn) return;
+      const iocValue = btn.dataset.monitorIoc;
+      const iocKind = btn.dataset.monitorKind;
+      if (!iocValue || !iocKind || !isMonitorableKind(iocKind)) return;
+      const targetWatchlistId = btn.closest(".entity-header-main")?.querySelector("[data-monitor-target]")?.value || null;
+      const key = normalizeWatchKey(iocKind, iocValue);
+      const watchId = btn.dataset.watchId;
+      btn.disabled = true;
+      try {
+        if (watchId) {
+          await removeWatch(watchId);
+          if (watchState.loaded) {
+            watchState.items.delete(key);
+          }
+          updateMonitorButtons(iocValue, iocKind, null);
+        } else {
+          const watch = await monitorIOC(iocValue, iocKind, targetWatchlistId || null);
+          if (watchState.loaded) {
+            watchState.items.set(key, watch);
+          }
+          updateMonitorButtons(iocValue, iocKind, watch);
+        }
+      } catch (error) {
+        btn.textContent = watchId ? "Remove failed" : "Monitor failed";
+        setStatus(error.message, "error");
+      } finally {
+        setTimeout(() => { btn.disabled = false; }, 1200);
+      }
+    });
     document.querySelector("[data-lookup-form]")?.addEventListener("submit", handleLookupSubmit);
     document.querySelector("[data-bulk-lookup-form]")?.addEventListener("submit", handleBulkLookupSubmit);
     document.querySelector("[data-bulk-lookup-form] [name='query_blob']")?.addEventListener("input", (event) => {
@@ -973,6 +1126,12 @@ window.ZjeApp = (() => {
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") hideGraphContextMenu();
     });
+    window.addEventListener("zje:watchlists-updated", () => {
+      if (state.lastResultsPayload) {
+        renderResults(state.lastResultsPayload);
+      }
+    });
+    syncMonitorButtons();
     renderBulkPreview(document.querySelector("[data-bulk-lookup-form] [name='query_blob']")?.value || "");
     renderGraphSelection();
   }

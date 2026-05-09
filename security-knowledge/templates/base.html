@@ -70,6 +70,18 @@
       <a href="/settings" class="button" style="margin-left:0.5rem;">Add your keys (BYOK)</a>
       <button class="button-muted" id="byok-banner-dismiss" style="margin-left:0.25rem;">Dismiss for 7 days</button>
     </div>
+    <aside id="watchlist-drawer" class="watchlist-drawer">
+      <div class="watchlist-drawer-inner">
+        <button class="button-muted watchlist-drawer-handle" id="watchlist-drawer-toggle" type="button">Watchlist</button>
+        <div class="watchlist-drawer-header">
+          <strong>Watchlists</strong>
+          <span id="watchlist-drawer-status" class="tiny-pill"></span>
+        </div>
+        <div id="watchlist-drawer-body" class="watchlist-drawer-body">
+          <div class="watchlist-empty">Loading…</div>
+        </div>
+      </div>
+    </aside>
     <script>
       (() => {
         const dismissed = localStorage.getItem("byok_banner_dismissed_until");
@@ -88,6 +100,160 @@
           localStorage.setItem("byok_banner_dismissed_until", String(Date.now() + 7*24*3600*1000));
           document.getElementById("byok-banner").style.display = "none";
         });
+      })();
+    </script>
+    <script>
+      (() => {
+        const drawer = document.getElementById("watchlist-drawer");
+        const body = document.getElementById("watchlist-drawer-body");
+        const toggle = document.getElementById("watchlist-drawer-toggle");
+        const status = document.getElementById("watchlist-drawer-status");
+        const cookieName = "watchlist_drawer_open";
+        const getCookie = (name) => {
+          const m = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'));
+          return m ? decodeURIComponent(m[2]) : null;
+        };
+        const setCookie = (name, value) => {
+          document.cookie = name + '=' + encodeURIComponent(value) + '; max-age=31536000; path=/; SameSite=Lax';
+        };
+        const isOpen = () => getCookie(cookieName) === "1";
+        const setOpen = (open) => {
+          if (!drawer) return;
+          drawer.classList.toggle("open", open);
+          setCookie(cookieName, open ? "1" : "0");
+        };
+        const render = (data) => {
+          const watchlists = data?.watchlists || [];
+          const config = data?.config || {};
+          window.ZjeWatchlists = window.ZjeWatchlists || {};
+          window.ZjeWatchlists.state = window.ZjeWatchlists.state || {};
+          window.ZjeWatchlists.state.watchlists = watchlists;
+          window.ZjeWatchlists.state.config = config;
+          status.textContent = watchlists.length ? `${watchlists.length} lists` : "none";
+          if (!watchlists.length) {
+            body.innerHTML = '<div class="watchlist-empty">No watchlists yet.</div>';
+            window.dispatchEvent(new CustomEvent("zje:watchlists-updated", { detail: { watchlists, config } }));
+            return;
+          }
+          body.innerHTML = watchlists.map((wl) => {
+            const expiry = wl.expiry_hours === 0 ? "never expires" : `${wl.expiry_hours}h`;
+            const exports = wl.exports ? Object.entries(wl.exports) : [];
+            return `
+              <div class="watchlist-group">
+                <div class="watchlist-group-title">
+                  <div>
+                    <strong>${wl.name}</strong>
+                    <div class="watchlist-item-meta">${wl.scope} · ${expiry} · ${wl.counts?.active_items || 0}/${wl.counts?.items || 0} active</div>
+                  </div>
+                  <span class="tiny-pill">${wl.scope}</span>
+                </div>
+                <div class="watchlist-items">
+                  ${(wl.items || []).map((item) => `
+                    <div class="watchlist-item">
+                      <div class="watchlist-item-main">
+                        <div class="watchlist-item-value">${item.ioc_value_display}</div>
+                        <div class="watchlist-item-meta">${item.ioc_kind} · ${item.mode} · ${item.sighting_count || 0} sightings${item.expired ? ' · expired' : ''}</div>
+                        ${item.comment ? `<div class="watchlist-item-meta">comment: ${item.comment}</div>` : ""}
+                      </div>
+                      <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+                        ${watchlists.length > 1 ? `
+                          <select style="max-width:11rem;" data-watch-move-target="${item.id}">
+                            ${watchlists
+                              .filter((target) => target.id !== wl.id)
+                              .map((target) => `<option value="${target.id}">${target.name}</option>`)
+                              .join("")}
+                          </select>
+                          <button class="button-muted" type="button" data-watch-move="${item.id}">Move</button>
+                        ` : ""}
+                        <button class="button-muted" type="button" data-watch-comment="${item.id}" data-watch-comment-value="${encodeURIComponent(item.comment || "")}">Edit comment</button>
+                        <button class="button-muted" type="button" data-watch-remove="${item.id}">Remove</button>
+                      </div>
+                    </div>
+                  `).join("") || '<div class="watchlist-empty">No items yet.</div>'}
+                </div>
+                ${exports.length ? `
+                  <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.6rem;">
+                    ${exports.map(([fmt, url]) => `<a class="button-muted" href="${url}" target="_blank" rel="noopener">${fmt.toUpperCase()}</a>`).join("")}
+                  </div>` : ""}
+              </div>
+            `;
+          }).join("");
+          window.dispatchEvent(new CustomEvent("zje:watchlists-updated", { detail: { watchlists, config } }));
+        };
+        async function refresh() {
+          try {
+          const resp = await fetch("/api/v1/watchlists", {credentials:"same-origin"});
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          render(await resp.json());
+          } catch (error) {
+            status.textContent = "error";
+            body.innerHTML = `<div class="watchlist-empty">Failed to load: ${error.message}</div>`;
+          }
+        }
+        window.ZjeWatchlists = window.ZjeWatchlists || {};
+        window.ZjeWatchlists.refresh = refresh;
+        if (toggle) toggle.addEventListener("click", () => setOpen(!drawer.classList.contains("open")));
+        document.addEventListener("click", async (event) => {
+          const commentBtn = event.target.closest("[data-watch-comment]");
+          if (commentBtn) {
+            const current = decodeURIComponent(commentBtn.dataset.watchCommentValue || "");
+            const next = window.prompt("Watchlist item comment", current);
+            if (next === null) return;
+            commentBtn.disabled = true;
+            try {
+              const resp = await fetch(`/api/v1/iocs/watches/${commentBtn.dataset.watchComment}`, {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ comment: next }),
+              });
+              if (resp.ok) {
+                await refresh();
+              }
+            } finally {
+              commentBtn.disabled = false;
+            }
+            return;
+          }
+          const moveBtn = event.target.closest("[data-watch-move]");
+          if (moveBtn) {
+            const row = moveBtn.closest(".watchlist-item");
+            const select = row?.querySelector(`[data-watch-move-target="${moveBtn.dataset.watchMove}"]`);
+            const targetWatchlistId = select?.value;
+            if (!targetWatchlistId) return;
+            moveBtn.disabled = true;
+            try {
+              const resp = await fetch(`/api/v1/iocs/watches/${moveBtn.dataset.watchMove}`, {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ watchlist_id: targetWatchlistId }),
+              });
+              if (resp.ok) {
+                await refresh();
+              }
+            } finally {
+              moveBtn.disabled = false;
+            }
+            return;
+          }
+          const btn = event.target.closest("[data-watch-remove]");
+          if (!btn) return;
+          btn.disabled = true;
+          try {
+            const resp = await fetch(`/api/v1/iocs/watches/${btn.dataset.watchRemove}`, {
+              method: "DELETE",
+              credentials: "same-origin",
+            });
+            if (resp.ok) {
+              await refresh();
+            }
+          } finally {
+            btn.disabled = false;
+          }
+        });
+        setOpen(isOpen());
+        refresh();
       })();
     </script>
     {% endif %}

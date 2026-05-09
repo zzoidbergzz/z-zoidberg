@@ -24,11 +24,13 @@ from typing import Any
 import httpx
 import structlog
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.digests import InboxItem
 from app.models.pingback import IocWatch
 from app.models.webhooks import WebhookSubscription, WebhookDelivery
+from app.services.watchlists import watchlist_is_expired
 
 logger = structlog.get_logger(__name__)
 
@@ -85,7 +87,7 @@ async def notify_diff_watchers(
         select(IocWatch).where(
             IocWatch.ioc_value_hash == value_hash,
             IocWatch.active.is_(True),
-        )
+        ).options(selectinload(IocWatch.watchlist))
     )
     watches = result.scalars().all()
 
@@ -95,6 +97,8 @@ async def notify_diff_watchers(
     notified = 0
 
     for watch in watches:
+        if watch.watchlist and watchlist_is_expired(watch.watchlist):
+            continue
         subject = f"Enrichment change detected: {entity_kind} [{entity_value[:40]}]"
         body_data = {
             "event": "enrichment.diff",

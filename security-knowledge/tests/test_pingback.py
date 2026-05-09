@@ -103,6 +103,25 @@ async def test_delete_watch_not_found(pingback_client, mock_db):
     assert resp.status_code == 404
 
 
+@pytest.mark.asyncio
+async def test_delete_watch_success(pingback_client, mock_db):
+    """DELETE /iocs/watches/{id} removes a watch."""
+    from app.models.pingback import IocWatch
+
+    watch = MagicMock(spec=IocWatch)
+    watch.id = uuid.uuid4()
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = watch
+    mock_db.execute = AsyncMock(return_value=mock_result)
+    mock_db.delete = AsyncMock()
+    mock_db.flush = AsyncMock()
+
+    resp = await pingback_client.delete(f"/api/v1/iocs/watches/{watch.id}")
+    assert resp.status_code == 204
+    mock_db.delete.assert_awaited_once_with(watch)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Inbox tests
 # ──────────────────────────────────────────────────────────────────────────────

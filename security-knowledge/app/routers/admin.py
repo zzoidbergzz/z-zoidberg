@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,14 @@ from app.auth.dependencies import require_scope, Scope, AuthContext
 from app.models.auth import ApiKey, Tenant, User, UserProviderKey, UserStatus
 from app.models.pingback import IocWatch, IocSighting
 from app.models.enrichment import EnrichmentCache
+from app.models.watchlists import Watchlist
+from app.services.watchlists import (
+    get_or_create_default_org_watchlist,
+    get_or_create_default_personal_watchlist,
+    normalize_watchlist_slug,
+    tenant_watchlist_config,
+    normalize_watchlist_expiry,
+)
 from app.models.sectors import Sector, SectorMembership
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -38,6 +46,27 @@ class CreateTenantBody(BaseModel):
 
 class MoveUserTenantBody(BaseModel):
     tenant_id: uuid.UUID
+
+
+class WatchlistSettingsBody(BaseModel):
+    scope_mode: str | None = None
+    default_expiry_hours: int | None = None
+    max_expiry_hours: int | None = None
+
+    @field_validator("scope_mode")
+    @classmethod
+    def _validate_scope_mode(cls, value: str | None) -> str | None:
+        if value is not None and value not in {"personal", "org", "both"}:
+            raise ValueError("scope_mode must be personal, org, or both")
+        return value
+
+
+class CreateOrgWatchlistBody(BaseModel):
+    name: str
+    expiry_hours: int | None = None
+    description: str | None = None
+    public_slug: str | None = None
+    allow_unauthenticated: bool = False
 
 
 @router.get("/users")
@@ -207,6 +236,23 @@ async def approve_user(
             )
             db.add(ak)
             new_key_plaintext = raw
+        tenant = (await db.execute(select(Tenant).where(Tenant.id == user.tenant_id))).scalar_one_or_none()
+        config = tenant_watchlist_config(tenant)
+        allowed_scopes = {"personal"} if (config.get("scope_mode") or "both") == "personal" else {"personal", "org"} if (config.get("scope_mode") or "both") == "both" else {"org"}
+        if "personal" in allowed_scopes:
+            await get_or_create_default_personal_watchlist(
+                db,
+                tenant=tenant,
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+            )
+        if "org" in allowed_scopes:
+            await get_or_create_default_org_watchlist(
+                db,
+                tenant=tenant,
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+            )
         await db.flush()
         await db.commit()
         return {"id": str(user.id), "status": user.status, "api_key": new_key_plaintext}
@@ -321,6 +367,100 @@ async def toggle_source(
     await db.flush()
     await db.commit()
     return {"id": str(src.id), "active": src.active, "url": src.url}
+
+
+@router.get("/watchlist-settings")
+async def get_watchlist_settings(
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == _tenant_uuid(auth)))).scalar_one_or_none()
+    if not tenant:
+        config = tenant_watchlist_config(None)
+        config["tenant_missing"] = True
+        return config
+    config = tenant_watchlist_config(tenant)
+    config["tenant_missing"] = False
+    return config
+
+
+@router.get("/settings/watchlist")
+async def get_watchlist_settings_legacy(
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_watchlist_settings(auth=auth, db=db)
+
+
+@router.put("/watchlist-settings")
+async def update_watchlist_settings(
+    body: WatchlistSettingsBody,
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == _tenant_uuid(auth)))).scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    config = tenant_watchlist_config(tenant)
+    if body.scope_mode is not None:
+        config["scope_mode"] = body.scope_mode
+    if body.default_expiry_hours is not None:
+        config["default_expiry_hours"] = normalize_watchlist_expiry(body.default_expiry_hours, tenant=tenant)
+    if body.max_expiry_hours is not None:
+        config["max_expiry_hours"] = normalize_watchlist_expiry(body.max_expiry_hours, tenant=tenant)
+    tenant.watchlist_settings = config
+    await db.flush()
+    await db.commit()
+    return tenant_watchlist_config(tenant)
+
+
+@router.put("/settings/watchlist")
+async def update_watchlist_settings_legacy(
+    body: WatchlistSettingsBody,
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    return await update_watchlist_settings(body=body, auth=auth, db=db)
+
+
+@router.post("/watchlists", status_code=201)
+async def create_org_watchlist(
+    body: CreateOrgWatchlistBody,
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == _tenant_uuid(auth)))).scalar_one_or_none()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    config = tenant_watchlist_config(tenant)
+    allowed_scopes = {"org"} if (config.get("scope_mode") or "both") in {"org", "both"} else set()
+    if "org" not in allowed_scopes:
+        raise HTTPException(status_code=403, detail="org watchlists are disabled for this tenant")
+    watchlist = Watchlist(
+        tenant_id=tenant.id,
+        owner_user_id=None,
+        created_by_user_id=uuid.UUID(auth.user_id) if auth.user_id else None,
+        name=body.name.strip() or "Org watchlist",
+        scope="org",
+        description=body.description,
+        expiry_hours=normalize_watchlist_expiry(body.expiry_hours, tenant=tenant),
+        export_formats=dict(config.get("export_formats") or {}),
+        public_slug=normalize_watchlist_slug(body.public_slug) if body.public_slug else None,
+        allow_unauthenticated=body.allow_unauthenticated,
+        active=True,
+    )
+    db.add(watchlist)
+    await db.flush()
+    await db.commit()
+    return {
+        "id": str(watchlist.id),
+        "name": watchlist.name,
+        "scope": watchlist.scope,
+        "expiry_hours": watchlist.expiry_hours,
+        "description": watchlist.description,
+        "public_slug": watchlist.public_slug,
+        "allow_unauthenticated": watchlist.allow_unauthenticated,
+    }
 
 
 class UserAgentBody(BaseModel):

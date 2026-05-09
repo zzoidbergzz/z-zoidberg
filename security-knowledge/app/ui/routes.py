@@ -99,7 +99,10 @@ async def ui_search(request: Request):
 async def ui_admin(request: Request):
     if not _authed(request):
         return _login_redirect("/admin")
-    return templates.TemplateResponse(request, "admin.html", {"current_user": get_template_user(request)})
+    current_user = get_template_user(request)
+    if not current_user or current_user.get("role") not in {"admin", "superadmin"}:
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse(request, "admin.html", {"current_user": current_user})
 
 
 @ui_router.get("/ingest", response_class=HTMLResponse)

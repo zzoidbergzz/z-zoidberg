@@ -39,6 +39,7 @@ from app.routers.metrics import router as metrics_router
 from app.routers.mitre import router as mitre_router
 from app.routers.pingback import router as pingback_router
 from app.routers.search import router as search_router
+from app.routers.watchlists import router as watchlists_router
 from app.routers.sectors import router as sectors_router
 from app.routers.sources import router as sources_router
 from app.routers.stix import router as stix_router
@@ -192,6 +193,7 @@ app.include_router(mcp_router, prefix="/api/v1")
 app.include_router(taxii_router)
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(pingback_router, prefix="/api/v1")
+app.include_router(watchlists_router, prefix="/api/v1")
 app.include_router(sectors_router, prefix="/api/v1")
 app.include_router(mitre_router, prefix="/api/v1")
 app.include_router(export_router, prefix="/api/v1")

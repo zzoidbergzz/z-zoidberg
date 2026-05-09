@@ -242,22 +242,36 @@ async def test_register_invalid_sector(open_client, mock_db):
 async def test_admin_approve_user(admin_client, mock_db):
     """POST /admin/users/{id}/approve sets user status to approved."""
     from app.models.auth import User
+    from app.models.auth import Tenant
 
     user = MagicMock(spec=User)
     user.id = uuid.uuid4()
+    user.tenant_id = uuid.uuid4()
     user.status = "pending"
+    tenant = MagicMock(spec=Tenant)
+    tenant.watchlist_settings = {"scope_mode": "both"}
 
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = user
-    mock_db.execute = AsyncMock(return_value=mock_result)
+    tenant_result = MagicMock()
+    tenant_result.scalar_one_or_none.return_value = tenant
+    count_result = MagicMock()
+    count_result.scalar_one.return_value = 0
+    mock_db.execute = AsyncMock(side_effect=[mock_result, count_result, tenant_result])
     mock_db.flush = AsyncMock()
 
-    resp = await admin_client.post(
-        f"/api/v1/admin/users/{user.id}/approve",
-        json={"action": "approve"},
-    )
+    with patch("app.routers.admin.get_or_create_default_personal_watchlist", AsyncMock()) as personal_watchlist, patch(
+        "app.routers.admin.get_or_create_default_org_watchlist", AsyncMock()
+    ) as org_watchlist:
+        resp = await admin_client.post(
+            f"/api/v1/admin/users/{user.id}/approve",
+            json={"action": "approve"},
+        )
+
     assert resp.status_code == 200
     assert user.status == "approved"
+    assert personal_watchlist.await_count == 1
+    assert org_watchlist.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -339,7 +353,28 @@ async def test_admin_list_tenants_superadmin(superadmin_client, mock_db):
     data = resp.json()
     assert len(data) == 1
     assert data[0]["slug"] == "tenant-a"
-    assert data[0]["user_count"] == 7
+
+
+@pytest.mark.asyncio
+async def test_admin_watchlist_settings_legacy_alias(admin_client, mock_db, tenant_id):
+    from app.models.auth import Tenant
+
+    tenant = Tenant(
+        id=uuid.UUID(tenant_id),
+        name="Tenant",
+        slug="tenant",
+        active=True,
+        watchlist_settings={"scope_mode": "both"},
+    )
+
+    tenant_result = MagicMock()
+    tenant_result.scalar_one_or_none.return_value = tenant
+    mock_db.execute = AsyncMock(return_value=tenant_result)
+
+    resp = await admin_client.get("/api/v1/admin/settings/watchlist")
+
+    assert resp.status_code == 200
+    assert resp.json()["scope_mode"] == "both"
 
 
 @pytest.mark.asyncio

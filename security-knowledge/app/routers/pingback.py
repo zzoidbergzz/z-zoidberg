@@ -2,19 +2,28 @@
 from __future__ import annotations
 import hashlib
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.auth.dependencies import get_auth, require_scope, Scope, AuthContext
 from app.models.pingback import IocWatch, IocSighting, IocContact
+from app.models.auth import Tenant
 from app.models.digests import InboxItem
 from app.models.sectors import Sector, SectorMembership
+from app.services.watchlists import (
+    get_or_create_default_personal_watchlist,
+    tenant_watchlist_config,
+    watchlist_expires_at,
+    watchlist_is_expired,
+)
+from app.models.watchlists import Watchlist
 
 router = APIRouter(tags=["pingback"])
 
@@ -27,22 +36,34 @@ class CreateWatchBody(BaseModel):
     ioc_value: str
     ioc_kind: str
     mode: str = "ping"
+    watchlist_id: Optional[uuid.UUID] = None
     sector_context: Optional[str] = None
     contact_note: Optional[str] = None
     notify_inbox: bool = True
     notify_email: bool = False
 
 
+class MoveWatchBody(BaseModel):
+    watchlist_id: uuid.UUID | None = None
+    comment: Optional[str] = None
+
+
 class WatchOut(BaseModel):
     id: str
     ioc_kind: str
     ioc_value_display: str
+    comment: Optional[str] = None
     mode: str
     active: bool
     sighting_count: int
     last_sighted_at: Optional[datetime]
     sector_context: Optional[str]
     created_at: datetime
+    watchlist_id: Optional[str] = None
+    watchlist_name: Optional[str] = None
+    watchlist_scope: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    expired: bool = False
 
 
 class SightingOut(BaseModel):
@@ -117,24 +138,49 @@ async def create_watch(
 
     ioc_hash = _hash_ioc(body.ioc_value)
     now = datetime.now(timezone.utc)
+    tenant = await db.execute(select(Tenant).where(Tenant.id == uuid.UUID(auth.tenant_id)))
+    tenant_row = tenant.scalar_one_or_none()
+    tenant_config = tenant_watchlist_config(tenant_row)
+    watchlist: Watchlist | None = None
+    if body.watchlist_id:
+        watchlist = (await db.execute(
+            select(Watchlist).where(
+                Watchlist.id == body.watchlist_id,
+                Watchlist.tenant_id == uuid.UUID(auth.tenant_id),
+            )
+        )).scalar_one_or_none()
+        if not watchlist:
+            raise HTTPException(status_code=404, detail="Watchlist not found")
+    else:
+        watchlist = await get_or_create_default_personal_watchlist(
+            db,
+            tenant=tenant_row,
+            tenant_id=uuid.UUID(auth.tenant_id),
+            user_id=uuid.UUID(auth.user_id),
+            scope_mode=tenant_config.get("scope_mode"),
+        )
 
     # Check for existing watch
-    existing = await db.execute(
-        select(IocWatch).where(
-            IocWatch.user_id == uuid.UUID(auth.user_id),
-            IocWatch.ioc_value_hash == ioc_hash,
-            IocWatch.mode == body.mode,
-        )
+    existing_stmt = select(IocWatch).where(
+        IocWatch.ioc_value_hash == ioc_hash,
+        IocWatch.mode == body.mode,
     )
+    if watchlist:
+        existing_stmt = existing_stmt.where(IocWatch.watchlist_id == watchlist.id)
+    else:
+        existing_stmt = existing_stmt.where(IocWatch.user_id == uuid.UUID(auth.user_id))
+    existing = await db.execute(existing_stmt)
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Watch already exists for this IOC and mode")
 
     watch = IocWatch(
         user_id=uuid.UUID(auth.user_id),
         tenant_id=uuid.UUID(auth.tenant_id),
+        watchlist_id=watchlist.id if watchlist else None,
         ioc_kind=body.ioc_kind,
         ioc_value_hash=ioc_hash,
         ioc_value_display=body.ioc_value,
+        comment=None,
         mode=body.mode,
         sector_context=body.sector_context,
         contact_note=body.contact_note,
@@ -152,12 +198,18 @@ async def create_watch(
         id=str(watch.id),
         ioc_kind=watch.ioc_kind,
         ioc_value_display=watch.ioc_value_display,
+        comment=watch.comment,
         mode=watch.mode,
         active=watch.active,
         sighting_count=watch.sighting_count,
         last_sighted_at=watch.last_sighted_at,
         sector_context=watch.sector_context,
         created_at=watch.created_at,
+        watchlist_id=str(watchlist.id) if watchlist else None,
+        watchlist_name=watchlist.name if watchlist else None,
+        watchlist_scope=watchlist.scope if watchlist else None,
+        expires_at=watchlist_expires_at(watchlist) if watchlist else None,
+        expired=watchlist_is_expired(watchlist) if watchlist else False,
     )
 
 
@@ -169,20 +221,106 @@ async def list_watches(
     if not auth.user_id:
         raise HTTPException(status_code=403, detail="User context required")
     result = await db.execute(
-        select(IocWatch).where(IocWatch.user_id == uuid.UUID(auth.user_id))
+        select(IocWatch).options(selectinload(IocWatch.watchlist)).where(IocWatch.user_id == uuid.UUID(auth.user_id))
     )
     watches = result.scalars().all()
     return [WatchOut(
         id=str(w.id),
         ioc_kind=w.ioc_kind,
         ioc_value_display=w.ioc_value_display,
+        comment=w.comment,
         mode=w.mode,
         active=w.active,
         sighting_count=w.sighting_count,
         last_sighted_at=w.last_sighted_at,
         sector_context=w.sector_context,
         created_at=w.created_at,
+        watchlist_id=str(w.watchlist_id) if w.watchlist_id else None,
+        watchlist_name=w.watchlist.name if w.watchlist else None,
+        watchlist_scope=w.watchlist.scope if w.watchlist else None,
+        expires_at=watchlist_expires_at(w.watchlist) if w.watchlist else None,
+        expired=watchlist_is_expired(w.watchlist) if w.watchlist else False,
     ) for w in watches]
+
+
+@router.patch("/iocs/watches/{watch_id}", response_model=WatchOut)
+async def move_watch(
+    watch_id: uuid.UUID,
+    body: MoveWatchBody,
+    auth: AuthContext = Depends(require_scope(Scope.watch)),
+    db: AsyncSession = Depends(get_db),
+):
+    if not auth.user_id:
+        raise HTTPException(status_code=403, detail="User context required")
+    tenant_id = uuid.UUID(auth.tenant_id)
+    user_id = uuid.UUID(auth.user_id)
+    watch_result = await db.execute(
+        select(IocWatch).options(selectinload(IocWatch.watchlist)).where(
+            IocWatch.id == watch_id,
+            IocWatch.user_id == user_id,
+            IocWatch.tenant_id == tenant_id,
+        )
+    )
+    watch = watch_result.scalar_one_or_none()
+    if not watch:
+        raise HTTPException(status_code=404, detail="Watch not found")
+
+    target = watch.watchlist
+    if target is None and watch.watchlist_id is not None:
+        target_result = await db.execute(
+            select(Watchlist).where(
+                Watchlist.id == watch.watchlist_id,
+                Watchlist.tenant_id == tenant_id,
+            )
+        )
+        target = target_result.scalar_one_or_none()
+    if body.watchlist_id is not None:
+        target_result = await db.execute(
+            select(Watchlist).where(
+                Watchlist.id == body.watchlist_id,
+                Watchlist.tenant_id == tenant_id,
+            )
+        )
+        target = target_result.scalar_one_or_none()
+        if not target:
+            raise HTTPException(status_code=404, detail="Watchlist not found")
+        if target.scope == "personal" and target.owner_user_id != user_id and not auth.has_scope(Scope.admin):
+            raise HTTPException(status_code=403, detail="Watchlist admin access required")
+
+        duplicate_result = await db.execute(
+            select(IocWatch).where(
+                IocWatch.watchlist_id == target.id,
+                IocWatch.ioc_value_hash == watch.ioc_value_hash,
+                IocWatch.mode == watch.mode,
+                IocWatch.id != watch.id,
+            )
+        )
+        if duplicate_result.scalar_one_or_none():
+            raise HTTPException(status_code=409, detail="Watch already exists for this IOC and mode")
+
+        watch.watchlist_id = target.id
+    if body.comment is not None:
+        watch.comment = body.comment.strip() or None
+    await db.flush()
+    await db.refresh(watch)
+
+    return WatchOut(
+        id=str(watch.id),
+        ioc_kind=watch.ioc_kind,
+        ioc_value_display=watch.ioc_value_display,
+        comment=watch.comment,
+        mode=watch.mode,
+        active=watch.active,
+        sighting_count=watch.sighting_count,
+        last_sighted_at=watch.last_sighted_at,
+        sector_context=watch.sector_context,
+        created_at=watch.created_at,
+        watchlist_id=str(target.id),
+        watchlist_name=target.name,
+        watchlist_scope=target.scope,
+        expires_at=watchlist_expires_at(target),
+        expired=watchlist_is_expired(target),
+    )
 
 
 @router.delete("/iocs/watches/{watch_id}", status_code=status.HTTP_204_NO_CONTENT)

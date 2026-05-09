@@ -140,6 +140,14 @@
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   }
 
+  function isMonitorableKind(kind) {
+    if (window.ZjeWatchlists?.isMonitorableKind) {
+      return window.ZjeWatchlists.isMonitorableKind(kind);
+    }
+    const k = String(kind || "").toLowerCase();
+    return ["url", "domain", "host", "hostname", "ip", "ip_address"].includes(k);
+  }
+
   function onionViewUrl(url) {
     if (!url) return null;
     try {
@@ -229,7 +237,11 @@
     if (e.mitre_attack_id) {
       badges.innerHTML += ' <span class="tiny-pill">' + esc(e.mitre_attack_id) + '</span>';
     }
+    if (isMonitorableKind(kind)) {
+      badges.innerHTML += ' <button type="button" class="button-muted" data-monitor-ioc="' + esc(name) + '" data-monitor-kind="' + esc(kind) + '">Monitor IOC</button>';
+    }
     document.getElementById("entity-header").style.display = "";
+    window.ZjeWatchlists?.syncButtons?.(document.getElementById("entity-header"));
 
     // Meta grid
     const meta = document.getElementById("meta-grid");

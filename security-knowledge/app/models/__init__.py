@@ -19,6 +19,7 @@ from app.models.sectors import Sector, SectorInvite, SectorMembership
 from app.models.sources import FetchOutcome, RawObject, SourceRecord
 from app.models.sync import SyncState, TaxiiCollection
 from app.models.flags import FlaggedItem
+from app.models.watchlists import Watchlist, WatchlistExportToken
 from app.models.webhooks import WebhookDelivery, WebhookSubscription
 
 __all__ = [
@@ -42,5 +43,6 @@ __all__ = [
     "SyncState", "TaxiiCollection",
     "Sector", "SectorMembership", "SectorInvite",
     "IocWatch", "IocSighting", "IocContact",
+    "Watchlist", "WatchlistExportToken",
     "CorpusDocument",
 ]

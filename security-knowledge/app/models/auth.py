@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum as PyEnum
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
@@ -25,6 +25,7 @@ class Tenant(Base, UUIDMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    watchlist_settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     api_keys: Mapped[list["ApiKey"]] = relationship("ApiKey", back_populates="tenant")
     users: Mapped[list["User"]] = relationship("User", back_populates="tenant")
 

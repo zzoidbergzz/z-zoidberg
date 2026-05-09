@@ -4,8 +4,10 @@ import hashlib
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import select, update
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.pingback import IocWatch, IocSighting, IocContact
+from app.services.watchlists import watchlist_is_expired
 from app.models.digests import InboxItem
 from app.models.sectors import Sector, SectorMembership
 import structlog
@@ -43,13 +45,15 @@ async def check_and_notify(
         select(IocWatch).where(
             IocWatch.ioc_value_hash == ioc_hash,
             IocWatch.active == True,  # noqa: E712
-        )
+        ).options(selectinload(IocWatch.watchlist))
     )
     watches = result.scalars().all()
 
     count = 0
     for watch in watches:
         # Don't notify watcher if they are the seeker
+        if watch.watchlist and watchlist_is_expired(watch.watchlist, now):
+            continue
         if seeker_user_id and str(watch.user_id) == seeker_user_id:
             continue
 

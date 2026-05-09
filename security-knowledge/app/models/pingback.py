@@ -15,14 +15,16 @@ class IocWatch(Base, UUIDMixin):
     """
     __tablename__ = "ioc_watches"
     __table_args__ = (
-        UniqueConstraint("user_id", "ioc_value_hash", "mode", name="uq_ioc_watch_user_ioc_mode"),
+        UniqueConstraint("watchlist_id", "ioc_value_hash", "mode", name="uq_ioc_watch_list_ioc_mode"),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    watchlist_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("watchlists.id", ondelete="CASCADE"), nullable=True, index=True)
     ioc_kind: Mapped[str] = mapped_column(String(50), nullable=False)
     ioc_value_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     ioc_value_display: Mapped[str] = mapped_column(String(512), nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     mode: Mapped[str] = mapped_column(String(10), nullable=False, default="ping")
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -38,6 +40,7 @@ class IocWatch(Base, UUIDMixin):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     sightings: Mapped[list["IocSighting"]] = relationship("IocSighting", back_populates="watch")
+    watchlist: Mapped["Watchlist | None"] = relationship("Watchlist", back_populates="items")
 
 
 class IocSighting(Base, UUIDMixin):

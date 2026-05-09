@@ -54,6 +54,35 @@
     </table>
   </section>
 
+  <section class="card" id="watchlist-admin-card">
+    <h3>Watchlists</h3>
+    <div id="watchlist-admin-status" class="muted"></div>
+    <div class="row" style="gap:0.5rem; margin-bottom:0.5rem; flex-wrap:wrap;">
+      <select id="watchlist-scope-mode">
+        <option value="personal">personal</option>
+        <option value="org">org-wide</option>
+        <option value="both">both</option>
+      </select>
+      <input id="watchlist-default-expiry" type="number" min="0" max="12960" placeholder="default expiry hours">
+      <input id="watchlist-max-expiry" type="number" min="0" max="12960" placeholder="max expiry hours">
+      <button class="button" id="watchlist-settings-save">Save watchlist settings</button>
+    </div>
+    <div class="row" style="gap:0.5rem; margin-bottom:0.5rem; flex-wrap:wrap;">
+      <input id="org-watchlist-name" placeholder="Org watchlist name" />
+      <input id="org-watchlist-slug" placeholder="short-name (tlp-green-ioc)" />
+      <input id="org-watchlist-expiry" type="number" min="0" max="12960" value="12960" />
+      <label class="tiny-pill" style="display:flex;align-items:center;gap:0.35rem;">
+        <input id="org-watchlist-public" type="checkbox">
+        Allow unauthenticated access
+      </label>
+      <button class="button" id="org-watchlist-create">Create org watchlist</button>
+      <button class="button-muted" id="watchlist-refresh">Refresh</button>
+    </div>
+    <div id="watchlist-admin-body" class="watchlist-admin-body">
+      <div class="muted">Loading…</div>
+    </div>
+  </section>
+
   <section class="card">
     <h3>Feed sources</h3>
     <div id="sources-status" class="muted"></div>
@@ -90,6 +119,8 @@
   const escape = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   let tenants = [];
   let isSuperadmin = false;
+  let watchlistConfig = null;
+  let orgWatchlists = [];
 
   async function loadStats() {
     const grid = document.getElementById("stats-grid");
@@ -169,6 +200,80 @@
       return;
     }
     tbody.innerHTML = tenants.map(t => `<tr><td>${escape(t.name)}</td><td>${escape(t.slug)}</td><td>${escape(t.user_count)}</td><td>${fmt(t.created_at)}</td></tr>`).join("");
+  }
+
+  async function loadWatchlistSettings() {
+    const status = document.getElementById("watchlist-admin-status");
+    const scope = document.getElementById("watchlist-scope-mode");
+    const def = document.getElementById("watchlist-default-expiry");
+    const max = document.getElementById("watchlist-max-expiry");
+    const r = await fetch("/api/v1/admin/watchlist-settings", {credentials:"same-origin"});
+    if (!r.ok) {
+      status.textContent = r.status === 403 ? "No watchlist admin access." : `Failed to load watchlist settings: ${r.status}`;
+      return;
+    }
+    watchlistConfig = await r.json();
+    scope.value = watchlistConfig.scope_mode || "both";
+    def.value = watchlistConfig.default_expiry_hours ?? 12960;
+    max.value = watchlistConfig.max_expiry_hours ?? 12960;
+    status.textContent = watchlistConfig.tenant_missing
+      ? `Tenant not found; showing defaults (${def.value}h default, ${max.value}h max).`
+      : `Default expiry ${def.value}h · max ${max.value}h`;
+  }
+
+  async function loadWatchlists() {
+    const body = document.getElementById("watchlist-admin-body");
+    const status = document.getElementById("watchlist-admin-status");
+    const r = await fetch("/api/v1/watchlists", {credentials:"same-origin"});
+    if (!r.ok) {
+      body.innerHTML = `<div class="muted">Failed to load watchlists: ${r.status}</div>`;
+      return;
+    }
+    const data = await r.json();
+    orgWatchlists = (data.watchlists || []).filter(w => w.scope === "org");
+    if (!orgWatchlists.length) {
+      body.innerHTML = `<div class="muted">No org watchlists yet.</div>`;
+      return;
+    }
+    body.innerHTML = orgWatchlists.map(w => `
+      <div class="watchlist-group">
+        <div class="watchlist-group-title">
+          <div>
+            <strong>${escape(w.name)}</strong>
+            <div class="watchlist-item-meta">${escape(w.scope)} · ${escape(String(w.expiry_hours || 0))}h · ${escape(String(w.counts?.items || 0))} items</div>
+          </div>
+          <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+            ${(w.exports && Object.entries(w.exports).length) ? Object.entries(w.exports).map(([fmt, url]) => `<a class="button-muted" href="${url}" target="_blank" rel="noopener">${escape(fmt.toUpperCase())}</a>`).join("") : ""}
+            ${(w.public_exports && Object.entries(w.public_exports).length) ? Object.entries(w.public_exports).map(([fmt, url]) => `<a class="button" href="${url}" target="_blank" rel="noopener">${escape(fmt.toUpperCase())} public</a>`).join("") : ""}
+            <button class="button-danger" type="button" data-watchlist-delete="${w.id}">Delete</button>
+          </div>
+        </div>
+        <div class="watchlist-item-meta">
+          ${w.public_slug ? `short-name: ${escape(w.public_slug)}${w.allow_unauthenticated ? " · public access on" : ""}` : ""}
+        </div>
+        <div class="row" style="gap:0.5rem; margin:0.35rem 0 0.6rem; flex-wrap:wrap;">
+          <input id="watchlist-slug-${w.id}" value="${escape(w.public_slug || "")}" placeholder="short-name" style="max-width:14rem;">
+          <label class="tiny-pill" style="display:flex;align-items:center;gap:0.35rem;">
+            <input type="checkbox" id="watchlist-public-${w.id}" ${w.allow_unauthenticated ? "checked" : ""}>
+            Allow unauthenticated access
+          </label>
+          <button class="button-muted" type="button" data-watchlist-save="${w.id}">Save public settings</button>
+        </div>
+        <div class="watchlist-items">
+          ${(w.items || []).map(item => `
+            <div class="watchlist-item">
+              <div class="watchlist-item-main">
+                <div class="watchlist-item-value">${escape(item.ioc_value_display)}</div>
+                <div class="watchlist-item-meta">${escape(item.ioc_kind)} · ${escape(item.mode)} · ${escape(String(item.sighting_count || 0))} sightings</div>
+                ${item.comment ? `<div class="watchlist-item-meta">comment: ${escape(item.comment)}</div>` : ""}
+              </div>
+              <button class="button-muted" type="button" data-watch-comment="${escape(item.id)}" data-watch-comment-value="${escape(item.comment || "")}">Edit comment</button>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `).join("");
+    status.textContent = `${orgWatchlists.length} org watchlists`;
   }
 
   async function loadPending() {
@@ -263,6 +368,127 @@
     await loadUsers(document.getElementById("user-status-filter").value);
   });
 
+  document.getElementById("watchlist-settings-save").addEventListener("click", async () => {
+    const status = document.getElementById("watchlist-admin-status");
+    const scope_mode = document.getElementById("watchlist-scope-mode").value;
+    const default_expiry_hours = Number(document.getElementById("watchlist-default-expiry").value || 0);
+    const max_expiry_hours = Number(document.getElementById("watchlist-max-expiry").value || 0);
+    const r = await fetch("/api/v1/admin/watchlist-settings", {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({scope_mode, default_expiry_hours, max_expiry_hours}),
+    });
+    if (r.ok) {
+      status.textContent = "Watchlist settings saved.";
+      await loadWatchlistSettings();
+    } else {
+      const err = await r.json().catch(() => ({detail: "error"}));
+      status.textContent = `Save failed: ${err.detail || r.status}`;
+    }
+  });
+
+  document.getElementById("org-watchlist-create").addEventListener("click", async () => {
+    const name = document.getElementById("org-watchlist-name").value.trim();
+    const public_slug = document.getElementById("org-watchlist-slug").value.trim();
+    const expiry_hours = Number(document.getElementById("org-watchlist-expiry").value || 0);
+    const allow_unauthenticated = document.getElementById("org-watchlist-public").checked;
+    const status = document.getElementById("watchlist-admin-status");
+    if (!name) {
+      status.textContent = "Enter a watchlist name first.";
+      return;
+    }
+    const r = await fetch("/api/v1/admin/watchlists", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name, scope: "org", expiry_hours, public_slug, allow_unauthenticated}),
+    });
+    if (r.ok) {
+      document.getElementById("org-watchlist-name").value = "";
+      document.getElementById("org-watchlist-slug").value = "";
+      document.getElementById("org-watchlist-public").checked = false;
+      status.textContent = "Org watchlist created.";
+      await loadWatchlists();
+    } else {
+      const err = await r.json().catch(() => ({detail: "error"}));
+      status.textContent = `Create failed: ${err.detail || r.status}`;
+    }
+  });
+
+  document.getElementById("watchlist-refresh").addEventListener("click", async () => {
+    await loadWatchlistSettings();
+    await loadWatchlists();
+  });
+
+  document.getElementById("watchlist-admin-body").addEventListener("click", async (ev) => {
+    const commentBtn = ev.target.closest("button[data-watch-comment]");
+    if (commentBtn) {
+      const current = commentBtn.dataset.watchCommentValue || "";
+      const next = window.prompt("Watchlist item comment", current);
+      if (next === null) return;
+      commentBtn.disabled = true;
+      try {
+        const r = await fetch(`/api/v1/iocs/watches/${commentBtn.dataset.watchComment}`, {
+          method: "PATCH",
+          credentials: "same-origin",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({comment: next}),
+        });
+        if (r.ok) {
+          await loadWatchlists();
+        } else {
+          const err = await r.json().catch(() => ({detail: "error"}));
+          alert(`comment save failed: ${err.detail || r.status}`);
+        }
+      } finally {
+        commentBtn.disabled = false;
+      }
+      return;
+    }
+    const saveBtn = ev.target.closest("button[data-watchlist-save]");
+    if (saveBtn) {
+      const id = saveBtn.dataset.watchlistSave;
+      const slug = document.getElementById(`watchlist-slug-${id}`).value.trim();
+      const publicAccess = document.getElementById(`watchlist-public-${id}`).checked;
+      const status = document.getElementById("watchlist-admin-status");
+      saveBtn.disabled = true;
+      const r = await fetch(`/api/v1/watchlists/${id}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({public_slug: slug, allow_unauthenticated: publicAccess}),
+      });
+      if (r.ok) {
+        status.textContent = "Public settings saved.";
+        await loadWatchlists();
+      } else {
+        const err = await r.json().catch(() => ({detail: "error"}));
+        status.textContent = `Save failed: ${err.detail || r.status}`;
+        saveBtn.disabled = false;
+      }
+      return;
+    }
+    const btn = ev.target.closest("button[data-watchlist-delete]");
+    if (!btn) return;
+    const id = btn.dataset.watchlistDelete;
+    const status = document.getElementById("watchlist-admin-status");
+    if (!confirm("Delete this watchlist?")) return;
+    btn.disabled = true;
+    const r = await fetch(`/api/v1/watchlists/${id}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    if (r.ok || r.status === 204) {
+      status.textContent = "Watchlist deleted.";
+      await loadWatchlists();
+    } else {
+      const err = await r.json().catch(() => ({detail: "error"}));
+      status.textContent = `Delete failed: ${err.detail || r.status}`;
+      btn.disabled = false;
+    }
+  });
+
   async function loadSources() {
     const tbody = document.querySelector("#sources-table tbody");
     tbody.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
@@ -336,6 +562,8 @@
 
   (async () => {
     await loadTenants();
+    await loadWatchlistSettings();
+    await loadWatchlists();
     await loadStats();
     await loadPending();
     await loadUsers(document.getElementById("user-status-filter").value);
