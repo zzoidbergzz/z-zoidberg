@@ -22,6 +22,7 @@ from app.mcp.tools import (  # noqa: F401
     search_knowledge,
     searxng_search,
     sources,
+    unified_search,
 )
 
 # Dark-Moon bridge — registers dm_* tools when DARK_MOON_ENABLED=true.
