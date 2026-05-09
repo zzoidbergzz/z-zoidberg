@@ -21,53 +21,82 @@
   font-family: 'Inter', 'Space Grotesk', system-ui, sans-serif;
 }
 
-/* ── Feed Ticker ── */
-.feed-section { width: 100%; max-width: 860px; margin-bottom: 1.5rem; }
-.feed-tabs { display: flex; gap: 0; border-bottom: 2px solid #2a2a4a; margin-bottom: 0; }
-.feed-tab {
-  background: transparent; border: none; color: #888; padding: 0.6rem 1rem;
-  font-size: 0.85rem; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
-  font-family: 'Inter', system-ui, sans-serif; font-weight: 600;
+/* ── Dashboard Tiles ── */
+.dashboard-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  max-width: 1200px;
+  margin-bottom: 1.5rem;
 }
-.feed-tab:hover { color: var(--foam); }
-.feed-tab.active { color: var(--zl-accent); border-bottom-color: var(--zl-accent); }
-.feed-body {
-  background: var(--deep); border: 1px solid #2a2a4a; border-top: none;
-  border-radius: 0 0 8px 8px; padding: 0.5rem; min-height: 80px; max-height: 180px; overflow-y: auto;
+.tile {
+  background: var(--deep);
+  border: 1px solid #2a2a4a;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
-.feed-panel { display: none; }
-.feed-panel.active { display: block; }
-.feed-item {
-  display: flex; align-items: center; padding: 0.3rem 0.5rem; gap: 0.5rem;
-  font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05);
+.tile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid #2a2a4a;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--foam);
+  background: rgba(255,255,255,0.03);
 }
-.feed-item:last-child { border-bottom: none; }
-.feed-time { color: #666; font-size: 0.75rem; font-variant-numeric: tabular-nums; min-width: 3rem; }
-.feed-text { flex: 1; color: var(--foam); }
-.feed-text a { color: var(--zl-accent); text-decoration: none; }
-.feed-text a:hover { text-decoration: underline; }
-.feed-text.bold { font-weight: 700; }
+.tile-header-left { display: flex; align-items: center; gap: 0.4rem; }
+.tile-body {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 220px;
+}
+.tile-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.tile-item:last-child { border-bottom: none; }
+.tile-meta { color: #666; font-size: 0.72rem; white-space: nowrap; min-width: 3rem; }
+.tile-title { flex: 1; color: var(--foam); word-break: break-word; }
+.tile-title a { color: var(--zl-accent); text-decoration: none; }
+.tile-title a:hover { text-decoration: underline; }
+.tile-title.bold { font-weight: 700; }
+.tile-empty { padding: 1.5rem; color: #666; font-size: 0.82rem; text-align: center; font-style: italic; }
+.tile-loading { padding: 1.5rem; color: #666; font-size: 0.82rem; text-align: center; }
+.tile-err { padding: 1rem 0.75rem; color: #e07a3a; font-size: 0.78rem; }
 .flag-btn {
   background: none; border: 1px solid #2a2a4a; border-radius: 4px;
-  cursor: pointer; font-size: 0.8rem; padding: 0.1rem 0.3rem;
+  cursor: pointer; font-size: 0.78rem; padding: 0.1rem 0.28rem; flex-shrink: 0;
 }
 .flag-btn:hover { border-color: var(--zl-accent); }
 .flag-btn.flagged { background: var(--zl-accent); color: #fff; border-color: var(--zl-accent); }
-.flagged-filters { display: flex; gap: 0.3rem; padding: 0.5rem 0.5rem 0.3rem; border-bottom: 1px solid #2a2a4a; flex-wrap: wrap; }
-.flag-filter {
-  background: transparent; border: 1px solid #2a2a4a; border-radius: 4px;
-  color: #888; padding: 0.2rem 0.5rem; font-size: 0.72rem; cursor: pointer;
-}
-.flag-filter:hover { border-color: var(--zl-accent); color: var(--zl-accent); }
-.flag-filter.active { background: var(--zl-accent); color: #fff; border-color: var(--zl-accent); }
-.flag-status { font-size: 0.75rem; color: var(--zl-accent); }
-.flagged-item.acked .feed-text { font-weight: normal; text-decoration: line-through; opacity: 0.5; }
-.flagged-item.acked .flag-status::after { content: " ✓"; color: #2ecc71; }
+.flag-btn:disabled { opacity: 0.4; cursor: default; }
 .ack-btn {
   background: none; border: 1px solid #2a2a4a; border-radius: 4px;
-  cursor: pointer; font-size: 0.75rem; padding: 0.1rem 0.4rem; color: #2ecc71;
+  cursor: pointer; font-size: 0.72rem; padding: 0.1rem 0.35rem; color: #2ecc71; flex-shrink: 0;
 }
 .ack-btn:hover { border-color: #2ecc71; }
+.flagged-period-row {
+  display: flex; gap: 0.25rem; padding: 0.45rem 0.75rem 0.3rem; flex-wrap: wrap;
+  border-bottom: 1px solid #2a2a4a;
+}
+.period-btn {
+  background: transparent; border: 1px solid #2a2a4a; border-radius: 4px;
+  color: #888; padding: 0.15rem 0.45rem; font-size: 0.68rem; cursor: pointer;
+}
+.period-btn:hover { border-color: var(--zl-accent); color: var(--zl-accent); }
+.period-btn.active { background: var(--zl-accent); color: #fff; border-color: var(--zl-accent); }
+.flag-status { font-size: 0.72rem; color: var(--zl-accent); white-space: nowrap; }
+.tile-item.acked .tile-title { text-decoration: line-through; opacity: 0.5; }
 
 /* ── Hero Search ── */
 .search-hero {
@@ -197,49 +226,55 @@
 {% block content %}
 <main class="search-home">
 
-  <!-- Feed Ticker -->
-  <div class="feed-section">
-    <div class="feed-tabs">
-      <button class="feed-tab active" data-feed="trends">📡 Local Trends</button>
-      <button class="feed-tab" data-feed="news">📰 Cyber News</button>
-      <button class="feed-tab" data-feed="breaches">🔓 Recent Breaches</button>
-      <button class="feed-tab" data-feed="flagged">🚩 Flagged</button>
-    </div>
-    <div class="feed-body">
-      <div class="feed-panel active" id="feed-trends">
-        <div class="feed-items" id="trends-items">
-          <div class="feed-item"><span class="feed-time">09:00</span> <span class="feed-text">Trending: CVE-2024-3400 exploitation surge detected</span> <button class="flag-btn" onclick="flagItem(this)">🚩</button></div>
-          <div class="feed-item"><span class="feed-time">08:45</span> <span class="feed-text">New IOC cluster linked to APT29 infrastructure</span> <button class="flag-btn" onclick="flagItem(this)">🚩</button></div>
-          <div class="feed-item"><span class="feed-time">08:30</span> <span class="feed-text">Volt Typhoon persistence techniques updated in knowledge base</span> <button class="flag-btn" onclick="flagItem(this)">🚩</button></div>
-        </div>
+  <!-- Dashboard Tiles -->
+  <div class="dashboard-tiles">
+
+    <!-- Local Trends -->
+    <div class="tile">
+      <div class="tile-header">
+        <div class="tile-header-left"><span>📡</span> Local Trends</div>
       </div>
-      <div class="feed-panel" id="feed-news">
-        <div class="feed-items" id="news-items">
-          <div class="feed-item"><span class="feed-time">09:15</span> <span class="feed-text"><a href="/search?q=CISA+advisory">CISA releases joint advisory on PRC cyber operations</a></span> <button class="flag-btn" onclick="flagItem(this)">🚩</button></div>
-          <div class="feed-item"><span class="feed-time">08:50</span> <span class="feed-text"><a href="/search?q=Microsoft+Patch+Tuesday">Microsoft Patch Tuesday: 8 critical RCEs patched</a></span> <button class="flag-btn" onclick="flagItem(this)">🚩</button></div>
-          <div class="feed-item"><span class="feed-time">08:20</span> <span class="feed-text"><a href="/search?q=LockBit+law+enforcement">LockBit admin sentenced in UK court</a></span> <button class="flag-btn" onclick="flagItem(this)">🚩</button></div>
-        </div>
-      </div>
-      <div class="feed-panel" id="feed-breaches">
-        <div class="feed-items" id="breaches-items">
-          <div class="feed-item"><span class="feed-time">09:00</span> <span class="feed-text"><a href="/search?q=healthcare+breach">Major US healthcare data breach — 3M records</a></span> <button class="flag-btn" onclick="flagItem(this)">🚩</button></div>
-          <div class="feed-item"><span class="feed-time">07:30</span> <span class="feed-text"><a href="/search?q=ransomware+manufacturing">Manufacturing firm hit by Akira ransomware</a></span> <button class="flag-btn" onclick="flagItem(this)">🚩</button></div>
-        </div>
-      </div>
-      <div class="feed-panel" id="feed-flagged">
-        <div class="flagged-filters">
-          <button class="flag-filter active" data-period="today">Today</button>
-          <button class="flag-filter" data-period="yesterday">Yesterday</button>
-          <button class="flag-filter" data-period="week">This Week</button>
-          <button class="flag-filter" data-period="lastweek">Last Week</button>
-          <button class="flag-filter" data-period="30d">Last 30 Days</button>
-          <button class="flag-filter" data-period="all">All Time</button>
-        </div>
-        <div class="feed-items" id="flagged-items">
-          <div class="feed-item flagged-item"><span class="feed-time">09:00</span> <span class="feed-text bold">CVE-2024-3400 exploitation surge detected</span> <span class="flag-status">🚩 Flagged</span> <button class="ack-btn" onclick="ackItem(this)">✓ ACK</button></div>
-        </div>
+      <div class="tile-body" id="tile-trends">
+        <div class="tile-loading">Loading…</div>
       </div>
     </div>
+
+    <!-- Cyber News -->
+    <div class="tile">
+      <div class="tile-header">
+        <div class="tile-header-left"><span>📰</span> Cyber News</div>
+      </div>
+      <div class="tile-body" id="tile-news">
+        <div class="tile-loading">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Recent Breaches -->
+    <div class="tile">
+      <div class="tile-header">
+        <div class="tile-header-left"><span>🔓</span> Recent Breaches</div>
+      </div>
+      <div class="tile-body" id="tile-breaches">
+        <div class="tile-loading">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Flagged -->
+    <div class="tile">
+      <div class="tile-header">
+        <div class="tile-header-left"><span>🚩</span> Flagged</div>
+      </div>
+      <div class="flagged-period-row" id="flagged-period-row">
+        <button class="period-btn active" data-period="today">Today</button>
+        <button class="period-btn" data-period="week">Week</button>
+        <button class="period-btn" data-period="30d">30d</button>
+        <button class="period-btn" data-period="all">All</button>
+      </div>
+      <div class="tile-body" id="tile-flagged">
+        <div class="tile-loading">Loading…</div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Search Hero -->
@@ -385,36 +420,133 @@
 </main>
 
 <script>
-// Feed tab switching
-document.querySelectorAll('.feed-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.feed-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.feed-panel').forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById('feed-' + tab.dataset.feed).classList.add('active');
-  });
-});
+// ── Dashboard tile loader ─────────────────────────────────────────────────────
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
 
-// Flag period filter
-document.querySelectorAll('.flag-filter').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.flag-filter').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  });
-});
+async function loadTile(id, url, renderer) {
+  const el = document.getElementById(id);
+  try {
+    const r = await fetch(url, { credentials: "same-origin" });
+    if (r.status === 401) { el.innerHTML = '<div class="tile-empty">Session expired — <a href="/login">login</a></div>'; return; }
+    if (!r.ok) { el.innerHTML = `<div class="tile-err">Error ${r.status}</div>`; return; }
+    const data = await r.json();
+    if (!data.length) { el.innerHTML = '<div class="tile-empty">No data yet</div>'; return; }
+    el.innerHTML = data.map(renderer).join("");
+  } catch(e) {
+    el.innerHTML = `<div class="tile-err">Failed to load: ${esc(e.message)}</div>`;
+  }
+}
 
-// Flag an item
-function flagItem(btn) {
-  btn.classList.toggle('flagged');
-  btn.title = btn.classList.contains('flagged') ? 'Unflag' : 'Flag this item';
+// Flag an item via API then update button state
+async function flagItem(btn, item) {
+  btn.disabled = true;
+  try {
+    const r = await fetch("/api/v1/ticker/flag", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_type: item.source,
+        title: item.title,
+        url: item.url || null,
+        external_id: item.id,
+      }),
+    });
+    if (r.ok) {
+      btn.classList.add("flagged");
+      btn.title = "Flagged — see Flagged tile";
+      loadFlagged("today");
+    }
+  } finally { btn.disabled = false; }
 }
 
 // ACK a flagged item
-function ackItem(btn) {
-  const item = btn.closest('.flagged-item');
-  item.classList.toggle('acked');
-  btn.textContent = item.classList.contains('acked') ? '↩ Unack' : '✓ ACK';
+async function ackItem(btn, itemId) {
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/v1/ticker/flag/${itemId}/ack`, {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acked_by: "ui" }),
+    });
+    if (r.ok) {
+      const row = btn.closest(".tile-item");
+      row.classList.add("acked");
+      btn.textContent = "↩";
+    }
+  } finally { btn.disabled = false; }
 }
+
+// ── Trends ───────────────────────────────────────────────────────────────────
+function renderTrend(item) {
+  const link = item.url
+    ? `<a href="${esc(item.url)}">${esc(item.title)}</a>`
+    : esc(item.title);
+  return `<div class="tile-item">
+    <span class="tile-meta">${esc(item.meta)}</span>
+    <span class="tile-title">${link}</span>
+    <button class="flag-btn" title="Flag" onclick='flagItem(this,${JSON.stringify(item)})'>🚩</button>
+  </div>`;
+}
+
+// ── News ─────────────────────────────────────────────────────────────────────
+function renderNews(item) {
+  const link = item.url
+    ? `<a href="${esc(item.url)}" target="_blank" rel="noopener">${esc(item.title)}</a>`
+    : esc(item.title);
+  return `<div class="tile-item">
+    <span class="tile-meta">${esc(item.meta)}</span>
+    <span class="tile-title">${link}</span>
+    <button class="flag-btn" title="Flag" onclick='flagItem(this,${JSON.stringify(item)})'>🚩</button>
+  </div>`;
+}
+
+// ── Breaches ─────────────────────────────────────────────────────────────────
+function renderBreach(item) {
+  const link = item.url
+    ? `<a href="${esc(item.url)}">${esc(item.title)}</a>`
+    : esc(item.title);
+  return `<div class="tile-item">
+    <span class="tile-meta">${esc(item.meta)}</span>
+    <span class="tile-title">${link}</span>
+    <button class="flag-btn" title="Flag" onclick='flagItem(this,${JSON.stringify(item)})'>🚩</button>
+  </div>`;
+}
+
+// ── Flagged ──────────────────────────────────────────────────────────────────
+function renderFlagged(item) {
+  const title = item.url
+    ? `<a href="${esc(item.url)}" target="_blank" rel="noopener">${esc(item.title)}</a>`
+    : esc(item.title);
+  const acked = item.acked_at ? "acked" : "";
+  const ackLabel = item.acked_at ? "✓" : "ACK";
+  return `<div class="tile-item ${acked}">
+    <span class="flag-status">🚩</span>
+    <span class="tile-title bold">${title}</span>
+    <button class="ack-btn" title="Acknowledge" onclick='ackItem(this,"${esc(item.id)}")'>${esc(ackLabel)}</button>
+  </div>`;
+}
+
+async function loadFlagged(period) {
+  await loadTile("tile-flagged", `/api/v1/ticker/flags?period=${encodeURIComponent(period)}`, renderFlagged);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+loadTile("tile-trends",  "/api/v1/ticker/trends",  renderTrend);
+loadTile("tile-news",    "/api/v1/ticker/news",    renderNews);
+loadTile("tile-breaches","/api/v1/ticker/breaches",renderBreach);
+loadFlagged("today");
+
+// Period filter buttons
+document.querySelectorAll("#flagged-period-row .period-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#flagged-period-row .period-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    loadFlagged(btn.dataset.period);
+  });
+});
 
 // IOC Lookup
 async function doLookup(enrich=false) {
