@@ -43,6 +43,7 @@ from app.routers.sectors import router as sectors_router
 from app.routers.sources import router as sources_router
 from app.routers.stix import router as stix_router
 from app.routers.webhooks import router as webhooks_router
+from app.routers.malware import router as malware_router
 from app.taxii.server import taxii_router
 
 configure_logging()
@@ -73,6 +74,10 @@ async def _bootstrap_admin() -> None:
         user_res = await db.execute(select(User).where(User.email == settings.BOOTSTRAP_ADMIN_EMAIL.lower()))
         user = user_res.scalar_one_or_none()
         pw_hash = _bcrypt.hashpw(settings.BOOTSTRAP_ADMIN_PASSWORD.encode(), _bcrypt.gensalt()).decode()
+        is_superadmin = settings.BOOTSTRAP_ADMIN_EMAIL.lower() in {
+            e.strip().lower() for e in settings.SUPERADMIN_EMAILS.split(",") if e.strip()
+        }
+        target_role = UserRole.superadmin if is_superadmin else UserRole.admin
         if not user:
             user = User(
                 id=uuid.uuid4(),
@@ -81,7 +86,7 @@ async def _bootstrap_admin() -> None:
                 full_name=settings.BOOTSTRAP_ADMIN_NAME,
                 hashed_password=pw_hash,
                 status=UserStatus.approved,
-                role=UserRole.admin,
+                role=target_role,
                 active=True,
             )
             db.add(user)
@@ -89,7 +94,7 @@ async def _bootstrap_admin() -> None:
             # Always keep password in sync with .env for easy rotation
             user.hashed_password = pw_hash
             user.status = UserStatus.approved
-            user.role = UserRole.admin
+            user.role = target_role
             user.active = True
         await db.commit()
 
@@ -197,6 +202,7 @@ app.include_router(shortcuts_router)
 app.include_router(lookup_router, prefix="/api/v1")
 app.include_router(ask_router, prefix="/api/v1")
 app.include_router(ticker_router, prefix="/api/v1")
+app.include_router(malware_router, prefix="/api/v1")
 
 # Static files (UI)
 templates_path = Path(__file__).parent.parent / "templates"

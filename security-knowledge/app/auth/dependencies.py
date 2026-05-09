@@ -36,6 +36,10 @@ USER_SCOPES = {Scope.read, Scope.write, Scope.enrichment, Scope.watch, Scope.con
 SUPERADMIN_SCOPES = set(Scope)
 
 
+def _configured_superadmin_emails() -> set[str]:
+    return {e.strip().lower() for e in settings.SUPERADMIN_EMAILS.split(",") if e.strip()}
+
+
 def _parse_scopes(raw: str) -> set[Scope]:
     result: set[Scope] = set()
     for token in raw.replace(",", " ").split():
@@ -84,7 +88,13 @@ async def _resolve_bearer(token: str, db: AsyncSession) -> AuthContext | None:
     user: User | None = result.scalar_one_or_none()
     if user is None or not user.active or user.status != UserStatus.approved:
         return None
-    scopes = ADMIN_SCOPES if user.role == "admin" else USER_SCOPES
+    is_superadmin = user.role == "superadmin" or user.email.lower() in _configured_superadmin_emails()
+    if is_superadmin:
+        scopes = SUPERADMIN_SCOPES
+    elif user.role == "admin":
+        scopes = ADMIN_SCOPES
+    else:
+        scopes = USER_SCOPES
     return AuthContext(tenant_id=tenant_id, scopes=scopes, user_id=str(user.id), user_email=user.email, auth_type="bearer")
 
 

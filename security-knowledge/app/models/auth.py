@@ -16,6 +16,7 @@ class UserStatus(str, PyEnum):
 class UserRole(str, PyEnum):
     user = "user"
     admin = "admin"
+    superadmin = "superadmin"
 
 
 class Tenant(Base, UUIDMixin, TimestampMixin):
@@ -61,7 +62,7 @@ class User(Base, UUIDMixin, TimestampMixin):
 
     @property
     def is_admin(self) -> bool:
-        return self.role == UserRole.admin
+        return self.role in {UserRole.admin, UserRole.superadmin}
 
     @property
     def is_approved(self) -> bool:

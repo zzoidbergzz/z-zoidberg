@@ -542,6 +542,8 @@ async def process_ingest_job(
                             _append_finding("organization", str(item))
                         for item in tor_findings.get("payment_addresses", []):
                             _append_finding("indicator", str(item))
+                        for item in tor_findings.get("payment_urls", []):
+                            _append_finding("url", str(item))
                         for item in tor_findings.get("emails", []):
                             _append_finding("email", str(item))
                         for item in tor_findings.get("ips", []):

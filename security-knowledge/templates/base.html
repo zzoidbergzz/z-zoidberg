@@ -45,7 +45,7 @@
             <a href="/investigation">Investigations</a>
             <a href="/claims">Claims</a>
             <a href="/digests">Digests</a>
-            {% if current_user and current_user.role == 'admin' %}
+            {% if current_user and (current_user.role == 'admin' or current_user.role == 'superadmin') %}
             <a href="/admin">Admin</a>
             {% endif %}
           </div>

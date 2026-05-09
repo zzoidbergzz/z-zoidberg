@@ -37,6 +37,10 @@ VALID_SECTORS = [
 ]
 
 
+def _personal_domains() -> set[str]:
+    return {d.strip().lower() for d in settings.PERSONAL_EMAIL_DOMAINS.split(",") if d.strip()}
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Schemas
 # ──────────────────────────────────────────────────────────────────────────────
@@ -108,27 +112,51 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """Register a new user. Account starts in 'pending' status awaiting admin approval."""
     import bcrypt
 
+    email = req.email.lower().strip()
+
     # Check email uniqueness
-    existing = await db.execute(select(User).where(User.email == req.email))
+    existing = await db.execute(select(User).where(User.email == email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email already registered")
 
+    user_id = uuid.uuid4()
+
     # Resolve or create tenant
-    tenant_name = req.tenant_name or req.email.split("@")[-1]
-    tenant_slug = tenant_name.lower().replace(" ", "-").replace(".", "-")
-    t_result = await db.execute(select(Tenant).where(Tenant.slug == tenant_slug))
-    tenant = t_result.scalar_one_or_none()
-    if not tenant:
-        tenant = Tenant(name=tenant_name, slug=tenant_slug)
+    email_domain = email.split("@")[-1]
+    if req.tenant_name:
+        tenant_name = req.tenant_name
+        tenant_slug = tenant_name.lower().replace(" ", "-").replace(".", "-")
+        t_result = await db.execute(select(Tenant).where(Tenant.slug == tenant_slug))
+        tenant = t_result.scalar_one_or_none()
+        if not tenant:
+            tenant = Tenant(name=tenant_name, slug=tenant_slug)
+            db.add(tenant)
+            await db.flush()
+    elif email_domain in _personal_domains():
+        tenant = Tenant(
+            id=user_id,
+            name=email,
+            slug=f"user-{user_id}",
+        )
         db.add(tenant)
         await db.flush()
+    else:
+        tenant_name = email_domain
+        tenant_slug = tenant_name.lower().replace(" ", "-").replace(".", "-")
+        t_result = await db.execute(select(Tenant).where(Tenant.slug == tenant_slug))
+        tenant = t_result.scalar_one_or_none()
+        if not tenant:
+            tenant = Tenant(name=tenant_name, slug=tenant_slug)
+            db.add(tenant)
+            await db.flush()
 
     # Hash password
     hashed = bcrypt.hashpw(req.password.encode(), bcrypt.gensalt()).decode()
 
     user = User(
+        id=user_id,
         tenant_id=tenant.id,
-        email=req.email,
+        email=email,
         hashed_password=hashed,
         full_name=req.full_name,
         business_sector=req.business_sector or "UK-General",

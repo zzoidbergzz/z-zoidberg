@@ -8,6 +8,12 @@ _EMAIL_RE = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _IPV4_RE = re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\b")
 _DOMAIN_RE = re.compile(r"\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}\b", re.IGNORECASE)
 _ONION_RE = re.compile(r"\b[a-z2-7]{16,56}\.onion\b", re.IGNORECASE)
+_URL_RE = re.compile(r"\bhttps?://[^\s<>'\"`]+", re.IGNORECASE)
+_HTML_LINK_RE = re.compile(r"""(?:href|src)\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
+_ANCHOR_RE = re.compile(
+    r"""<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>""",
+    re.IGNORECASE | re.DOTALL,
+)
 _SHA256_RE = re.compile(r"\b[a-fA-F0-9]{64}\b")
 _SHA1_RE = re.compile(r"\b[a-fA-F0-9]{40}\b")
 _MD5_RE = re.compile(r"\b[a-fA-F0-9]{32}\b")
@@ -29,6 +35,10 @@ _VICTIM_LINE_RE = re.compile(
 )
 _ORG_SUFFIX_RE = re.compile(
     r"\b([A-Z][A-Za-z0-9&'().,\- ]{2,80}\s(?:Inc|Corp|Corporation|Ltd|LLC|Group|Bank|University|Hospital|PLC|GmbH|S\.A\.|AG))\b"
+)
+_PAYMENT_URL_HINT_RE = re.compile(
+    r"(?:pay|payment|wallet|invoice|checkout|ransom|btc|bitcoin|xmr|monero|eth|ethereum|usdt|tron|crypto)",
+    re.IGNORECASE,
 )
 
 
@@ -57,6 +67,25 @@ def _strip_html(raw: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _extract_payment_urls(raw: str, text: str) -> list[str]:
+    candidates = _URL_RE.findall(raw) + _URL_RE.findall(text) + _HTML_LINK_RE.findall(raw)
+    anchor_payment_hrefs: set[str] = set()
+    for href, anchor_text in _ANCHOR_RE.findall(raw):
+        if _PAYMENT_URL_HINT_RE.search(_strip_html(anchor_text)) or _PAYMENT_URL_HINT_RE.search(href):
+            candidates.append(href)
+            anchor_payment_hrefs.add(href.strip())
+    payment_urls: list[str] = []
+    for candidate in candidates:
+        value = (candidate or "").strip().rstrip(".,);]'\"")
+        if not value:
+            continue
+        if value.startswith(("http://", "https://")) and (
+            _PAYMENT_URL_HINT_RE.search(value) or value in anchor_payment_hrefs
+        ):
+            payment_urls.append(value)
+    return _unique(payment_urls, max_items=100)
+
+
 def extract_onion_findings(content: str) -> dict:
     text = _strip_html(content)
 
@@ -71,6 +100,7 @@ def extract_onion_findings(content: str) -> dict:
         _BTC_RE.findall(text) + _ETH_RE.findall(text) + _XMR_RE.findall(text) + _TRON_RE.findall(text),
         max_items=150,
     )
+    payment_urls = _extract_payment_urls(content, text)
     ransom_amounts = _unique(_RANSOM_RE.findall(text), max_items=100)
 
     return {
@@ -82,12 +112,13 @@ def extract_onion_findings(content: str) -> dict:
         "domains": domains,
         "onion_links": onion_links,
         "binaries": binaries,
+        "payment_urls": payment_urls,
         "ransom_amounts": ransom_amounts,
         "summary": {
             "victim_count": len(victims),
             "payment_address_count": len(payment_addresses),
+            "payment_url_count": len(payment_urls),
             "binary_count": len(binaries),
             "ioc_count": len(hashes) + len(ips) + len(domains),
         },
     }
-

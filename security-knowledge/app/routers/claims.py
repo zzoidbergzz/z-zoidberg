@@ -42,6 +42,8 @@ class ClaimOut(BaseModel):
     claim_type: str
     confidence: float
     tenant_id: uuid.UUID
+    entity_id: uuid.UUID | None = None
+    source_url: str | None = None
     model_config = {"from_attributes": True}
 
 
@@ -72,7 +74,13 @@ async def list_claims(
     db: AsyncSession = Depends(get_db),
     auth: AuthContext | dict = Depends(require_read),
 ):
-    q = select(Claim).where(Claim.tenant_id == _tenant_id(auth)).limit(limit).offset(offset)
+    q = (
+        select(Claim)
+        .where(Claim.tenant_id == _tenant_id(auth))
+        .order_by(Claim.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     result = await db.execute(q)
     claims = result.scalars().all()
     return [
@@ -82,6 +90,8 @@ async def list_claims(
             "claim_type": claim.claim_type,
             "confidence": claim.confidence,
             "tenant_id": claim.tenant_id,
+            "entity_id": claim.entity_id,
+            "source_url": (claim.value or {}).get("source_url") if isinstance(claim.value, dict) else None,
         }
         for claim in claims
     ]

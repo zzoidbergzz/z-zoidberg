@@ -86,6 +86,21 @@
       </div>
     </details>
   </section>
+
+  <!-- Malware Binary Access (shown for hash entities from malware repos) -->
+  <section id="malware-section" class="card" style="display:none;">
+    <h3>🦠 Malware Binary Access</h3>
+    <div id="malware-info" style="margin:0.5rem 0;font-size:0.9rem;"></div>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.5rem;">
+      <a id="malware-download-btn" class="button" style="background:#7c2d12;color:#fdba74;text-decoration:none;display:none;" download>
+        📥 Download (ZIP, password: infected)
+      </a>
+      <button id="malware-raw-btn" class="button-muted" style="display:none;" onclick="showMalwareRaw()">
+        👁 Raw Hex View
+      </button>
+    </div>
+    <pre id="malware-raw-output" style="display:none;margin-top:0.75rem;padding:1rem;background:#0d1117;color:#c9d1d9;border-radius:8px;font-size:0.78rem;line-height:1.5;overflow-x:auto;max-height:500px;overflow-y:auto;"></pre>
+  </section>
 </main>
 
 <style>
@@ -320,6 +335,11 @@
     }
     if (evidenceData && evidenceData.length) {
       renderEvidence(evidenceData);
+    }
+
+    // Malware binary access for hash entities from malware repos
+    if (kind === "hash" && extRefs.source && extRefs.source.startsWith("malware-repo")) {
+      loadMalwareSection(entityId, extRefs);
     }
 
     // If nothing rendered, show helpful explanation
@@ -689,5 +709,64 @@
 
   loadAll();
 })();
+
+  async function loadMalwareSection(entityId, extRefs) {
+    const section = document.getElementById("malware-section");
+    const info = document.getElementById("malware-info");
+    const dlBtn = document.getElementById("malware-download-btn");
+    const rawBtn = document.getElementById("malware-raw-btn");
+
+    try {
+      const resp = await fetch(`/api/v1/malware/${entityId}/info`);
+      if (!resp.ok) throw new Error(resp.statusText);
+      const data = await resp.json();
+
+      if (!data.available) {
+        info.innerHTML = `<span style="color:#a1a1aa">Binary not available in repo</span>`;
+        section.style.display = "block";
+        return;
+      }
+
+      info.innerHTML = `
+        <strong>File:</strong> ${data.filename} &nbsp;|&nbsp;
+        <strong>Family:</strong> ${data.family} &nbsp;|&nbsp;
+        <strong>Type:</strong> ${data.file_type} &nbsp;|&nbsp;
+        <strong>Size:</strong> ${(data.size / 1024).toFixed(1)} KB &nbsp;|&nbsp;
+        <strong>Repo:</strong> ${data.repo}<br>
+        <strong>SHA256:</strong> <code>${extRefs.sha256 || data.sha256}</code> &nbsp;|&nbsp;
+        <strong>MD5:</strong> <code>${data.md5 || '\u2014'}</code>
+      `;
+
+      dlBtn.href = `/api/v1/malware/${entityId}/download`;
+      dlBtn.style.display = "inline-block";
+      rawBtn.style.display = "inline-block";
+      section.style.display = "block";
+    } catch (err) {
+      info.innerHTML = `<span style="color:#f87171">Error: ${err.message}</span>`;
+      section.style.display = "block";
+    }
+  }
+
+  async function showMalwareRaw() {
+    const output = document.getElementById("malware-raw-output");
+    const entityId = new URLSearchParams(location.search).get("entity_id") || location.pathname.split("/").pop();
+
+    if (output.style.display === "block") {
+      output.style.display = "none";
+      return;
+    }
+
+    output.textContent = "Loading hex dump...";
+    output.style.display = "block";
+
+    try {
+      const resp = await fetch(`/api/v1/malware/${entityId}/raw`);
+      if (!resp.ok) throw new Error(resp.statusText);
+      const text = await resp.text();
+      output.textContent = text;
+    } catch (err) {
+      output.textContent = `Error: ${err.message}`;
+    }
+  }
 </script>
 {% endblock %}

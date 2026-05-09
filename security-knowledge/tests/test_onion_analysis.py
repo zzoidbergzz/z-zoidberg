@@ -12,6 +12,9 @@ def test_extract_onion_findings_core_fields():
       Hashes: d41d8cd98f00b204e9800998ecf8427e
       IOC: 185.199.108.153 and intranet.acme-hospital.example
       Demand: $1,500,000 payable in 3 BTC
+      Payment portal: https://pay.rhysida.example/checkout?method=btc
+      <a href="https://rhysidafohrhyy2aszi7bm32tnjat5xri65fopcxkdfxhi4tidsg7cad.onion/account/42">Pay now</a>
+      <a href="https://rhysidafohrhyy2aszi7bm32tnjat5xri65fopcxkdfxhi4tidsg7cad.onion/payment">Pay now</a>
       Mirror: abcdefghijklmnop.onion
     </body></html>
     """
@@ -25,6 +28,9 @@ def test_extract_onion_findings_core_fields():
     assert "185.199.108.153" in findings["ips"]
     assert "intranet.acme-hospital.example" in findings["domains"]
     assert "abcdefghijklmnop.onion" in findings["onion_links"]
+    assert "https://pay.rhysida.example/checkout?method=btc" in findings["payment_urls"]
+    assert "https://rhysidafohrhyy2aszi7bm32tnjat5xri65fopcxkdfxhi4tidsg7cad.onion/account/42" in findings["payment_urls"]
+    assert "https://rhysidafohrhyy2aszi7bm32tnjat5xri65fopcxkdfxhi4tidsg7cad.onion/payment" in findings["payment_urls"]
     assert findings["summary"]["payment_address_count"] >= 2
+    assert findings["summary"]["payment_url_count"] >= 3
     assert findings["summary"]["ioc_count"] >= 3
-

@@ -1,6 +1,7 @@
 """Ticker router — feed ticker data for the UI dashboard."""
 from __future__ import annotations
 
+import asyncio
 import re
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import AuthContext, require_read
 from app.database import get_db
+from app.integrations.necti_translator import translate_if_needed
 from app.models.claims import Claim
 from app.models.documents import ParsedDocument
 from app.models.entities import Entity
@@ -32,6 +34,7 @@ class TickerItem(BaseModel):
     context: str | None = None
     source_url: str | None = None
     screenshot_url: str | None = None
+    hover_text: str | None = None
 
 
 _SCREENSHOT_NAME_RE = re.compile(r"^[0-9a-fA-F-]{36}\.png$")
@@ -207,17 +210,34 @@ async def ticker_news(
         .limit(limit)
     )
     docs = (await db.execute(stmt)).scalars().all()
-    items = []
-    for doc in docs:
-        title = (doc.title or doc.url or "Untitled")[:100]
+    async def _build_item(doc: ParsedDocument) -> TickerItem:
+        title = (doc.title or doc.url or "Untitled").strip()[:200]
+        hover_text = None
+        tr = await translate_if_needed(title)
+        if tr.get("was_translated"):
+            translated = str(tr.get("translated_text", title)).strip() or title
+            original = str(tr.get("original_text", title)).strip() or title
+            source_lang = str(tr.get("source_language", "unknown"))
+            method = str(tr.get("method", "translator_api_mcp"))
+            title = f"[*] {translated[:100]}"
+            hover_text = (
+                f"Original ({source_lang}): {original[:220]}\n"
+                f"Translated (EN): {translated[:220]}\n"
+                f"via translator API/MCP ({method})"
+            )
+        else:
+            title = title[:100]
         ago = _human_ago(doc.created_at)
-        items.append(TickerItem(
+        return TickerItem(
             id=f"news-{doc.id}",
             title=title,
             meta=f"{'feed' if doc.source_id else 'ingest'} · {ago}",
             source="news",
             url=doc.url,
-        ))
+            hover_text=hover_text,
+        )
+
+    items = await asyncio.gather(*[_build_item(doc) for doc in docs])
     return items
 
 
@@ -353,7 +373,7 @@ async def breach_summary(
     ai = value.get("ai_enrichment", {}) or {}
     deterministic = value.get("deterministic", {}) or {}
     mentions = []
-    for bucket in ("binaries", "payment_addresses", "emails", "domains"):
+    for bucket in ("binaries", "payment_addresses", "payment_urls", "emails", "domains"):
         vals = deterministic.get(bucket, []) or []
         mentions.extend([str(v) for v in vals if str(v).strip()])
     for entry in ai.get("other_extractions", []) or []:

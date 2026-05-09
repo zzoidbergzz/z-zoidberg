@@ -17,8 +17,8 @@
     </div>
     <div id="claims-status" class="muted"></div>
     <table class="data-table" id="claims-table">
-      <thead><tr><th>Statement</th><th>Type</th><th>Confidence</th></tr></thead>
-      <tbody><tr><td colspan="3" class="muted">Loading…</td></tr></tbody>
+      <thead><tr><th>Statement</th><th>Type</th><th>Confidence</th><th>Entity</th></tr></thead>
+      <tbody><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
     </table>
   </section>
 
@@ -52,10 +52,21 @@
 
   async function loadClaims() {
     const tbody = document.querySelector("#claims-table tbody");
-    tbody.innerHTML = `<tr><td colspan="3" class="muted">Loading…</td></tr>`;
-    const r = await fetch("/api/v1/claims/?limit=200", {credentials:"same-origin"});
-    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="3" class="tiny-pill danger">load failed: ${r.status}</td></tr>`; return; }
-    allClaims = await r.json();
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">Loading…</td></tr>`;
+    const pageSize = 200;
+    const maxRows = 5000;
+    const loaded = [];
+    for (let offset = 0; offset < maxRows; offset += pageSize) {
+      const r = await fetch(`/api/v1/claims/?limit=${pageSize}&offset=${offset}`, {credentials:"same-origin"});
+      if (!r.ok) {
+        tbody.innerHTML = `<tr><td colspan="4" class="tiny-pill danger">load failed: ${r.status}</td></tr>`;
+        return;
+      }
+      const page = await r.json();
+      loaded.push(...page);
+      if (!Array.isArray(page) || page.length < pageSize) break;
+    }
+    allClaims = loaded;
     const types = [...new Set(allClaims.map(c => c.claim_type).filter(Boolean))].sort();
     const sel = document.getElementById("claim-type");
     const cur = sel.value;
@@ -72,9 +83,18 @@
     );
     document.getElementById("claims-status").textContent = `${filtered.length} of ${allClaims.length} claims`;
     const tbody = document.querySelector("#claims-table tbody");
-    if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="3" class="muted">No claims match.</td></tr>`; return; }
+    if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="4" class="muted">No claims match.</td></tr>`; return; }
     tbody.innerHTML = filtered.map(c =>
-      `<tr><td>${escape(c.statement)}</td><td><span class="tiny-pill">${escape(c.claim_type)}</span></td><td>${(c.confidence ?? 0).toFixed(2)}</td></tr>`
+      `<tr><td>${escape(c.statement)}</td>` +
+      `<td><span class="tiny-pill">${escape(c.claim_type)}</span></td>` +
+      `<td>${(c.confidence ?? 0).toFixed(2)}</td>` +
+      `<td>${
+        c.entity_id
+          ? `<a href="/entities/${encodeURIComponent(c.entity_id)}">open</a>`
+          : (c.source_url && c.source_url.includes(".onion")
+              ? `<a href="/onion/view?url=${encodeURIComponent(c.source_url)}">onion</a>`
+              : "—")
+      }</td></tr>`
     ).join("");
   }
 
