@@ -6,15 +6,16 @@ Usage:
 Requirements: pip install asyncpg
 
 This script:
-1. Fetches knowledge.md from z.je
-2. Extracts threat actor, DLL, LOLBIN, and incident entities
-3. Creates entities with claims and relationships
-4. Deduplicates by canonical_name + kind
-5. Adds source URLs as SourceRecords for feed tracking
+1. Seeds threat actors with aliases (stored in entities.aliases JSONB)
+2. Seeds ransomware families with CISA advisory links
+3. Seeds DLLs, system processes, and LOLBINs as tool entities
+4. Seeds feed sources into source_records
+5. Deduplicates by canonical_name + kind + tenant_id
 """
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import uuid
 import logging
@@ -22,16 +23,12 @@ import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-KNOWLEDGE_URL = "https://z.je/static/knowledge.md"
 DB_URL = os.environ.get("DATABASE_URL", "postgresql://sk:sk@localhost:5432/sk")
-# Convert asyncpg URL to standard postgres URL if needed
 DB_URL = DB_URL.replace("postgresql+asyncpg://", "postgresql://")
 TENANT_ID = os.environ.get("TENANT_ID", "00000000-0000-0000-0000-000000000000")
 
-# ── Threat Actors from knowledge.md ──────────────────────────────────────────
-
 THREAT_ACTORS = [
-    {"canonical_name": "APT29", "aliases": ["Cozy Bear", "The Dukes", "Dark Halo", "Nobelium", "UNC2452"],
+    {"canonical_name": "APT29", "aliases": ["Cozy Bear", "The Dukes", "Dark Halo", "Nobelium", "UNC2452", "YTTRIUM"],
      "description": "SVR-linked. Long-term intelligence collection, stealthy access. SolarWinds, DNC, COVID vaccine targeting."},
     {"canonical_name": "APT28", "aliases": ["Fancy Bear", "Sofacy", "Sednit", "STRONTIUM", "Pawn Storm", "Iron Twilight"],
      "description": "GRU Unit 26165. Noisier than APT29. NotPetya, Olympic Destroyer, DNC intrusion."},
@@ -49,7 +46,7 @@ THREAT_ACTORS = [
      "description": "Linked to NSA TAO. Advanced implants, firmware targeting, Shadow Brokers."},
     {"canonical_name": "Evil Corp", "aliases": ["Indrik Spider", "UNC2165"],
      "description": "Dridex, BitPaymer. Sanctions context, affiliate relationships."},
-    {"canonical_name": "LockBit", "aliases": ["LockBit 2.0", "LockBit 3.0", "LockBit Black"],
+    {"canonical_name": "LockBit", "aliases": ["LockBit 2.0", "LockBit 3.0", "LockBit Black", "LockBitSupp"],
      "description": "Ransomware-as-a-service. Affiliate program, support-chat, leak-site lifecycle."},
     {"canonical_name": "BlackCat", "aliases": ["ALPHV", "ALPHV/BlackCat", "Noberus"],
      "description": "Rust-based ransomware. Triple extortion, seizure events, rebranding."},
@@ -61,6 +58,16 @@ THREAT_ACTORS = [
      "description": "Volume-driven ransomware. ESXi, enterprise targeting."},
     {"canonical_name": "Akira", "aliases": ["Megazord"],
      "description": "Linux/VMware-targeting ransomware. VPN exploitation, double extortion."},
+    {"canonical_name": "RansomHub", "aliases": ["Ransom Hub"],
+     "description": "Ransomware-as-a-service. Active in 2024. CISA advisory AA24-242A."},
+    {"canonical_name": "Medusa", "aliases": ["MedusaLocker"],
+     "description": "Ransomware targeting healthcare, education. CISA advisory AA25-071A."},
+    {"canonical_name": "Rhysida", "aliases": [],
+     "description": "Ransomware targeting healthcare, education. CISA advisory AA23-319A."},
+    {"canonical_name": "BianLian", "aliases": [],
+     "description": "Go-based ransomware. Pivot to extortion-only. CISA advisory AA23-136A."},
+    {"canonical_name": "Royal", "aliases": ["BlackSuit"],
+     "description": "Ransomware targeting government, education. CISA advisory AA23-061A."},
 ]
 
 RANSOMWARE_FAMILIES = [
@@ -106,7 +113,7 @@ async def seed() -> dict:
 
     conn = await asyncpg.connect(DB_URL)
     tid = uuid.UUID(TENANT_ID)
-    stats = {"actors": 0, "aliases": 0, "families": 0, "dlls": 0, "lolbins": 0, "feeds": 0}
+    stats = {"actors": 0, "families": 0, "dlls": 0, "lolbins": 0, "feeds": 0}
 
     # ── Threat Actors ──
     for actor in THREAT_ACTORS:
@@ -115,28 +122,34 @@ async def seed() -> dict:
             actor["canonical_name"], tid,
         )
         if existing:
-            entity_id = existing
+            # Update aliases on existing entity
+            current_refs = await conn.fetchval(
+                "SELECT external_refs FROM entities WHERE id = $1", existing,
+            )
+            refs = json.loads(current_refs) if current_refs else {}
+            refs["description"] = actor["description"]
+            # Merge aliases
+            current_aliases = await conn.fetchval(
+                "SELECT aliases FROM entities WHERE id = $1", existing,
+            )
+            existing_aliases = json.loads(current_aliases) if current_aliases else []
+            merged_aliases = list(set(existing_aliases + actor["aliases"]))
+            await conn.execute(
+                "UPDATE entities SET aliases = $1, external_refs = $2, updated_at = now() WHERE id = $3",
+                json.dumps(merged_aliases), json.dumps(refs), existing,
+            )
+            logger.info(f"Updated actor: {actor['canonical_name']} ({len(merged_aliases)} aliases)")
         else:
             entity_id = uuid.uuid4()
+            refs = {"description": actor["description"]}
             await conn.execute(
-                """INSERT INTO entities (id, tenant_id, kind, canonical_name, external_refs)
-                   VALUES ($1, $2, 'actor', $3, $4)""",
+                """INSERT INTO entities (id, tenant_id, kind, canonical_name, aliases, external_refs)
+                   VALUES ($1, $2, 'actor', $3, $4, $5)""",
                 entity_id, tid, actor["canonical_name"],
-                __import__("json").dumps({"description": actor["description"]}),
+                json.dumps(actor["aliases"]), json.dumps(refs),
             )
             stats["actors"] += 1
-
-        for alias in actor["aliases"]:
-            existing_alias = await conn.fetchval(
-                "SELECT id FROM entity_aliases WHERE entity_id = $1 AND alias = $2",
-                entity_id, alias,
-            )
-            if not existing_alias:
-                await conn.execute(
-                    "INSERT INTO entity_aliases (id, entity_id, alias) VALUES ($1, $2, $3)",
-                    uuid.uuid4(), entity_id, alias,
-                )
-                stats["aliases"] += 1
+            logger.info(f"Created actor: {actor['canonical_name']} ({len(actor['aliases'])} aliases)")
 
     # ── Ransomware Families ──
     for fam in RANSOMWARE_FAMILIES:
@@ -149,9 +162,10 @@ async def seed() -> dict:
                 """INSERT INTO entities (id, tenant_id, kind, canonical_name, external_refs)
                    VALUES ($1, $2, 'malware', $3, $4)""",
                 uuid.uuid4(), tid, fam["name"],
-                __import__("json").dumps({"advisory": fam["advisory"]}),
+                json.dumps({"advisory": fam["advisory"]}),
             )
             stats["families"] += 1
+            logger.info(f"Created malware: {fam['name']}")
 
     # ── DLLs ──
     for dll in CORE_DLLS + SYSTEM_PROCESSES:
@@ -194,6 +208,7 @@ async def seed() -> dict:
                 uuid.uuid4(), tid, src["url"], src["title"], src["kind"], src["source_type"],
             )
             stats["feeds"] += 1
+            logger.info(f"Created feed source: {src['title']}")
 
     await conn.close()
     return stats

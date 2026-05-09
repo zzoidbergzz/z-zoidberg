@@ -7,8 +7,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
-revision = "0025_flagged_items"
-down_revision = "0024_widen_external_id"
+revision = "0025"
+down_revision = "0024"
 branch_labels = None
 depends_on = None
 
