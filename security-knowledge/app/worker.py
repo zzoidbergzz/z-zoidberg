@@ -18,6 +18,7 @@ import structlog
 from arq.connections import RedisSettings
 from arq.cron import cron
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import settings
 from app.observability.trace_propagation import trace_from_job
@@ -392,8 +393,8 @@ async def process_ingest_job(
                     section = DocumentSection(
                         document_id=doc.id,
                         section_index=idx,
-                        heading=heading[:512],
-                        content=content,
+                        heading=_strip_null_bytes(heading)[:512],
+                        content=_strip_null_bytes(content),
                     )
                     db.add(section)
                     sections.append(section)
@@ -424,25 +425,46 @@ async def process_ingest_job(
                     mapped_kind = _KIND_MAP.get(raw_kind, "other")
                     canonical = ent_data["value"]
 
-                    # Upsert entity (find existing or create)
-                    existing_ent = await db.execute(
-                        select(Entity).where(
-                            Entity.tenant_id == tenant_id,
-                            Entity.kind == mapped_kind,
-                            Entity.canonical_name == canonical,
-                        )
-                    )
-                    entity = existing_ent.scalar_one_or_none()
-                    if entity is None:
-                        entity = Entity(
+                    # Race-safe upsert. Relies on
+                    # UNIQUE(tenant_id, kind, canonical_name) added in
+                    # alembic 0026_entity_unique_constraint. Without
+                    # ON CONFLICT, two concurrent workers can both insert
+                    # the same (tenant, kind, name) and a later read-then-
+                    # insert would see duplicates and crash with
+                    # MultipleResultsFound.
+                    ins_stmt = (
+                        pg_insert(Entity.__table__)
+                        .values(
                             tenant_id=tenant_id,
                             kind=mapped_kind,
                             canonical_name=canonical,
                             external_refs={},
                         )
-                        db.add(entity)
+                        .on_conflict_do_nothing(
+                            index_elements=["tenant_id", "kind", "canonical_name"]
+                        )
+                        .returning(Entity.__table__.c.id)
+                    )
+                    ins_result = await db.execute(ins_stmt)
+                    new_id = ins_result.scalar_one_or_none()
+                    if new_id is not None:
                         await db.flush()
+                        entity = (
+                            await db.execute(
+                                select(Entity).where(Entity.id == new_id)
+                            )
+                        ).scalar_one()
                         newly_created_entities.append(entity)
+                    else:
+                        entity = (
+                            await db.execute(
+                                select(Entity).where(
+                                    Entity.tenant_id == tenant_id,
+                                    Entity.kind == mapped_kind,
+                                    Entity.canonical_name == canonical,
+                                )
+                            )
+                        ).scalar_one()
 
                     # Create Claim linking entity to this document
                     claim = Claim(
