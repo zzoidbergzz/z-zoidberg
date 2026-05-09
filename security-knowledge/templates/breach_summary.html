@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Breach Summary · z.je{% endblock %}
+{% block content %}
+<main class="page-shell">
+  <div id="status" class="status-bar">Loading…</div>
+
+  <section class="card" id="summary-card" style="display:none;">
+    <h1 id="title" style="margin-top:0;">Breach summary</h1>
+    <div id="meta" class="subtle" style="margin-top:0.4rem;"></div>
+    <div id="profiles" style="margin-top:0.9rem;"></div>
+    <div id="source" style="margin-top:0.9rem;"></div>
+    <div id="mentions" style="margin-top:0.9rem;"></div>
+  </section>
+
+  <section class="panel" id="screenshot-card" style="display:none;margin-top:1rem;">
+    <div class="section-title">Captured Screenshot</div>
+    <div id="screenshot-body" style="margin-top:0.75rem;"></div>
+  </section>
+
+  <section class="panel" id="artifacts-card" style="display:none;margin-top:1rem;">
+    <div class="section-title">Cached Evidence Files</div>
+    <div id="artifacts-body" style="margin-top:0.75rem;"></div>
+  </section>
+</main>
+
+<script>
+(function(){
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function onionViewUrl(url){
+    if (!url) return null;
+    try {
+      const u = new URL(url, window.location.origin);
+      if ((u.hostname || "").toLowerCase().includes(".onion")) return "/onion/view?url=" + encodeURIComponent(url);
+    } catch (_) {}
+    return null;
+  }
+  function analystLink(url,label){
+    const onion = onionViewUrl(url);
+    if (onion) return '<a href="'+esc(onion)+'">'+esc(label || "onion context")+'</a>';
+    return '<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(label || url)+' ↗</a>';
+  }
+  const claimId = "{{ claim_id }}";
+  const victim = new URLSearchParams(window.location.search).get("victim");
+  const status = document.getElementById("status");
+
+  async function load() {
+    const q = victim ? ("?victim=" + encodeURIComponent(victim)) : "";
+    const r = await fetch("/api/v1/ticker/breaches/" + encodeURIComponent(claimId) + "/summary" + q, {credentials:"same-origin"});
+    if (!r.ok) { status.textContent = "Breach summary not found."; return; }
+    const d = await r.json();
+    status.textContent = "";
+    document.getElementById("summary-card").style.display = "";
+    document.getElementById("title").textContent = d.victim_name + " — " + d.actor_name;
+    document.getElementById("meta").textContent = d.scraped_at ? ("Scraped: " + new Date(d.scraped_at).toLocaleString()) : "";
+    document.getElementById("profiles").innerHTML =
+      '<a href="'+esc(d.victim_profile_url)+'">Victim profile ↗</a> · ' +
+      '<a href="'+esc(d.actor_profile_url)+'">Threat actor profile ↗</a>';
+    document.getElementById("source").innerHTML =
+      d.source_url
+        ? ('Source: ' + (d.source_analysis_url
+            ? ('<a href="'+esc(d.source_analysis_url)+'">'+esc(d.source_url)+'</a>')
+            : analystLink(d.source_url, d.source_url)))
+        : "";
+
+    const mentions = d.mentions || [];
+    if (mentions.length) {
+      document.getElementById("mentions").innerHTML =
+        '<div class="section-title" style="font-size:0.85rem;">Leaked indicators / mentions</div>' +
+        '<div style="margin-top:0.4rem;display:flex;gap:0.35rem;flex-wrap:wrap;">' +
+        mentions.map(m => '<span class="tiny-pill">'+esc(m)+'</span>').join("") +
+        '</div>';
+    }
+
+    if (d.screenshot_url) {
+      document.getElementById("screenshot-card").style.display = "";
+      document.getElementById("screenshot-body").innerHTML =
+        '<a href="'+esc(d.screenshot_url)+'" target="_blank" rel="noopener">' +
+        '<img src="'+esc(d.screenshot_url)+'" alt="screenshot" style="max-width:100%;border:1px solid var(--border,#2a2a4a);border-radius:6px;"></a>';
+    }
+
+    const artifacts = d.leaked_evidence || [];
+    if (artifacts.length) {
+      document.getElementById("artifacts-card").style.display = "";
+      document.getElementById("artifacts-body").innerHTML =
+        '<table class="table"><thead><tr><th>File</th><th>SHA256</th><th>Size</th><th>Links</th></tr></thead><tbody>' +
+        artifacts.map(a =>
+          '<tr>' +
+          '<td class="mono">'+esc(a.filename)+'</td>' +
+          '<td class="mono">'+esc((a.sha256 || "").slice(0,24))+'</td>' +
+          '<td>'+esc(a.size_bytes || "")+'</td>' +
+          '<td>' +
+          (a.source_url ? (analystLink(a.source_url, "origin") + ' · ') : '') +
+          (a.view_url ? ('<a href="'+esc(a.view_url)+'" target="_blank" rel="noopener">view</a>') : '') +
+          (a.download_url ? (' · <a href="'+esc(a.download_url)+'">download</a>') : '') +
+          '</td>' +
+          '</tr>'
+        ).join("") +
+        '</tbody></table>';
+    }
+  }
+
+  load().catch(err => { status.textContent = "Error: " + err.message; });
+})();
+</script>
+{% endblock %}

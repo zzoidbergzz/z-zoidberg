@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Onion Analysis · z.je{% endblock %}
+{% block content %}
+<main class="page-shell">
+  <div id="status" class="status-bar">Loading…</div>
+
+  <section class="card" id="summary" style="display:none;">
+    <h1 style="margin-top:0;">Onion Analysis View</h1>
+    <div id="source" class="subtle" style="margin-top:0.5rem;"></div>
+    <div id="meta" class="subtle" style="margin-top:0.3rem;"></div>
+    <div id="facts" style="margin-top:0.7rem;display:flex;gap:0.35rem;flex-wrap:wrap;"></div>
+  </section>
+
+  <section class="panel" id="screenshot-card" style="display:none;margin-top:1rem;">
+    <div class="section-title">Analysis Screenshot</div>
+    <div id="screenshot" style="margin-top:0.75rem;"></div>
+  </section>
+
+  <section class="panel" id="artifacts-card" style="display:none;margin-top:1rem;">
+    <div class="section-title">Cached Evidence Files</div>
+    <div id="artifacts" style="margin-top:0.75rem;"></div>
+  </section>
+
+  <section class="panel" id="raw-card" style="display:none;margin-top:1rem;">
+    <div class="section-title">Raw Text Extraction</div>
+    <pre id="raw" class="mono" style="margin-top:0.75rem;font-size:0.78rem;white-space:pre-wrap;max-height:480px;overflow:auto;"></pre>
+  </section>
+</main>
+
+<script>
+(function(){
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function count(v){return Array.isArray(v)?v.length:0;}
+  const status = document.getElementById("status");
+  const sourceUrl = new URLSearchParams(window.location.search).get("url");
+  if (!sourceUrl) { status.textContent = "Missing onion URL."; return; }
+
+  fetch("/api/v1/claims/onion/context?url=" + encodeURIComponent(sourceUrl), {credentials:"same-origin"})
+    .then(async r => ({ok:r.ok, data: r.ok ? await r.json() : null, status:r.status}))
+    .then(({ok, data, status:code}) => {
+      if (!ok || !data) { status.textContent = "No analysis context found (" + code + ")."; return; }
+      status.textContent = "";
+      document.getElementById("summary").style.display = "";
+      document.getElementById("source").innerHTML = 'Source: <span class="mono">'+esc(data.source_url)+'</span>';
+      const created = data.created_at ? new Date(data.created_at).toLocaleString() : "";
+      const scraped = data.scraped_at ? new Date(data.scraped_at).toLocaleString() : "";
+      document.getElementById("meta").textContent = [scraped ? ("scraped " + scraped) : "", created ? ("recorded " + created) : ""].filter(Boolean).join(" · ");
+
+      const d = data.deterministic || {};
+      const badges = [];
+      if (count(d.victims)) badges.push(count(d.victims) + " victims");
+      if (count(d.payment_addresses)) badges.push(count(d.payment_addresses) + " wallets");
+      if (count(d.binaries)) badges.push(count(d.binaries) + " binaries");
+      if (count(data.artifact_files)) badges.push(count(data.artifact_files) + " cached files");
+      document.getElementById("facts").innerHTML = badges.map(b => '<span class="tiny-pill">'+esc(b)+'</span>').join("");
+
+      if (data.screenshot_url) {
+        document.getElementById("screenshot-card").style.display = "";
+        document.getElementById("screenshot").innerHTML =
+          '<a href="'+esc(data.screenshot_url)+'" target="_blank" rel="noopener">' +
+          '<img src="'+esc(data.screenshot_url)+'" alt="onion screenshot" style="max-width:100%;border:1px solid var(--border,#2a2a4a);border-radius:6px;"></a>';
+      }
+
+      const files = data.artifact_files || [];
+      if (files.length) {
+        document.getElementById("artifacts-card").style.display = "";
+        document.getElementById("artifacts").innerHTML =
+          '<table class="table"><thead><tr><th>File</th><th>SHA256</th><th>Size</th><th>Links</th></tr></thead><tbody>' +
+          files.map(a => '<tr>' +
+            '<td class="mono">'+esc(a.filename || "")+'</td>' +
+            '<td class="mono">'+esc((a.sha256 || "").slice(0,24))+'</td>' +
+            '<td>'+esc(a.size_bytes || "")+'</td>' +
+            '<td>' +
+            (a.view_url ? '<a href="'+esc(a.view_url)+'" target="_blank" rel="noopener">view</a>' : '') +
+            (a.download_url ? (a.view_url ? ' · ' : '') + '<a href="'+esc(a.download_url)+'">download</a>' : '') +
+            '</td></tr>').join("") +
+          '</tbody></table>';
+      }
+
+      if (data.raw_text) {
+        document.getElementById("raw-card").style.display = "";
+        document.getElementById("raw").textContent = data.raw_text;
+      }
+    })
+    .catch(e => { status.textContent = "Error: " + e.message; });
+})();
+</script>
+{% endblock %}
