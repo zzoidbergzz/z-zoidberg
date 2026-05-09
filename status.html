@@ -42,9 +42,10 @@
   </header>
   <main>
     <div class="stats-row">
-      <div class="stat-box"><span class="num">16,896</span><span class="label">Entities</span></div>
-      <div class="stat-box"><span class="num">38</span><span class="label">Entity Kinds</span></div>
-      <div class="stat-box"><span class="num">109</span><span class="label">Relationships</span></div>
+      <div class="stat-box"><span class="num">23,451</span><span class="label">Entities</span></div>
+      <div class="stat-box"><span class="num">39</span><span class="label">Entity Kinds</span></div>
+      <div class="stat-box"><span class="num">37,721</span><span class="label">Claims</span></div>
+      <div class="stat-box"><span class="num">16,084</span><span class="label">Relationships</span></div>
       <div class="stat-box"><span class="num">14</span><span class="label">Enrichment Providers</span></div>
       <div class="stat-box"><span class="num">33+</span><span class="label">MCP Tools</span></div>
     </div>
@@ -53,13 +54,18 @@
       <tr><th>Kind</th><th>Count</th><th></th></tr>
       <tr><td>YARA Rules</td><td class="num-right">5,946</td><td><span class="bar" style="width:100%"></span></td></tr>
       <tr><td>Domains</td><td class="num-right">4,015</td><td><span class="bar" style="width:67%"></span></td></tr>
-      <tr><td>Malware</td><td class="num-right">2,130</td><td><span class="bar" style="36%"></span></td></tr>
+      <tr><td>Malware</td><td class="num-right">3,741</td><td><span class="bar" style="63%"></span></td></tr>
+      <tr><td>CVEs</td><td class="num-right">2,229</td><td><span class="bar" style="37%"></span></td></tr>
+      <tr><td>Detection Rules (Sigma)</td><td class="num-right">1,595</td><td><span class="bar" style="27%"></span></td></tr>
       <tr><td>Vulnerabilities</td><td class="num-right">1,002</td><td><span class="bar" style="17%"></span></td></tr>
-      <tr><td>URLs</td><td class="num-right">803</td><td><span class="bar" style:13%"></span></td></tr>
-      <tr><td>CVEs</td><td class="num-right">781</td><td><span class="bar" style="13%"></span></td></tr>
+      <tr><td>Threat Actors</td><td class="num-right">893</td><td><span class="bar" style="15%"></span></td></tr>
+      <tr><td>URLs</td><td class="num-right">803</td><td><span class="bar" style="13%"></span></td></tr>
+      <tr><td>Attack Patterns</td><td class="num-right">782</td><td><span class="bar" style="13%"></span></td></tr>
+      <tr><td>Tools</td><td class="num-right">627</td><td><span class="bar" style="11%"></span></td></tr>
       <tr><td>Drivers</td><td class="num-right">584</td><td><span class="bar" style="10%"></span></td></tr>
-      <tr><td>Threat Actors</td><td class="num-right">494</td><td><span class="bar" style="8%"></span></td></tr>
-      <tr><td>Other (30 kinds)</td><td class="num-right">1,741</td><td><span class="bar" style="29%"></span></td></tr>
+      <tr><td>Techniques (ART)</td><td class="num-right">356</td><td><span class="bar" style="6%"></span></td></tr>
+      <tr><td>Reports</td><td class="num-right">12</td><td><span class="bar" style="1%"></span></td></tr>
+      <tr><td>Other (26 kinds)</td><td class="num-right">2,886</td><td><span class="bar" style="48%"></span></td></tr>
     </table>
     <h2>🔌 Enrichment Providers</h2>
     <div class="provider-grid">
@@ -79,12 +85,16 @@
     <h2>⚠️ Known Gaps (In Progress)</h2>
     <table>
       <tr><th>Area</th><th>Current</th><th>Target</th></tr>
-      <tr><td>Entity Relationships</td><td>109 / ~50,000</td><td>Full graph: techniques↔actors↔malware↔CVEs</td></tr>
-      <tr><td>Sigma Detection Rules</td><td>4 / ~700</td><td>1 per ATT&CK technique</td></tr>
-      <tr><td>EPSS / KEV Data</td><td>Not seeded</td><td>All CVEs with EPSS + CISA KEV status</td></tr>
-      <tr><td>Breach Reports / DFIR</td><td>Minimal</td><td>DFIR Report, Mandiant, CrowdStrike refs</td></tr>
-      <tr><td>Offensive Tooling / PoCs</td><td>ExploitDB only</td><td>Atomic Red Team, Metasploit, Nuclei</td></tr>
-      <tr><td>ATT&CK Procedure Examples</td><td>Minimal</td><td>5+ per technique beyond MITRE</td></tr>
+      <tr><td>Entity Relationships</td><td>16,084 / ~50,000</td><td>Full graph: techniques↔actors↔malware↔CVEs</td></tr>
+      <tr><td>Sigma Detection Rules</td><td>1,595 / ~3,000</td><td>All SigmaHQ rules with ATT&CK mapping</td></tr>
+      <tr><td>EPSS Scores</td><td>Partial</td><td>All CVEs with EPSS + CISA KEV status ✅</td></tr>
+      <tr><td>CISA KEV Catalog</td><td>1,590 ✅</td><td>Full catalog synced</td></tr>
+      <tr><td>MITRE ATT&CK</td><td>858 techs + 189 groups + 824 software ✅</td><td>Full Enterprise matrix</td></tr>
+      <tr><td>MISP Galaxies</td><td>1,984 clusters ✅</td><td>Actor, malware, tool, ransomware, banker, RAT, stealer</td></tr>
+      <tr><td>Atomic Red Team</td><td>331 techniques ✅</td><td>Full ART test library</td></tr>
+      <tr><td>Breach Reports</td><td>12 reports</td><td>DFIR Report, Mandiant, CrowdStrike, Volexity, CISA</td></tr>
+      <tr><td>NVD Enrichment</td><td>200 CVEs enriched</td><td>All CVEs with CVSS, CWE, CPE</td></tr>
+      <tr><td>Offensive PoCs</td><td>ExploitDB + Metasploit (planned)</td><td>Full PoC linking to CVEs</td></tr>
     </table>
   </main>
   <footer>🦞 Zoidberg · <a href="https://github.com/mzje/z-zoidberg">Source</a> · <a href="https://z.je">Live</a> · <a href="index.html">Home</a> · Updated 2026-05-09</footer>
