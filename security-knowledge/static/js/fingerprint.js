@@ -809,6 +809,7 @@ function countSignals(input) {
 
   const fp = new BrowserFingerprint();
   let localData = {};
+  let extendedInFlight = false;
 
   const payloadForServer = (payload) => {
     const cloned = window.structuredClone ? window.structuredClone(payload) : JSON.parse(JSON.stringify(payload));
@@ -883,6 +884,69 @@ function countSignals(input) {
     }
   };
 
+  const requestCameraMicPermissions = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      if (permissionsStatus) permissionsStatus.textContent = "Browser does not support getUserMedia.";
+      return;
+    }
+    if (permissionsBtn) {
+      permissionsBtn.disabled = true;
+      permissionsBtn.textContent = "Requesting permissions...";
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      const states = await permissionState();
+      if (permissionsStatus) {
+        permissionsStatus.textContent = `Permission state — camera: ${states.camera || "granted"}, microphone: ${states.microphone || "granted"}.`;
+      }
+      if (permissionsBtn) permissionsBtn.textContent = "Permissions requested";
+    } catch (error) {
+      if (permissionsStatus) permissionsStatus.textContent = `Permission request failed: ${String(error?.name || error || "unknown_error")}`;
+      if (permissionsBtn) {
+        permissionsBtn.textContent = "Request Camera/Mic Permissions";
+        permissionsBtn.disabled = false;
+      }
+    }
+  };
+
+  const runExtendedCapture = async (mode = "manual") => {
+    if (extendedInFlight) return;
+    extendedInFlight = true;
+    errorEl.style.display = "none";
+    if (extendedBtn) {
+      extendedBtn.disabled = true;
+      extendedBtn.textContent = mode === "auto" ? "Auto-running capture..." : "Capturing...";
+    }
+    if (permissionsStatus) {
+      permissionsStatus.textContent = "Complete permission prompts if shown by your browser.";
+    }
+    try {
+      const extended = await fp.collectExtendedExposure();
+      updateExtendedPreview(extended);
+      const combined = await persistToServer(fp.data);
+      fieldCountEl.textContent = `${countSignals(combined)} signals`;
+      jsonEl.textContent = JSON.stringify(combined, null, 2);
+      if (permissionsStatus) {
+        const states = await permissionState();
+        permissionsStatus.textContent = `Permission state — camera: ${states.camera || "unknown"}, microphone: ${states.microphone || "unknown"}.`;
+      }
+      if (extendedBtn) {
+        extendedBtn.textContent = "Run Extended Exposure Capture Again";
+        extendedBtn.disabled = false;
+      }
+    } catch (error) {
+      errorEl.style.display = "block";
+      errorEl.textContent = `Extended capture failed: ${String(error?.message || error)}`;
+      if (extendedBtn) {
+        extendedBtn.disabled = false;
+        extendedBtn.textContent = "Run Extended Exposure Capture";
+      }
+    } finally {
+      extendedInFlight = false;
+    }
+  };
+
   try {
     const startTime = performance.now();
     localData = await fp.collectAll();
@@ -906,49 +970,16 @@ function countSignals(input) {
   }
 
   if (extendedBtn) {
-    extendedBtn.addEventListener("click", async () => {
-      errorEl.style.display = "none";
-      extendedBtn.disabled = true;
-      extendedBtn.textContent = "Capturing...";
-      if (permissionsStatus) permissionsStatus.textContent = "Complete permission prompts if shown by your browser.";
-      try {
-        const extended = await fp.collectExtendedExposure();
-        updateExtendedPreview(extended);
-        const combined = await persistToServer(fp.data);
-        fieldCountEl.textContent = `${countSignals(combined)} signals`;
-        jsonEl.textContent = JSON.stringify(combined, null, 2);
-        if (permissionsStatus) {
-          const states = await permissionState();
-          permissionsStatus.textContent = `Permission state — camera: ${states.camera || "unknown"}, microphone: ${states.microphone || "unknown"}.`;
-        }
-        extendedBtn.textContent = "Run Extended Exposure Capture Again";
-        extendedBtn.disabled = false;
-      } catch (error) {
-        errorEl.style.display = "block";
-        errorEl.textContent = `Extended capture failed: ${String(error?.message || error)}`;
-        extendedBtn.disabled = false;
-        extendedBtn.textContent = "Run Extended Exposure Capture";
-      }
-    });
+    extendedBtn.addEventListener("click", async () => runExtendedCapture("manual"));
   }
 
   if (permissionsBtn) {
-    permissionsBtn.addEventListener("click", async () => {
-      permissionsBtn.disabled = true;
-      permissionsBtn.textContent = "Requesting permissions...";
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        stream.getTracks().forEach((track) => track.stop());
-        const states = await permissionState();
-        if (permissionsStatus) {
-          permissionsStatus.textContent = `Permission state — camera: ${states.camera || "granted"}, microphone: ${states.microphone || "granted"}.`;
-        }
-        permissionsBtn.textContent = "Permissions requested";
-      } catch (error) {
-        if (permissionsStatus) permissionsStatus.textContent = `Permission request failed: ${String(error?.name || error || "unknown_error")}`;
-        permissionsBtn.textContent = "Request Camera/Mic Permissions";
-        permissionsBtn.disabled = false;
-      }
-    });
+    permissionsBtn.addEventListener("click", async () => requestCameraMicPermissions());
   }
+
+  if (permissionsStatus) {
+    permissionsStatus.textContent = "Auto-requesting camera/microphone permissions and running extended checks...";
+  }
+  await requestCameraMicPermissions();
+  await runExtendedCapture("auto");
 })();
