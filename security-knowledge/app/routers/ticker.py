@@ -373,7 +373,7 @@ async def breach_summary(
     ai = value.get("ai_enrichment", {}) or {}
     deterministic = value.get("deterministic", {}) or {}
     mentions = []
-    for bucket in ("binaries", "payment_addresses", "emails", "domains"):
+    for bucket in ("binaries", "payment_addresses", "payment_urls", "emails", "domains"):
         vals = deterministic.get(bucket, []) or []
         mentions.extend([str(v) for v in vals if str(v).strip()])
     for entry in ai.get("other_extractions", []) or []:
