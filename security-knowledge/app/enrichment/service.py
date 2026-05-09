@@ -20,6 +20,7 @@ _TTL_ATTR: dict[str, str] = {
     "crowdstrike": "ENRICHMENT_TTL_CROWDSTRIKE",
     "bgp_he": "ENRICHMENT_TTL_BGP_HE",
     "otx": "ENRICHMENT_TTL_OTX",
+    "recordedfuture": "ENRICHMENT_TTL_RF",
     "abuseipdb": "ENRICHMENT_TTL_ABUSEIPDB",
     "urlscan": "ENRICHMENT_TTL_URLSCAN",
 }

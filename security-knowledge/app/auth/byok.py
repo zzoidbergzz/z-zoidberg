@@ -75,6 +75,7 @@ BYOK_PROVIDERS: tuple[str, ...] = (
     "otx",
     "misp",
     "malshare",
+    "recordedfuture",
 )
 
 

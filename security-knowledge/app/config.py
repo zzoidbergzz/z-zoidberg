@@ -112,6 +112,8 @@ class Settings(BaseSettings):
     OTX_KEY: str = ""
     OTX_BASE_URL: str = "https://otx.alienvault.com"
     ENRICHMENT_TTL_OTX: int = 86400
+    ENRICHMENT_TTL_RF: int = 86400
+    RECORDED_FUTURE_API: str = ""
 
     # Embeddings
     EMBEDDING_API_URL: str = ""

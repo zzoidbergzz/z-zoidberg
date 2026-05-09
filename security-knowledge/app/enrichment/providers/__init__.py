@@ -18,6 +18,7 @@ from . import (  # noqa: F401  (import-for-side-effects)
     nvd,
     opencti,
     otx,
+    recordedfuture,
     shodan,
     urlscan,
     virustotal,
