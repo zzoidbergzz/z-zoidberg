@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from app.database import get_db
 from app.auth.dependencies import require_read
+from app.lookup.normalizer import looks_defanged, normalize_indicator
 from app.services.search import corpus_search, full_text_search
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -36,4 +37,19 @@ async def search(
         results = await corpus_search(db, str(auth.tenant_id), q, corpus=corpus, limit=limit)
     else:
         results = await full_text_search(db, str(auth.tenant_id), q, limit)
+
+        # Defanged-input fallback: if the query looks defanged (8[.]8[.]8[.]8,
+        # hxxps://, user[at]example, etc.), also search the refanged form and
+        # merge results so analysts can paste straight from threat reports.
+        if looks_defanged(q):
+            normed = normalize_indicator(q)
+            if normed and normed != q and len(normed) >= 2:
+                seen_ids = {(r.get("kind"), r.get("id")) for r in results}
+                extra = await full_text_search(db, str(auth.tenant_id), normed, limit)
+                for r in extra:
+                    key = (r.get("kind"), r.get("id"))
+                    if key not in seen_ids:
+                        seen_ids.add(key)
+                        results.append(r)
+                results = results[:limit]
     return [SearchResult(**r) for r in results]

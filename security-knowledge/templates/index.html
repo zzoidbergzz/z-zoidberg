@@ -332,20 +332,15 @@
           <span class="action-icon">📋</span>
           <span class="action-title">Bulk Import</span>
         </div>
-        <form id="bulk-form" action="/ingest" method="POST">
+        <form id="bulk-form" onsubmit="return false;">
           <textarea name="content" id="bulk-input" class="action-textarea"
-                    placeholder="Paste STIX, CSV, JSON, or plain text IOCs..." rows="3"></textarea>
-          <select name="format" class="action-select">
-            <option value="auto">Auto-detect</option>
-            <option value="stix">STIX 2.1</option>
-            <option value="csv">CSV</option>
-            <option value="json">JSON</option>
-            <option value="text">Plain text</option>
-          </select>
+                    placeholder="Paste threat report, IOC list, STIX, or any text — defanged forms work (8[.]8[.]8[.]8, hxxp://, user[at]example.com)" rows="3"></textarea>
           <div class="action-btn-row">
-            <button type="submit" class="action-btn">Import</button>
+            <button type="button" class="action-btn" id="bulk-extract-btn">Extract IOCs</button>
+            <button type="button" class="action-btn" id="bulk-lookup-btn">Extract + Lookup</button>
             <a href="/entities" class="action-btn-secondary">Browse All</a>
           </div>
+          <div id="bulk-results" class="ioc-results" style="display:none;"></div>
         </form>
       </div>
     </div>
@@ -548,45 +543,150 @@ document.querySelectorAll("#flagged-period-row .period-btn").forEach(btn => {
   });
 });
 
-// IOC Lookup
+// IOC Lookup — POSTs to /api/v1/lookup. For multi-line input, falls back to
+// /api/v1/lookup/extract + /api/v1/bulk-lookup so each defanged IOC is
+// recognised individually (hxxp://, 8[.]8[.]8[.]8, user[at]evil[.]com, etc).
 async function doLookup(enrich=false) {
   const input = document.getElementById('ioc-input').value.trim();
-  const kind = document.getElementById('ioc-kind').value;
-  if (!input) return;
-  const val = input.split(/[\n,]+/)[0].trim();
-  const params = new URLSearchParams({ kind: kind || 'other', value: val });
-  if (enrich) params.set('providers', 'mitre_attack,nvd,otx,misp,recordedfuture');
   const resultsDiv = document.getElementById('ioc-results');
+  if (!input) return;
   resultsDiv.style.display = 'block';
   resultsDiv.innerHTML = '<em>Loading...</em>';
+
+  // Detect multi-line / multi-IOC pastes — route to bulk path.
+  const lines = input.split(/[\r\n,;]+/).map(s => s.trim()).filter(Boolean);
+  const isMulti = lines.length > 1;
+
   try {
-    const resp = await fetch(`/api/v1/lookup?${params.toString()}`, {credentials:'same-origin'});
-    if (resp.ok) {
-      const data = await resp.json();
-      let html = '';
-      if (data.entity) {
-        html += `<div class="ioc-result"><strong>${data.entity.canonical_name}</strong> <span class="ioc-kind">${data.entity.kind}</span>`;
-        if (data.entity.mitre_attack_id) html += ` <span class="ioc-mitre">${data.entity.mitre_attack_id}</span>`;
-        html += '</div>';
+    if (isMulti) {
+      // Extract first (handles defangs + free-text), then bulk-lookup the values.
+      const extResp = await fetch('/api/v1/lookup/extract', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text: input, limit: 100}),
+      });
+      if (extResp.status === 401) { resultsDiv.innerHTML = '<em>Session expired — <a href="/login">login</a></em>'; return; }
+      if (!extResp.ok) { resultsDiv.innerHTML = `<em>Extract failed: HTTP ${extResp.status}</em>`; return; }
+      const extData = await extResp.json();
+      if (!extData.iocs || !extData.iocs.length) {
+        resultsDiv.innerHTML = '<em>No IOCs found in input.</em>';
+        return;
       }
-      if (data.enrichment) {
-        for (const [prov, result] of Object.entries(data.enrichment)) {
-          if (result && Object.keys(result).length > 0) {
-            html += `<div class="ioc-enrichment"><span class="ioc-prov">${prov}</span>: ${JSON.stringify(result).substring(0, 200)}...</div>`;
-          }
+      const queries = extData.iocs.map(i => i.value);
+      const bulkResp = await fetch('/api/v1/bulk-lookup', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({queries}),
+      });
+      if (!bulkResp.ok) { resultsDiv.innerHTML = `<em>Bulk lookup failed: HTTP ${bulkResp.status}</em>`; return; }
+      const bulkData = await bulkResp.json();
+      let html = `<div class="ioc-result"><strong>${extData.iocs.length} IOC${extData.iocs.length===1?'':'s'} extracted</strong></div>`;
+      for (const r of (bulkData.results || [])) {
+        if (r.error) {
+          html += `<div class="ioc-enrichment"><span class="ioc-prov">${esc(r.query)}</span>: error — ${esc(r.error)}</div>`;
+        } else {
+          const link = `/entities/${r.entity_id}`;
+          html += `<div class="ioc-enrichment"><a href="${link}"><strong>${esc(r.canonical_name)}</strong></a> <span class="ioc-kind">${esc(r.kind)}</span> <em>(${esc(r.classified_as)})</em></div>`;
         }
       }
-      if (!html) html = `<em>Not found. <a href="/search?q=${encodeURIComponent(val)}">Search knowledge base</a></em>`;
       resultsDiv.innerHTML = html;
-    } else if (resp.status === 401) {
-      resultsDiv.innerHTML = '<em>Session expired — <a href="/login">login</a></em>';
-    } else {
-      resultsDiv.innerHTML = `<em>Not found. <a href="/search?q=${encodeURIComponent(val)}">Search knowledge base</a></em>`;
+      return;
     }
-  } catch(e) { resultsDiv.innerHTML = `<em>Error: ${e.message}</em>`; }
+
+    // Single IOC — POST to /api/v1/lookup.
+    const resp = await fetch('/api/v1/lookup', {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query: lines[0], force_repoll: !!enrich}),
+    });
+    if (resp.status === 401) { resultsDiv.innerHTML = '<em>Session expired — <a href="/login">login</a></em>'; return; }
+    if (!resp.ok) {
+      resultsDiv.innerHTML = `<em>Not found. <a href="/search?q=${encodeURIComponent(lines[0])}">Search knowledge base</a></em>`;
+      return;
+    }
+    const data = await resp.json();
+    let html = '';
+    const link = data.entity_id ? `/entities/${data.entity_id}` : null;
+    if (data.canonical_name) {
+      html += `<div class="ioc-result">`;
+      if (link) html += `<a href="${link}"><strong>${esc(data.canonical_name)}</strong></a>`;
+      else html += `<strong>${esc(data.canonical_name)}</strong>`;
+      html += ` <span class="ioc-kind">${esc(data.kind || data.entity_type || '')}</span>`;
+      if (data.classified_as) html += ` <em>(${esc(data.classified_as)})</em>`;
+      html += `</div>`;
+    }
+    if (data.cached_results && data.cached_results.length) {
+      for (const r of data.cached_results) {
+        const summary = r.data ? JSON.stringify(r.data).substring(0, 200) : '(no data)';
+        html += `<div class="ioc-enrichment"><span class="ioc-prov">${esc(r.provider || r.source || '?')}</span>: ${esc(summary)}…</div>`;
+      }
+    } else if (data.enrichment_dispatched) {
+      html += `<div class="ioc-enrichment"><em>Enrichment dispatched — refresh in ~30s.</em></div>`;
+    }
+    if (!html) html = `<em>Not found. <a href="/search?q=${encodeURIComponent(lines[0])}">Search knowledge base</a></em>`;
+    resultsDiv.innerHTML = html;
+  } catch(e) {
+    resultsDiv.innerHTML = `<em>Error: ${esc(e.message)}</em>`;
+  }
+}
+
+// Bulk Import — extract IOCs from any pasted text (incl. defanged) and
+// optionally route them through bulk-lookup to upsert entities.
+async function doBulkExtract(alsoLookup) {
+  const input = document.getElementById('bulk-input').value.trim();
+  const resultsDiv = document.getElementById('bulk-results');
+  if (!input) return;
+  resultsDiv.style.display = 'block';
+  resultsDiv.innerHTML = '<em>Extracting...</em>';
+  try {
+    const extResp = await fetch('/api/v1/lookup/extract', {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: input, limit: 500}),
+    });
+    if (extResp.status === 401) { resultsDiv.innerHTML = '<em>Session expired — <a href="/login">login</a></em>'; return; }
+    if (!extResp.ok) { resultsDiv.innerHTML = `<em>Extract failed: HTTP ${extResp.status}</em>`; return; }
+    const extData = await extResp.json();
+    if (!extData.iocs || !extData.iocs.length) {
+      resultsDiv.innerHTML = '<em>No IOCs found in input.</em>';
+      return;
+    }
+
+    // Group by type for display.
+    const byType = {};
+    for (const i of extData.iocs) {
+      (byType[i.type] = byType[i.type] || []).push(i);
+    }
+    let html = `<div class="ioc-result"><strong>${extData.iocs.length} IOC${extData.iocs.length===1?'':'s'} found</strong></div>`;
+    for (const [t, items] of Object.entries(byType)) {
+      html += `<div class="ioc-enrichment"><span class="ioc-prov">${esc(t)}</span> (${items.length}): ${items.map(i => esc(i.value)).join(', ')}</div>`;
+    }
+
+    if (alsoLookup) {
+      resultsDiv.innerHTML = html + '<div class="ioc-enrichment"><em>Looking up...</em></div>';
+      const queries = extData.iocs.map(i => i.value);
+      const bulkResp = await fetch('/api/v1/bulk-lookup', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({queries}),
+      });
+      if (!bulkResp.ok) {
+        resultsDiv.innerHTML = html + `<div class="ioc-enrichment"><em>Lookup failed: HTTP ${bulkResp.status}</em></div>`;
+        return;
+      }
+      const bulkData = await bulkResp.json();
+      const ok = (bulkData.results || []).filter(r => !r.error);
+      html += `<div class="ioc-enrichment"><strong>${ok.length}/${(bulkData.results||[]).length} entities upserted.</strong> <a href="/entities">Browse</a></div>`;
+    }
+    resultsDiv.innerHTML = html;
+  } catch(e) {
+    resultsDiv.innerHTML = `<em>Error: ${esc(e.message)}</em>`;
+  }
 }
 
 document.getElementById('lookup-btn')?.addEventListener('click', () => doLookup(false));
 document.getElementById('enrich-btn')?.addEventListener('click', () => doLookup(true));
+document.getElementById('bulk-extract-btn')?.addEventListener('click', () => doBulkExtract(false));
+document.getElementById('bulk-lookup-btn')?.addEventListener('click', () => doBulkExtract(true));
 </script>
 {% endblock %}

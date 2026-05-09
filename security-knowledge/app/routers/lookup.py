@@ -14,6 +14,7 @@ from app.enrichment.registry import list_providers
 from app.enrichment.service import EnrichmentService
 from app.lookup.classifier import classify_input
 from app.lookup.diffing import diff_payload
+from app.lookup.extractor import extract_iocs
 from app.models.enrichment import EnrichmentCache, EnrichmentDiff
 from app.models.entities import Entity
 from app.models.relationships import Relationship
@@ -38,6 +39,12 @@ class LookupRequest(BaseModel):
 
 class BulkLookupRequest(BaseModel):
     queries: list[str]
+
+
+class ExtractRequest(BaseModel):
+    text: str
+    limit: int = 500
+    investigation_id: str | None = None
     investigation_id: str | None = None
 
 
@@ -263,6 +270,24 @@ async def bulk_lookup(
             results.append({"query": query, "error": str(exc)})
     await db.commit()
     return {"results": results}
+
+
+@router.post("/lookup/extract")
+async def lookup_extract(
+    body: ExtractRequest,
+    auth: AuthContext = Depends(get_auth),
+):
+    """Pure extraction: scan free-text and return classified IOCs.
+
+    Does NOT touch the database — useful as a "preview" before the user
+    decides which extracted IOCs to actually look up via /bulk-lookup.
+    Handles defanged inputs (8[.]8[.]8[.]8, hxxps://, user[at]example, etc.).
+    """
+    auth.require_scope(Scope.read)
+    if not body.text or not body.text.strip():
+        return {"iocs": [], "count": 0}
+    iocs = extract_iocs(body.text, limit=max(1, min(body.limit, 1000)))
+    return {"iocs": iocs, "count": len(iocs)}
 
 
 @router.get("/lookup/entity/{entity_id}/results")
