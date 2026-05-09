@@ -9,9 +9,11 @@ Requires Tor SOCKS proxy running on TOR_SOCKS_HOST:TOR_SOCKS_PORT.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 
 import structlog
 from sqlalchemy import select
@@ -19,6 +21,7 @@ from sqlalchemy import select
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models.sources import FetchOutcome, SourceRecord
+from app.workers.onion_analysis import extract_onion_findings
 
 logger = structlog.get_logger(__name__)
 
@@ -26,6 +29,8 @@ logger = structlog.get_logger(__name__)
 _ONION_KINDS = {"onion", "tor", "darknet"}
 _CONCURRENCY = 3
 _SCREENSHOT_TIMEOUT = 30
+_SCREENSHOT_DIR = Path(__file__).resolve().parents[2] / "data" / "tor_screenshots"
+_SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _is_onion_url(url: str) -> bool:
@@ -36,7 +41,8 @@ async def _fetch_via_tor(url: str, timeout: int = 30) -> dict:
     """Fetch a URL through the Tor SOCKS proxy."""
     import httpx
 
-    proxy_url = f"socks5://{settings.TOR_SOCKS_HOST}:{settings.TOR_SOCKS_PORT}"
+    # Use socks5h so .onion DNS resolution is performed by Tor, not locally.
+    proxy_url = f"socks5h://{settings.TOR_SOCKS_HOST}:{settings.TOR_SOCKS_PORT}"
     headers = {}
     if settings.FEED_POLL_USER_AGENT:
         headers["User-Agent"] = settings.FEED_POLL_USER_AGENT
@@ -78,28 +84,47 @@ async def _capture_screenshot(url: str) -> bytes | None:
         return None
 
     try:
-        from app.browser_pool import browser_pool
+        from playwright.async_api import async_playwright
 
-        browser = await browser_pool.get()
-        if not browser:
-            return None
-
-        context = await browser.new_context(
-            proxy={
-                "server": f"socks5://{settings.TOR_SOCKS_HOST}:{settings.TOR_SOCKS_PORT}"
-            }
-        )
-        page = await context.new_page()
-
-        try:
-            await page.goto(url, timeout=_SCREENSHOT_TIMEOUT * 1000, wait_until="domcontentloaded")
-            screenshot = await page.screenshot(full_page=False, type="png")
-            return screenshot
-        finally:
-            await context.close()
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                proxy={"server": f"socks5://{settings.TOR_SOCKS_HOST}:{settings.TOR_SOCKS_PORT}"},
+            )
+            try:
+                context = await browser.new_context()
+                page = await context.new_page()
+                await page.goto(url, timeout=_SCREENSHOT_TIMEOUT * 1000, wait_until="domcontentloaded")
+                return await page.screenshot(full_page=True, type="png")
+            finally:
+                await browser.close()
     except Exception as exc:
         logger.warning("tor_screenshot_failed", url=url, error=str(exc))
         return None
+
+
+def _persist_screenshot(source_id: uuid.UUID, screenshot: bytes | None) -> str | None:
+    if not screenshot:
+        return None
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    fn = f"{source_id}_{ts}_{uuid.uuid4().hex[:8]}.png"
+    path = _SCREENSHOT_DIR / fn
+    path.write_bytes(screenshot)
+    return str(path)
+
+
+def _coerce_json_payload(value) -> dict | None:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {"raw_text": value}
+        except Exception:
+            return {"raw_text": value}
+    return {"raw_text": str(value)}
 
 
 async def _ai_enrich_content(content: str, url: str) -> dict | None:
@@ -109,18 +134,24 @@ async def _ai_enrich_content(content: str, url: str) -> dict | None:
        (provider == "anthropic" and not settings.ANTHROPIC_API_KEY):
         return None
 
-    prompt = f"""Analyze the following content scraped from a dark web site ({url}).
-Identify:
-1. New ransomware victims mentioned (organization names, sectors, countries)
-2. Any new claims or announcements by the threat actor
-3. Bitcoin or cryptocurrency wallet addresses
-4. Email addresses or contact information
-5. Any indicators of compromise (IPs, domains, hashes)
-
+    prompt = f"""You are analyzing leaked-site content from {url}.
+Extract high-signal cyber threat intelligence and return STRICT JSON with this schema:
+{{
+  "victims": [{{"name":"", "country":"", "sector":"", "confidence":0-1}}],
+  "payment_addresses": [{{"address":"", "currency":"BTC|XMR|ETH|TRON|OTHER", "context":""}}],
+  "binaries": [{{"name":"", "type":"exe|dll|script|archive|other", "hash":""}}],
+  "contacts": [{{"type":"email|telegram|tox|jabber|url|other", "value":""}}],
+  "iocs": [{{"type":"ip|domain|url|hash|email|onion", "value":""}}],
+  "claims": [{{"summary":"", "published_at":"", "confidence":0-1}}],
+  "other_extractions": [{{"type":"ransom_amount|deadline|victim_count|data_type|language|region|other", "value":"", "context":""}}]
+}}
+Rules:
+- No prose, JSON only.
+- Omit nothing by guessing: if unknown, use empty string.
+- Deduplicate values.
+- Only include values present in content.
 Content:
-{content[:15000]}
-
-Respond in JSON format with keys: victims, claims, wallets, emails, iocs"""
+{content[:20000]}"""
 
     try:
         if provider == "openai":
@@ -137,7 +168,7 @@ Respond in JSON format with keys: victims, claims, wallets, emails, iocs"""
                     },
                 )
                 resp.raise_for_status()
-                return resp.json()["choices"][0]["message"]["content"]
+                return _coerce_json_payload(resp.json()["choices"][0]["message"]["content"])
 
         elif provider == "anthropic":
             import httpx as _httpx
@@ -157,7 +188,7 @@ Respond in JSON format with keys: victims, claims, wallets, emails, iocs"""
                 )
                 resp.raise_for_status()
                 content_blocks = resp.json().get("content", [])
-                return next((b["text"] for b in content_blocks if b["type"] == "text"), None)
+                return _coerce_json_payload(next((b["text"] for b in content_blocks if b["type"] == "text"), None))
 
     except Exception as exc:
         logger.warning("tor_ai_enrichment_failed", url=url, error=str(exc))
@@ -178,11 +209,13 @@ async def _scrape_source(source: SourceRecord) -> tuple[FetchOutcome, int]:
 
         # AI enrichment
         ai_result = await _ai_enrich_content(result["text"], source.url)
+        deterministic_findings = extract_onion_findings(result["text"])
+        screenshot_path = _persist_screenshot(source.id, screenshot)
 
         # Create ingestion job for the scraped content
-        from app.models.documents import ParsedDocument
         from app.models.jobs import IngestionJob
 
+        job_id: str | None = None
         async with AsyncSessionLocal() as db:
             job = IngestionJob(
                 tenant_id=source.tenant_id,
@@ -195,12 +228,34 @@ async def _scrape_source(source: SourceRecord) -> tuple[FetchOutcome, int]:
                     "body": result["text"][:50000],
                     "scraped_at": datetime.now(UTC).isoformat(),
                     "screenshot_captured": screenshot is not None,
+                    "screenshot_path": screenshot_path,
+                    "tor_fetch_meta": {
+                        "status_code": result["status_code"],
+                        "elapsed_ms": result["elapsed_ms"],
+                        "headers": result.get("headers", {}),
+                    },
+                    "deterministic_findings": deterministic_findings,
                     "ai_enrichment": ai_result,
                 },
             )
             db.add(job)
+            await db.flush()
+            job_id = str(job.id)
             await db.commit()
             new_items = 1
+
+        if job_id is not None:
+            try:
+                from arq import create_pool
+                from arq.connections import RedisSettings
+
+                pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+                try:
+                    await pool.enqueue_job("process_ingest_job", job_id)
+                finally:
+                    await pool.aclose()
+            except Exception as exc:
+                logger.warning("tor_scrape_enqueue_failed", source_id=str(source.id), job_id=job_id, error=str(exc))
 
         outcome = FetchOutcome(
             source_id=source.id,

@@ -40,6 +40,10 @@ _KIND_MAP: dict[str, str] = {
     "domain": "domain",
     "url": "url",
     "technique": "attack_pattern",
+    "organization": "organization",
+    "email": "email",
+    "tool": "tool",
+    "indicator": "indicator",
 }
 
 
@@ -243,6 +247,85 @@ async def process_ingest_job(
 
                 tenant_id = job.tenant_id
                 source_url = job.source_url or ""
+                payload = job.payload if isinstance(job.payload, dict) else {}
+
+                async def _ensure_source_entity_id() -> uuid.UUID | None:
+                    if not source_url:
+                        return None
+                    existing_src_ent = (
+                        await db.execute(
+                            select(Entity).where(
+                                Entity.tenant_id == tenant_id,
+                                Entity.kind == "url",
+                                Entity.canonical_name == source_url,
+                            )
+                        )
+                    ).scalar_one_or_none()
+                    if existing_src_ent is not None:
+                        return existing_src_ent.id
+
+                    ins_stmt = (
+                        pg_insert(Entity.__table__)
+                        .values(
+                            tenant_id=tenant_id,
+                            kind="url",
+                            canonical_name=source_url,
+                            external_refs={},
+                        )
+                        .on_conflict_do_nothing(
+                            index_elements=["tenant_id", "kind", "canonical_name"]
+                        )
+                        .returning(Entity.__table__.c.id)
+                    )
+                    ins_result = await db.execute(ins_stmt)
+                    new_id = ins_result.scalar_one_or_none()
+                    if new_id is not None:
+                        return new_id
+                    resolved = (
+                        await db.execute(
+                            select(Entity).where(
+                                Entity.tenant_id == tenant_id,
+                                Entity.kind == "url",
+                                Entity.canonical_name == source_url,
+                            )
+                        )
+                    ).scalar_one_or_none()
+                    return resolved.id if resolved is not None else None
+
+                async def _persist_tor_findings_for_doc(doc_id) -> None:
+                    if job.source_type != "tor_scrape":
+                        return
+                    anchor_entity_id = await _ensure_source_entity_id()
+                    tor_claim = Claim(
+                        tenant_id=tenant_id,
+                        entity_id=anchor_entity_id,
+                        claim_type="tor_site_findings",
+                        value={
+                            "source_url": source_url,
+                            "scraped_at": payload.get("scraped_at"),
+                            "deterministic": payload.get("deterministic_findings", {}),
+                            "ai_enrichment": payload.get("ai_enrichment", {}),
+                            "screenshot_path": payload.get("screenshot_path"),
+                        },
+                        confidence=0.75,
+                        status="pending",
+                    )
+                    db.add(tor_claim)
+                    await db.flush()
+                    db.add(
+                        Evidence(
+                            tenant_id=tenant_id,
+                            document_id=doc_id,
+                            claim_id=tor_claim.id,
+                            entity_id=None,
+                            title="Tor site parsed findings",
+                            content=str(payload.get("body", ""))[:2000],
+                            text_snippet=str(payload.get("body", ""))[:200],
+                            source_url=source_url,
+                            confidence=0.75,
+                        )
+                    )
+                    await db.flush()
 
                 # ----------------------------------------------------------
                 # 2. Resolve source policy — abort if denied
@@ -276,6 +359,7 @@ async def process_ingest_job(
                             url=source_url,
                             doc_id=str(existing_doc.id),
                         )
+                        await _persist_tor_findings_for_doc(existing_doc.id)
                         job.status = "complete"
                         job.result = {
                             "job_id": job_id,
@@ -292,7 +376,7 @@ async def process_ingest_job(
                 # ----------------------------------------------------------
                 # 4. Detect content type from payload or URL
                 # ----------------------------------------------------------
-                content_type_hint = job.payload.get("content_type", "text/html")
+                content_type_hint = payload.get("content_type", "text/html")
                 if source_url.endswith(".md") or source_url.endswith(".markdown"):
                     content_type_hint = "text/markdown"
                 if source_url.endswith(".pdf"):
@@ -318,19 +402,31 @@ async def process_ingest_job(
                     await record_job_end(job_id, "ingest", "error", time.monotonic() - t0)
                     return job.result
 
-                logger.info("ingest_fetching", job_id=job_id, url=source_url)
-                fetch_result = await fetch(source_url)
+                raw_text = ""
+                fetch_used_browser = False
+                tor_payload_body = payload.get("body") if job.source_type == "tor_scrape" else None
+                if tor_payload_body:
+                    # Tor scraper already fetched this body through SOCKS.
+                    # Re-fetching .onion URLs here breaks because generic
+                    # fetch path enforces DNS/SSRF checks for clearnet hosts.
+                    logger.info("ingest_using_tor_payload", job_id=job_id, url=source_url)
+                    raw_text = str(tor_payload_body)
+                else:
+                    logger.info("ingest_fetching", job_id=job_id, url=source_url)
+                    fetch_result = await fetch(source_url)
 
-                if not fetch_result.ok:
-                    job.status = "error"
-                    job.error_message = f"Fetch failed: {fetch_result.error or fetch_result.status_code}"
-                    job.result = {"job_id": job_id, "status": "error", "reason": "fetch_failed"}
-                    await db.commit()
-                    span.set_attribute("job.status", "error")
-                    await record_job_end(job_id, "ingest", "error", time.monotonic() - t0)
-                    return job.result
+                    if not fetch_result.ok:
+                        job.status = "error"
+                        job.error_message = f"Fetch failed: {fetch_result.error or fetch_result.status_code}"
+                        job.result = {"job_id": job_id, "status": "error", "reason": "fetch_failed"}
+                        await db.commit()
+                        span.set_attribute("job.status", "error")
+                        await record_job_end(job_id, "ingest", "error", time.monotonic() - t0)
+                        return job.result
 
-                raw_text = fetch_result.text
+                    raw_text = fetch_result.text
+                    fetch_used_browser = fetch_result.used_browser
+
                 content_sha256 = hashlib.sha256(raw_text.encode()).hexdigest()
 
                 # Idempotency by content hash
@@ -348,6 +444,7 @@ async def process_ingest_job(
                         sha256=content_sha256,
                         doc_id=str(existing_by_hash_doc.id),
                     )
+                    await _persist_tor_findings_for_doc(existing_by_hash_doc.id)
                     job.status = "complete"
                     job.result = {
                         "job_id": job_id,
@@ -378,7 +475,7 @@ async def process_ingest_job(
                     url=source_url,
                     content_type=content_type_hint,
                     word_count=word_count,
-                    metadata_={"content_sha256": content_sha256, "used_browser": fetch_result.used_browser},
+                    metadata_={"content_sha256": content_sha256, "used_browser": fetch_used_browser},
                 )
                 db.add(doc)
                 await db.flush()
@@ -405,6 +502,111 @@ async def process_ingest_job(
                 # ----------------------------------------------------------
                 logger.info("ingest_extracting", job_id=job_id, doc_id=str(doc.id))
                 entities_found = run_all(parsed_text)
+
+                def _append_finding(kind: str, value: str) -> None:
+                    v = (value or "").strip()
+                    if not v:
+                        return
+                    entities_found.append({"kind": kind, "value": v})
+
+                # Tor scrape jobs include deterministic + AI findings in payload.
+                # Merge these into entity extraction so victims, wallets, and
+                # binary names become first-class entities/claims/evidence.
+                if job.source_type == "tor_scrape":
+                    tor_findings = payload.get("deterministic_findings", {})
+                    if isinstance(tor_findings, dict):
+                        for item in tor_findings.get("victims", []):
+                            _append_finding("organization", str(item))
+                        for item in tor_findings.get("payment_addresses", []):
+                            _append_finding("indicator", str(item))
+                        for item in tor_findings.get("emails", []):
+                            _append_finding("email", str(item))
+                        for item in tor_findings.get("ips", []):
+                            _append_finding("ip", str(item))
+                        for item in tor_findings.get("domains", []):
+                            _append_finding("domain", str(item))
+                        for item in tor_findings.get("hashes", []):
+                            _append_finding("hash", str(item))
+                        for item in tor_findings.get("binaries", []):
+                            _append_finding("tool", str(item))
+                        for item in tor_findings.get("onion_links", []):
+                            _append_finding("url", f"http://{str(item)}")
+
+                    ai_findings = payload.get("ai_enrichment", {})
+                    if isinstance(ai_findings, dict):
+                        for item in ai_findings.get("victims", []):
+                            if isinstance(item, dict):
+                                _append_finding("organization", str(item.get("name", "")))
+                            else:
+                                _append_finding("organization", str(item))
+                        for item in ai_findings.get("payment_addresses", []):
+                            if isinstance(item, dict):
+                                _append_finding("indicator", str(item.get("address", "")))
+                            else:
+                                _append_finding("indicator", str(item))
+                        for item in ai_findings.get("binaries", []):
+                            if isinstance(item, dict):
+                                _append_finding("tool", str(item.get("name", "")))
+                                _append_finding("hash", str(item.get("hash", "")))
+                            else:
+                                _append_finding("tool", str(item))
+                        for item in ai_findings.get("contacts", []):
+                            if isinstance(item, dict):
+                                contact_value = str(item.get("value", ""))
+                                contact_type = str(item.get("type", "")).lower()
+                                if contact_type == "email":
+                                    _append_finding("email", contact_value)
+                                else:
+                                    _append_finding("indicator", contact_value)
+                            else:
+                                _append_finding("indicator", str(item))
+                        for item in ai_findings.get("iocs", []):
+                            if not isinstance(item, dict):
+                                continue
+                            t = str(item.get("type", "")).lower()
+                            v = str(item.get("value", ""))
+                            if t == "ip":
+                                _append_finding("ip", v)
+                            elif t == "domain":
+                                _append_finding("domain", v)
+                            elif t in {"url", "onion"}:
+                                _append_finding("url", v)
+                            elif t in {"hash", "sha256", "md5", "sha1"}:
+                                _append_finding("hash", v)
+                            elif t == "email":
+                                _append_finding("email", v)
+
+                    # Add a document-level claim carrying parsed leak-site facts.
+                    anchor_entity_id = await _ensure_source_entity_id()
+                    tor_claim = Claim(
+                        tenant_id=tenant_id,
+                        entity_id=anchor_entity_id,
+                        claim_type="tor_site_findings",
+                        value={
+                            "source_url": source_url,
+                            "scraped_at": payload.get("scraped_at"),
+                            "deterministic": payload.get("deterministic_findings", {}),
+                            "ai_enrichment": payload.get("ai_enrichment", {}),
+                            "screenshot_path": payload.get("screenshot_path"),
+                        },
+                        confidence=0.75,
+                        status="pending",
+                    )
+                    db.add(tor_claim)
+                    await db.flush()
+                    db.add(
+                        Evidence(
+                            tenant_id=tenant_id,
+                            document_id=doc.id,
+                            claim_id=tor_claim.id,
+                            entity_id=None,
+                            title="Tor site parsed findings",
+                            content=parsed_text[:2000],
+                            text_snippet=parsed_text[:200],
+                            source_url=source_url,
+                            confidence=0.75,
+                        )
+                    )
 
                 # Deduplicate by (kind, value)
                 seen: set[tuple[str, str]] = set()
