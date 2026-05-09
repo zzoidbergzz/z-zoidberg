@@ -23,6 +23,7 @@ from app.config import settings
 from app.observability.trace_propagation import trace_from_job
 from app.observability.worker import record_job_end, record_job_start
 from app.workers.feed_poller import poll_feeds
+from app.workers.tor_scraper import scrape_onion_sources
 
 logger = structlog.get_logger(__name__)
 
@@ -775,7 +776,7 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [process_ingest_job, run_enrichment, send_digests, check_ioc_watches, poll_feeds, refresh_corpora]
+    functions = [process_ingest_job, run_enrichment, send_digests, check_ioc_watches, poll_feeds, refresh_corpora, scrape_onion_sources]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
@@ -784,7 +785,9 @@ class WorkerSettings:
     keep_result = 3600  # seconds — retain job results for 1 hour
     cron_jobs = [
         # Feed poller every 5 minutes (per-source poll_interval is checked inside)
-        cron(poll_feeds, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+        cron(poll_feeds, minute={0, 20, 40}),
+        # 20-min Tor scraping cycle
+        cron(scrape_onion_sources, minute={2, 22, 42}),
         # Hourly digest dispatch (function checks each digest's own schedule)
         cron(send_digests, minute={2}),
         # Historical corpus refresh — daily 03:17 UTC (after most upstream daily syncs)

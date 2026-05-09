@@ -164,3 +164,27 @@ async def toggle_source(
     await db.flush()
     await db.commit()
     return {"id": str(src.id), "active": src.active, "url": src.url}
+
+
+class UserAgentBody(BaseModel):
+    user_agent: str
+
+
+@router.get("/settings/user-agent")
+async def get_user_agent(
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+):
+    """Get the configured feed poller user-agent."""
+    from app.config import settings as app_settings
+    return {"user_agent": app_settings.FEED_POLL_USER_AGENT}
+
+
+@router.post("/settings/user-agent")
+async def set_user_agent(
+    body: UserAgentBody,
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+):
+    """Set the feed poller user-agent (runtime only — set in .env for persistence)."""
+    from app.config import settings as app_settings
+    app_settings.FEED_POLL_USER_AGENT = body.user_agent
+    return {"user_agent": app_settings.FEED_POLL_USER_AGENT, "note": "Runtime only. Set FEED_POLL_USER_AGENT in .env for persistence."}

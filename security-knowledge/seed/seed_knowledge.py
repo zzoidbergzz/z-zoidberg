@@ -250,7 +250,7 @@ async def seed_mitre_attack(db: AsyncSession):
             continue
         attack_id = get_attack_id(g)
         edict = {
-            "kind": "actor",
+            "kind": "threat_actor",
             "canonical_name": f"{attack_id} - {g.name}" if attack_id else g.name,
             "description": (getattr(g, "description", "") or "")[:2000],
             "stix_id": g.id,
