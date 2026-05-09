@@ -26,7 +26,7 @@ def _login_redirect(path: str) -> RedirectResponse:
 @ui_router.get("/", response_class=HTMLResponse)
 async def ui_home(request: Request):
     if not _authed(request):
-        return _login_redirect("/")
+        return templates.TemplateResponse(request, "landing.html")
     return templates.TemplateResponse(request, "index.html", {"current_user": get_template_user(request)})
 
 
