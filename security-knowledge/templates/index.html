@@ -24,11 +24,17 @@
 /* ── Dashboard Tiles ── */
 .dashboard-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.25rem;
   width: 100%;
-  max-width: 1600px;
+  max-width: none;
   margin-bottom: 1.75rem;
+}
+@media (max-width: 1280px) {
+  .dashboard-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .dashboard-tiles { grid-template-columns: 1fr; }
 }
 .tile {
   background: var(--deep);
@@ -100,7 +106,7 @@
 
 /* ── Hero Search ── */
 .search-hero {
-  width: 100%; max-width: 1100px; text-align: center; margin-top: 1rem;
+  width: 100%; max-width: 1400px; text-align: center; margin-top: 1rem;
   background: radial-gradient(ellipse at 50% 0%, #1a1a3e 0%, var(--ocean) 70%);
   border-radius: 20px; padding: 2.5rem 2rem 1.75rem; border: 1px solid #2a2a4a;
 }
@@ -196,7 +202,7 @@
 /* ── Feature Nav Grid ── */
 .feature-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem; margin-top: 2.5rem; max-width: 1400px; width: 100%;
+  gap: 1rem; margin-top: 2.5rem; max-width: none; width: 100%;
 }
 .feature-card {
   background: var(--deep); border: 1px solid #2a2a4a;

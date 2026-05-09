@@ -39,9 +39,9 @@ body::before {
 
 .shell {
   position: relative;
-  max-width: 1680px;
+  max-width: none;
   margin: 0 auto;
-  padding: 1.5rem 1.75rem;
+  padding: 1.25rem 2rem;
 }
 
 .shell-nav {
