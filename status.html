@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🦞 Zoidberg — Knowledge Base Status</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    :root { --ocean:#0f0f23; --deep:#16213e; --foam:#e8e8e8; --accent:#e07a3a; --shell:#D2691E; --green:#2ecc71; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',system-ui,sans-serif; background:var(--ocean); color:var(--foam); line-height:1.6; }
+    a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+    header { text-align:center; padding:3rem 1rem 2rem; background:radial-gradient(ellipse at 50% 0%,#1a1a3e 0%,var(--ocean) 70%); }
+    header h1 { font-size:2.5rem; font-weight:800; letter-spacing:-1px; }
+    header .sub { color:var(--shell); font-size:1.1rem; margin-top:0.3rem; }
+    .live { display:inline-block; margin-top:0.8rem; background:#1a3a1a; color:var(--green); padding:0.3rem 0.8rem; border-radius:6px; font-size:0.85rem; border:1px solid #2a5a2a; }
+    main { max-width:1100px; margin:0 auto; padding:1rem 1rem 3rem; }
+    .stats-row { display:flex; flex-wrap:wrap; gap:0.8rem; justify-content:center; margin:1.5rem 0; }
+    .stat-box { background:var(--deep); border:1px solid #2a2a4a; border-radius:12px; padding:1rem 1.5rem; text-align:center; min-width:130px; }
+    .stat-box .num { font-size:2rem; font-weight:800; color:var(--accent); }
+    .stat-box .label { font-size:0.7rem; color:#888; text-transform:uppercase; letter-spacing:0.5px; }
+    h2 { font-size:1.4rem; margin:2rem 0 0.8rem; color:var(--shell); border-bottom:1px solid #2a2a4a; padding-bottom:0.3rem; }
+    table { width:100%; border-collapse:collapse; margin:0.5rem 0 1.5rem; font-size:0.88rem; }
+    th { text-align:left; padding:0.5rem 0.8rem; background:#1a1a3a; color:#aaa; text-transform:uppercase; font-size:0.72rem; letter-spacing:0.5px; border-bottom:1px solid #2a2a4a; }
+    td { padding:0.4rem 0.8rem; border-bottom:1px solid #1e1e3a; } tr:hover td { background:#1a1a3a; }
+    .bar { height:8px; border-radius:4px; background:var(--accent); display:inline-block; vertical-align:middle; }
+    .num-right { text-align:right; font-variant-numeric:tabular-nums; }
+    .provider-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:0.8rem; margin:0.5rem 0 1.5rem; }
+    .provider-card { background:var(--deep); border:1px solid #2a2a4a; border-radius:10px; padding:0.8rem 1rem; }
+    .provider-card .name { font-weight:700; font-size:0.95rem; }
+    .provider-card .type { font-size:0.75rem; color:#888; }
+    .status-ok { background:#1a3a1a; color:var(--green); border:1px solid #2a5a2a; display:inline-block; margin-top:0.3rem; font-size:0.7rem; padding:0.15rem 0.5rem; border-radius:4px; }
+    .status-partial { background:#3a3a1a; color:#f1c40f; border:1px solid #5a5a2a; display:inline-block; margin-top:0.3rem; font-size:0.7rem; padding:0.15rem 0.5rem; border-radius:4px; }
+    footer { text-align:center; padding:2rem; color:#444; font-size:0.8rem; border-top:1px solid #1e1e3a; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🦞 Knowledge Base Status</h1>
+    <p class="sub">z.je Security Intelligence — Live Dashboard</p>
+    <span class="live">● SERVICE LIVE — https://z.je</span>
+  </header>
+  <main>
+    <div class="stats-row">
+      <div class="stat-box"><span class="num">16,896</span><span class="label">Entities</span></div>
+      <div class="stat-box"><span class="num">38</span><span class="label">Entity Kinds</span></div>
+      <div class="stat-box"><span class="num">109</span><span class="label">Relationships</span></div>
+      <div class="stat-box"><span class="num">14</span><span class="label">Enrichment Providers</span></div>
+      <div class="stat-box"><span class="num">33+</span><span class="label">MCP Tools</span></div>
+    </div>
+    <h2>📊 Entity Breakdown</h2>
+    <table>
+      <tr><th>Kind</th><th>Count</th><th></th></tr>
+      <tr><td>YARA Rules</td><td class="num-right">5,946</td><td><span class="bar" style="width:100%"></span></td></tr>
+      <tr><td>Domains</td><td class="num-right">4,015</td><td><span class="bar" style="width:67%"></span></td></tr>
+      <tr><td>Malware</td><td class="num-right">2,130</td><td><span class="bar" style="36%"></span></td></tr>
+      <tr><td>Vulnerabilities</td><td class="num-right">1,002</td><td><span class="bar" style="17%"></span></td></tr>
+      <tr><td>URLs</td><td class="num-right">803</td><td><span class="bar" style:13%"></span></td></tr>
+      <tr><td>CVEs</td><td class="num-right">781</td><td><span class="bar" style="13%"></span></td></tr>
+      <tr><td>Drivers</td><td class="num-right">584</td><td><span class="bar" style="10%"></span></td></tr>
+      <tr><td>Threat Actors</td><td class="num-right">494</td><td><span class="bar" style="8%"></span></td></tr>
+      <tr><td>Other (30 kinds)</td><td class="num-right">1,741</td><td><span class="bar" style="29%"></span></td></tr>
+    </table>
+    <h2>🔌 Enrichment Providers</h2>
+    <div class="provider-grid">
+      <div class="provider-card"><span class="name">VirusTotal</span><span class="type">Malware/Hash/URL</span><br><span class="status-partial">API Key Required</span></div>
+      <div class="provider-card"><span class="name">Shodan</span><span class="type">IP/Host</span><br><span class="status-partial">API Key Required</span></div>
+      <div class="provider-card"><span class="name">MISP (CIRCL)</span><span class="type">Indicator/Event</span><br><span class="status-ok">Connected</span></div>
+      <div class="provider-card"><span class="name">GreyNoise</span><span class="type">IP Intelligence</span><br><span class="status-partial">API Key Required</span></div>
+      <div class="provider-card"><span class="name">IPInfo</span><span class="type">IP Geolocation</span><br><span class="status-partial">API Key Required</span></div>
+      <div class="provider-card"><span class="name">AbuseIPDB</span><span class="type">IP Reputation</span><br><span class="status-partial">API Key Required</span></div>
+      <div class="provider-card"><span class="name">URLScan.io</span><span class="type">URL Analysis</span><br><span class="status-partial">API Key Required</span></div>
+      <div class="provider-card"><span class="name">BGP.he.net</span><span class="type">ASN/BGP</span><br><span class="status-ok">No Key Needed</span></div>
+      <div class="provider-card"><span class="name">CrowdStrike</span><span class="type">Threat Intel</span><br><span class="status-partial">API Key Required</span></div>
+      <div class="provider-card"><span class="name">NVD</span><span class="type">CVE Data</span><br><span class="status-ok">Public API</span></div>
+      <div class="provider-card"><span class="name">MITRE ATT&CK</span><span class="type">TTPs/Actors</span><br><span class="status-ok">STIX Bundles</span></div>
+      <div class="provider-card"><span class="name">OpenCTI</span><span class="type">Threat Platform</span><br><span class="status-partial">Instance Required</span></div>
+    </div>
+    <h2>⚠️ Known Gaps (In Progress)</h2>
+    <table>
+      <tr><th>Area</th><th>Current</th><th>Target</th></tr>
+      <tr><td>Entity Relationships</td><td>109 / ~50,000</td><td>Full graph: techniques↔actors↔malware↔CVEs</td></tr>
+      <tr><td>Sigma Detection Rules</td><td>4 / ~700</td><td>1 per ATT&CK technique</td></tr>
+      <tr><td>EPSS / KEV Data</td><td>Not seeded</td><td>All CVEs with EPSS + CISA KEV status</td></tr>
+      <tr><td>Breach Reports / DFIR</td><td>Minimal</td><td>DFIR Report, Mandiant, CrowdStrike refs</td></tr>
+      <tr><td>Offensive Tooling / PoCs</td><td>ExploitDB only</td><td>Atomic Red Team, Metasploit, Nuclei</td></tr>
+      <tr><td>ATT&CK Procedure Examples</td><td>Minimal</td><td>5+ per technique beyond MITRE</td></tr>
+    </table>
+  </main>
+  <footer>🦞 Zoidberg · <a href="https://github.com/mzje/z-zoidberg">Source</a> · <a href="https://z.je">Live</a> · <a href="index.html">Home</a> · Updated 2026-05-09</footer>
+</body>
+</html>
