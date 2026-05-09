@@ -42,10 +42,10 @@
   </header>
   <main>
     <div class="stats-row">
-      <div class="stat-box"><span class="num">23,451</span><span class="label">Entities</span></div>
-      <div class="stat-box"><span class="num">39</span><span class="label">Entity Kinds</span></div>
-      <div class="stat-box"><span class="num">37,721</span><span class="label">Claims</span></div>
-      <div class="stat-box"><span class="num">16,084</span><span class="label">Relationships</span></div>
+      <div class="stat-box"><span class="num">28,023</span><span class="label">Entities</span></div>
+      <div class="stat-box"><span class="num">40</span><span class="label">Entity Kinds</span></div>
+      <div class="stat-box"><span class="num">42,000+</span><span class="label">Claims</span></div>
+      <div class="stat-box"><span class="num">18,809</span><span class="label">Relationships</span></div>
       <div class="stat-box"><span class="num">14</span><span class="label">Enrichment Providers</span></div>
       <div class="stat-box"><span class="num">33+</span><span class="label">MCP Tools</span></div>
     </div>
@@ -82,19 +82,28 @@
       <div class="provider-card"><span class="name">MITRE ATT&CK</span><span class="type">TTPs/Actors</span><br><span class="status-ok">STIX Bundles</span></div>
       <div class="provider-card"><span class="name">OpenCTI</span><span class="type">Threat Platform</span><br><span class="status-partial">Instance Required</span></div>
     </div>
-    <h2>⚠️ Known Gaps (In Progress)</h2>
+    <h2>⚠️ Gaps & Progress</h2>
     <table>
-      <tr><th>Area</th><th>Current</th><th>Target</th></tr>
-      <tr><td>Entity Relationships</td><td>16,084 / ~50,000</td><td>Full graph: techniques↔actors↔malware↔CVEs</td></tr>
-      <tr><td>Sigma Detection Rules</td><td>1,595 / ~3,000</td><td>All SigmaHQ rules with ATT&CK mapping</td></tr>
-      <tr><td>EPSS Scores</td><td>Partial</td><td>All CVEs with EPSS + CISA KEV status ✅</td></tr>
-      <tr><td>CISA KEV Catalog</td><td>1,590 ✅</td><td>Full catalog synced</td></tr>
-      <tr><td>MITRE ATT&CK</td><td>858 techs + 189 groups + 824 software ✅</td><td>Full Enterprise matrix</td></tr>
-      <tr><td>MISP Galaxies</td><td>1,984 clusters ✅</td><td>Actor, malware, tool, ransomware, banker, RAT, stealer</td></tr>
-      <tr><td>Atomic Red Team</td><td>331 techniques ✅</td><td>Full ART test library</td></tr>
-      <tr><td>Breach Reports</td><td>12 reports</td><td>DFIR Report, Mandiant, CrowdStrike, Volexity, CISA</td></tr>
-      <tr><td>NVD Enrichment</td><td>200 CVEs enriched</td><td>All CVEs with CVSS, CWE, CPE</td></tr>
-      <tr><td>Offensive PoCs</td><td>ExploitDB + Metasploit (planned)</td><td>Full PoC linking to CVEs</td></tr>
+      <tr><th>Area</th><th>Status</th><th>Detail</th></tr>
+      <tr><td>CISA KEV Catalog</td><td>✅ 1,590</td><td>Full catalog synced</td></tr>
+      <tr><td>MITRE ATT&CK</td><td>✅ 858 techs + 189 groups + 824 software</td><td>Full Enterprise matrix + STIX relationships</td></tr>
+      <tr><td>MITRE CAPEC</td><td>✅ 500 patterns</td><td>Attack pattern catalog</td></tr>
+      <tr><td>MITRE D3FEND</td><td>✅ 887 techniques</td><td>Defensive technique ontology</td></tr>
+      <tr><td>MISP Galaxies</td><td>✅ 1,984 clusters</td><td>8 galaxies: actors, malware, tools, ransomware</td></tr>
+      <tr><td>Sigma Detection Rules</td><td>✅ 1,595 rules</td><td>Full YAML content + ATT&CK mapping</td></tr>
+      <tr><td>Elastic Detection Rules</td><td>✅ 1,715 rules</td><td>TOML rules + ATT&CK mapping</td></tr>
+      <tr><td>Atomic Red Team</td><td>✅ 331 techniques</td><td>Emulation test library</td></tr>
+      <tr><td>LoLDrivers</td><td>✅ 622 drivers + 1,228 samples</td><td>Full metadata: hashes, certs, commands, detections</td></tr>
+      <tr><td>Malware Bazaar</td><td>✅ 987 samples / 27 families</td><td>SHA256 + family linking</td></tr>
+      <tr><td>Threat Actor Profiles</td><td>✅ 15 deep profiles</td><td>APT29, APT28, Lazarus, APT41, FIN7, Sandworm, etc.</td></tr>
+      <tr><td>OWASP Top 10 2021</td><td>✅ 10 entries</td><td>Full descriptions</td></tr>
+      <tr><td>CIS Controls v8</td><td>✅ 18 controls</td><td>Full descriptions</td></tr>
+      <tr><td>NIST CSF 2.0</td><td>✅ 6 functions</td><td>GOVERN, IDENTIFY, PROTECT, DETECT, RESPOND, RECOVER</td></tr>
+      <tr><td>Sysinternals</td><td>✅ 8 tools + 3 configs</td><td>Deep content + download URLs</td></tr>
+      <tr><td>Offensive Tooling</td><td>✅ 10 tools</td><td>Metasploit, Cobalt Strike, BloodHound, Mimikatz, etc.</td></tr>
+      <tr><td>Breach Reports</td><td>12 reports</td><td>DFIR, Mandiant, CrowdStrike, CISA</td></tr>
+      <tr><td>NVD Enrichment</td><td>🔄 Running</td><td>CVSS/CWE/CPE for CVEs (background)</td></tr>
+      <tr><td>EPSS Scores</td><td>🔄 Running</td><td>First.org API enrichment (background)</td></tr>
     </table>
   </main>
   <footer>🦞 Zoidberg · <a href="https://github.com/mzje/z-zoidberg">Source</a> · <a href="https://z.je">Live</a> · <a href="index.html">Home</a> · Updated 2026-05-09</footer>
