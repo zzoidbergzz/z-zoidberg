@@ -1,8 +1,10 @@
-.env
-.env.*
-.openclaw/
-security-knowledge/data/corpora/
+.venv/
+__pycache__/
+*.pyc
+*.dump
 data/
-security-knowledge/dump100.dump
-security-knowledge/dumps/
-security-knowledge/dumps/
+node_modules/
+.env
+*.sqlite
+security-knowledge/data/
+security-knowledge/.venv/
