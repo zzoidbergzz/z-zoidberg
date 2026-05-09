@@ -19,6 +19,14 @@ from app.models.sectors import Sector, SectorMembership
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+def _is_superadmin(auth: AuthContext) -> bool:
+    return auth.has_scope(Scope.superadmin)
+
+
+def _tenant_uuid(auth: AuthContext) -> uuid.UUID:
+    return uuid.UUID(auth.tenant_id)
+
+
 class ApproveUserBody(BaseModel):
     action: str  # "approve" | "reject"
 
@@ -33,6 +41,8 @@ async def list_users(
 ):
     """List users, optionally filtered by status."""
     q = select(User)
+    if not _is_superadmin(auth):
+        q = q.where(User.tenant_id == _tenant_uuid(auth))
     if status_filter:
         q = q.where(User.status == status_filter)
     q = q.offset((page - 1) * per_page).limit(per_page)
@@ -61,7 +71,10 @@ async def approve_user(
     db: AsyncSession = Depends(get_db),
 ):
     """Approve or reject a user registration."""
-    result = await db.execute(select(User).where(User.id == user_id))
+    q = select(User).where(User.id == user_id)
+    if not _is_superadmin(auth):
+        q = q.where(User.tenant_id == _tenant_uuid(auth))
+    result = await db.execute(q)
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -114,20 +127,57 @@ async def get_stats(
     from app.models.audit import AuditEvent
     from app.models.sources import SourceRecord
 
-    user_count = (await db.execute(select(func.count()).select_from(User))).scalar_one()
-    watch_count = (await db.execute(select(func.count()).select_from(IocWatch))).scalar_one()
-    sighting_count = (await db.execute(select(func.count()).select_from(IocSighting))).scalar_one()
-    cache_count = (await db.execute(select(func.count()).select_from(EnrichmentCache))).scalar_one()
-    source_count = (await db.execute(select(func.count()).select_from(SourceRecord))).scalar_one()
-    source_active = (await db.execute(
-        select(func.count()).select_from(SourceRecord).where(SourceRecord.active == True)  # noqa: E712
-    )).scalar_one()
-    document_count = (await db.execute(select(func.count()).select_from(ParsedDocument))).scalar_one()
-    entity_count = (await db.execute(select(func.count()).select_from(Entity))).scalar_one()
-    audit_count = (await db.execute(select(func.count()).select_from(AuditEvent))).scalar_one()
-    pending_users = (await db.execute(
-        select(func.count()).select_from(User).where(User.status == UserStatus.pending)
-    )).scalar_one()
+    tenant_filter = _tenant_uuid(auth)
+    if _is_superadmin(auth):
+        user_count = (await db.execute(select(func.count()).select_from(User))).scalar_one()
+        watch_count = (await db.execute(select(func.count()).select_from(IocWatch))).scalar_one()
+        sighting_count = (await db.execute(select(func.count()).select_from(IocSighting))).scalar_one()
+        cache_count = (await db.execute(select(func.count()).select_from(EnrichmentCache))).scalar_one()
+        source_count = (await db.execute(select(func.count()).select_from(SourceRecord))).scalar_one()
+        source_active = (await db.execute(
+            select(func.count()).select_from(SourceRecord).where(SourceRecord.active == True)  # noqa: E712
+        )).scalar_one()
+        document_count = (await db.execute(select(func.count()).select_from(ParsedDocument))).scalar_one()
+        entity_count = (await db.execute(select(func.count()).select_from(Entity))).scalar_one()
+        audit_count = (await db.execute(select(func.count()).select_from(AuditEvent))).scalar_one()
+        pending_users = (await db.execute(
+            select(func.count()).select_from(User).where(User.status == UserStatus.pending)
+        )).scalar_one()
+    else:
+        user_count = (await db.execute(
+            select(func.count()).select_from(User).where(User.tenant_id == tenant_filter)
+        )).scalar_one()
+        watch_count = (await db.execute(
+            select(func.count()).select_from(IocWatch).where(IocWatch.tenant_id == tenant_filter)
+        )).scalar_one()
+        sighting_count = (await db.execute(
+            select(func.count()).select_from(IocSighting).where(IocSighting.seeker_tenant_id == tenant_filter)
+        )).scalar_one()
+        cache_count = (await db.execute(
+            select(func.count()).select_from(EnrichmentCache).where(EnrichmentCache.tenant_id == tenant_filter)
+        )).scalar_one()
+        source_count = (await db.execute(
+            select(func.count()).select_from(SourceRecord).where(SourceRecord.tenant_id == tenant_filter)
+        )).scalar_one()
+        source_active = (await db.execute(
+            select(func.count())
+            .select_from(SourceRecord)
+            .where(SourceRecord.tenant_id == tenant_filter, SourceRecord.active == True)  # noqa: E712
+        )).scalar_one()
+        document_count = (await db.execute(
+            select(func.count()).select_from(ParsedDocument).where(ParsedDocument.tenant_id == tenant_filter)
+        )).scalar_one()
+        entity_count = (await db.execute(
+            select(func.count()).select_from(Entity).where(Entity.tenant_id == tenant_filter)
+        )).scalar_one()
+        audit_count = (await db.execute(
+            select(func.count()).select_from(AuditEvent).where(AuditEvent.tenant_id == tenant_filter)
+        )).scalar_one()
+        pending_users = (await db.execute(
+            select(func.count())
+            .select_from(User)
+            .where(User.tenant_id == tenant_filter, User.status == UserStatus.pending)
+        )).scalar_one()
 
     return {
         "user_count": user_count,
@@ -157,7 +207,10 @@ async def toggle_source(
     """Activate or deactivate a feed source."""
     from app.models.sources import SourceRecord
 
-    src = (await db.execute(select(SourceRecord).where(SourceRecord.id == source_id))).scalar_one_or_none()
+    q = select(SourceRecord).where(SourceRecord.id == source_id)
+    if not _is_superadmin(auth):
+        q = q.where(SourceRecord.tenant_id == _tenant_uuid(auth))
+    src = (await db.execute(q)).scalar_one_or_none()
     if not src:
         raise HTTPException(status_code=404, detail="Source not found")
     src.active = body.active

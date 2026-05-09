@@ -16,7 +16,10 @@ async def _ingest_url(args: dict, db, auth) -> dict:
         return {"error": "source_url is required"}
     source_type = args.get("source_type") or "generic"
 
-    job = await create_ingestion_job(db, auth.tenant_id, source_url, source_type)
+    try:
+        job = await create_ingestion_job(db, auth.tenant_id, source_url, source_type)
+    except ValueError as exc:
+        return {"error": str(exc)}
     await db.commit()
     logger.info(
         "mcp_ingest_url",

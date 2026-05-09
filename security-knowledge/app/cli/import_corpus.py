@@ -32,12 +32,15 @@ import sys
 import tarfile
 import tempfile
 import uuid
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import structlog
 
 logger = structlog.get_logger(__name__)
+
+_MAX_TAR_MEMBERS = 50_000
+_MAX_EXTRACTED_BYTES = 2 * 1024 * 1024 * 1024  # 2 GiB
 
 
 # ---------------------------------------------------------------------------
@@ -413,23 +416,42 @@ async def import_corpus_package(
 
 
 def _extract_tarzst(archive_path: Path, dest_dir: Path) -> None:
-    """Extract a .tar.zst archive using the tarfile + zstandard module."""
+    """Extract archive members safely into ``dest_dir``."""
+    dest_root = dest_dir.resolve()
+
+    def _validate_member(member: tarfile.TarInfo) -> None:
+        member_path = PurePosixPath(member.name)
+        if member_path.is_absolute():
+            raise ValueError(f"Unsafe absolute tar path: {member.name}")
+        if ".." in member_path.parts:
+            raise ValueError(f"Unsafe parent traversal in tar path: {member.name}")
+        if member.isdev():
+            raise ValueError(f"Refusing device entry in archive: {member.name}")
+        if member.issym() or member.islnk():
+            raise ValueError(f"Refusing link entry in archive: {member.name}")
+        target = (dest_root / Path(member.name)).resolve()
+        if target != dest_root and dest_root not in target.parents:
+            raise ValueError(f"Tar member escapes destination: {member.name}")
+
+    def _safe_extract(tar: tarfile.TarFile) -> None:
+        members = tar.getmembers()
+        if len(members) > _MAX_TAR_MEMBERS:
+            raise ValueError(f"Archive has too many entries ({len(members)} > {_MAX_TAR_MEMBERS})")
+        total_bytes = 0
+        for member in members:
+            _validate_member(member)
+            if member.isfile():
+                total_bytes += max(member.size, 0)
+                if total_bytes > _MAX_EXTRACTED_BYTES:
+                    raise ValueError("Archive exceeds extracted size limit")
+        for member in members:
+            tar.extract(member, path=dest_dir, set_attrs=False, numeric_owner=False)
+
     try:
-        import zstandard as zstd  # type: ignore[import]
-
-        with open(archive_path, "rb") as fh:
-            dctx = zstd.ZstdDecompressor()
-            with dctx.stream_reader(fh) as reader:
-                with tarfile.open(fileobj=reader) as tar:
-                    tar.extractall(dest_dir)
-    except ImportError:
-        # Fallback: rely on system zstd
-        import subprocess
-
-        subprocess.run(
-            ["tar", "--zstd", "-xf", str(archive_path), "-C", str(dest_dir)],
-            check=True,
-        )
+        with tarfile.open(archive_path, mode="r:*") as tar:
+            _safe_extract(tar)
+    except tarfile.ReadError as exc:
+        raise ValueError(f"Unsupported or invalid archive format: {archive_path.name}") from exc
 
 
 def main() -> None:

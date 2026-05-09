@@ -12,7 +12,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import AuthContext, get_auth
+from app.auth.dependencies import AuthContext, Scope, get_auth
 from app.auth.jwt import create_access_token
 from app.config import settings
 from app.database import get_db
@@ -486,6 +486,34 @@ def _api_key_metadata(k: ApiKey) -> ApiKeyMetadata:
     )
 
 
+def _parse_requested_scopes(raw_scopes: str) -> set[Scope]:
+    tokens = [t.strip().lower() for t in (raw_scopes or "").replace(",", " ").split() if t.strip()]
+    if not tokens:
+        return {Scope.read}
+    requested: set[Scope] = set()
+    for token in tokens:
+        try:
+            requested.add(Scope(token))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Unknown scope: {token}") from exc
+    return requested
+
+
+def _scope_string(scopes: set[Scope]) -> str:
+    return " ".join(scope.value for scope in Scope if scope in scopes)
+
+
+def _validated_scope_string(raw_scopes: str, auth: AuthContext) -> str:
+    requested = _parse_requested_scopes(raw_scopes)
+    for scope in requested:
+        if not auth.has_scope(scope):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Cannot grant scope '{scope.value}' you do not already have",
+            )
+    return _scope_string(requested)
+
+
 @router.get("/api-keys", response_model=list[ApiKeyMetadata])
 async def list_my_api_keys(
     auth: AuthContext = Depends(get_auth),
@@ -519,11 +547,12 @@ async def create_my_api_key(
     from app.auth.api_key import generate_api_key
 
     raw, key_hash = generate_api_key()
+    scope_string = _validated_scope_string(body.scopes, auth)
     key = ApiKey(
         tenant_id=uuid.UUID(auth.tenant_id),
         user_id=uuid.UUID(auth.user_id),
         name=body.name[:255] or "personal",
-        scopes=body.scopes or "read",
+        scopes=scope_string,
         key_hash=key_hash,
         active=True,
     )

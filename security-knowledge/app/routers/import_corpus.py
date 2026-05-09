@@ -17,7 +17,7 @@ import structlog
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.auth.dependencies import AuthContext, require_write
+from app.auth.dependencies import AuthContext, Scope, require_write
 
 logger = structlog.get_logger(__name__)
 
@@ -45,7 +45,11 @@ async def import_corpus(
     """
     from app.cli.import_corpus import _extract_tarzst, _validate_package, import_corpus_package
 
-    effective_tenant = tenant_id or str(auth.tenant_id)
+    effective_tenant = str(auth.tenant_id)
+    if tenant_id and tenant_id != str(auth.tenant_id):
+        if not auth.has_scope(Scope.superadmin):
+            raise HTTPException(status_code=403, detail="Cross-tenant import requires superadmin scope")
+        effective_tenant = tenant_id
 
     if archive is None:
         raise HTTPException(

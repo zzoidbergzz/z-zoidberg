@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from pydantic import BaseModel
@@ -42,7 +42,10 @@ async def ingest(
     db: AsyncSession = Depends(get_db),
     auth: AuthContext = Depends(require_write),
 ):
-    job = await create_ingestion_job(db, auth.tenant_id, body.source_url, body.source_type)
+    try:
+        job = await create_ingestion_job(db, auth.tenant_id, body.source_url, body.source_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return IngestOut(job_id=job.id, status=job.status)
 
 

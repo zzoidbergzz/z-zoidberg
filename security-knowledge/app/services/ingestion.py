@@ -10,6 +10,7 @@ import uuid
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.fetcher import validate_url_for_fetch
 from app.models.jobs import IngestionJob
 from app.observability.trace_propagation import get_traceparent
 
@@ -28,6 +29,10 @@ async def create_ingestion_job(
     The current OTel trace context is captured and stored in the job record
     so the worker can reconstruct the parent span when it picks up the job.
     """
+    validation_error = await validate_url_for_fetch(source_url)
+    if validation_error:
+        raise ValueError(f"Invalid source_url: {validation_error}")
+
     job = IngestionJob(
         tenant_id=uuid.UUID(str(tenant_id)) if isinstance(tenant_id, str) else tenant_id,
         source_url=source_url,

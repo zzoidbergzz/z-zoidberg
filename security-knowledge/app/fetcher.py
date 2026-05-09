@@ -31,13 +31,16 @@ Usage::
 """
 from __future__ import annotations
 
+import asyncio
 import fnmatch
+import ipaddress
 import re
+import socket
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlsplit
 
 import structlog
 import yaml
@@ -116,6 +119,60 @@ async def _enforce_rate_limit(url: str) -> bool:
     except Exception as exc:
         logger.debug("rate_limit_redis_unavailable", error=str(exc))
         return True  # Fail open
+
+
+def _is_blocked_ip(ip) -> bool:
+    return (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+    )
+
+
+async def _resolve_host_ips(host: str) -> set[str]:
+    loop = asyncio.get_running_loop()
+    infos = await loop.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    return {item[4][0] for item in infos if item and item[4]}
+
+
+async def validate_url_for_fetch(url: str) -> str | None:
+    """Return an error string if URL is not allowed for outbound fetch."""
+    try:
+        parts = urlsplit(url)
+    except Exception:
+        return "Invalid URL syntax"
+
+    if parts.scheme not in {"http", "https"}:
+        return "Only http/https URLs are allowed"
+    if not parts.hostname:
+        return "URL must include a hostname"
+    if parts.username is not None or parts.password is not None:
+        return "Userinfo in URL is not allowed"
+
+    host = parts.hostname
+    try:
+        ips = {str(ipaddress.ip_address(host))}
+    except ValueError:
+        try:
+            ips = await _resolve_host_ips(host)
+        except Exception:
+            return "Hostname could not be resolved"
+
+    if not ips:
+        return "Hostname resolved to no addresses"
+
+    for raw_ip in ips:
+        try:
+            parsed = ipaddress.ip_address(raw_ip)
+        except ValueError:
+            return "Invalid resolved IP address"
+        if _is_blocked_ip(parsed):
+            return f"Blocked network target: {parsed}"
+
+    return None
 
 logger = structlog.get_logger(__name__)
 
@@ -279,19 +336,67 @@ async def _fetch_httpx(url: str, timeout: int = 30, headers: dict | None = None)
     try:
         async with httpx.AsyncClient(
             timeout=timeout,
-            follow_redirects=True,
+            follow_redirects=False,
             headers=merged,
         ) as client:
-            resp = await client.get(url)
+            current_url = url
+            max_redirects = 5
+            for hop in range(max_redirects + 1):
+                validation_error = await validate_url_for_fetch(current_url)
+                if validation_error:
+                    elapsed = (time.monotonic() - t0) * 1000
+                    return FetchResult(
+                        url=current_url,
+                        ok=False,
+                        status_code=0,
+                        text="",
+                        headers={},
+                        elapsed_ms=elapsed,
+                        used_browser=False,
+                        error=validation_error,
+                    )
+
+                resp = await client.get(current_url)
+                if resp.status_code in {301, 302, 303, 307, 308}:
+                    location = resp.headers.get("Location")
+                    if not location:
+                        break
+                    if hop >= max_redirects:
+                        elapsed = (time.monotonic() - t0) * 1000
+                        return FetchResult(
+                            url=current_url,
+                            ok=False,
+                            status_code=310,
+                            text="",
+                            headers=dict(resp.headers),
+                            elapsed_ms=elapsed,
+                            used_browser=False,
+                            error="Too many redirects",
+                        )
+                    current_url = urljoin(current_url, location)
+                    continue
+
+                elapsed = (time.monotonic() - t0) * 1000
+                return FetchResult(
+                    url=current_url,
+                    ok=resp.is_success,
+                    status_code=resp.status_code,
+                    text=resp.text,
+                    headers=dict(resp.headers),
+                    elapsed_ms=elapsed,
+                    used_browser=False,
+                )
+
             elapsed = (time.monotonic() - t0) * 1000
             return FetchResult(
-                url=url,
-                ok=resp.is_success,
-                status_code=resp.status_code,
-                text=resp.text,
-                headers=dict(resp.headers),
+                url=current_url,
+                ok=False,
+                status_code=500,
+                text="",
+                headers={},
                 elapsed_ms=elapsed,
                 used_browser=False,
+                error="Fetch failed",
             )
     except Exception as exc:
         elapsed = (time.monotonic() - t0) * 1000
