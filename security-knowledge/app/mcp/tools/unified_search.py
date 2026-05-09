@@ -12,23 +12,20 @@ so future searches find them locally without hitting the network.
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 
 import httpx
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.mcp.registry import register_tool
 from app.models.entities import Entity
-from app.services.search import full_text_search, corpus_search
+from app.services.search import full_text_search
+from app.services.web_search import searxng_search
 
 logger = logging.getLogger(__name__)
 
-_SEARXNG_BASE = "http://localhost:8888"
-# Minimum DB score to consider the local results "sufficient"
-_DB_SUFFICIENT_THRESHOLD = 3
 # Minimum number of results to consider search "answered"
 _MIN_TOTAL_RESULTS = 5
 
@@ -45,26 +42,10 @@ async def _db_search(db: AsyncSession, tenant_id: str, query: str, limit: int = 
 
 async def _searxng_search(query: str, categories: str = "general", limit: int = 10) -> list[dict]:
     """Search the web via SearXNG."""
-    params = {"format": "json", "q": query, "categories": categories}
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(f"{_SEARXNG_BASE}/search", params=params)
-            resp.raise_for_status()
-            data = resp.json()
-            results = data.get("results", [])[:limit]
-            return [
-                {
-                    "source": "web",
-                    "title": r.get("title", ""),
-                    "url": r.get("url", ""),
-                    "content": r.get("content", ""),
-                    "score": r.get("score", 0),
-                    "engine": r.get("engine", ""),
-                    "category": r.get("category", ""),
-                }
-                for r in results
-            ]
-    except Exception as e:
+        results = await searxng_search(query, categories=categories, limit=limit)
+        return [{"source": "web", **r} for r in results]
+    except (httpx.HTTPError, ValueError) as e:
         logger.warning("SearXNG search failed: %s", e)
         return []
 

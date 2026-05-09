@@ -151,6 +151,11 @@ class Settings(BaseSettings):
     SESSION_COOKIE_SECURE: bool = True
     ACCESS_TOKEN_EXPIRE_HOURS: int = 168  # 7 days for browser sessions
 
+    # Web search fallback (SearXNG)
+    SEARXNG_BASE_URL: str = "http://localhost:8888"
+    SEARCH_WEB_FALLBACK_ENABLED: bool = True
+    SEARCH_WEB_FALLBACK_MIN_DB_RESULTS: int = 5
+
     # Bootstrap admin (set in .env only — never commit values)
     BOOTSTRAP_ADMIN_EMAIL: str = ""
     BOOTSTRAP_ADMIN_PASSWORD: str = ""

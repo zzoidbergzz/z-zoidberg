@@ -1,12 +1,11 @@
-"""MCP tool: web search via local SearXNG instance."""
+"""MCP tool: web search via configured SearXNG instance."""
 
 from __future__ import annotations
 
 import httpx
 
 from app.mcp.registry import register_tool
-
-_SEARXNG_BASE = "http://localhost:8888"
+from app.services.web_search import searxng_search
 
 
 async def _searxng_search(args: dict, db, auth) -> dict:
@@ -16,29 +15,11 @@ async def _searxng_search(args: dict, db, auth) -> dict:
     categories = args.get("categories", "general")
     limit = int(args.get("limit", 10))
 
-    params = {"format": "json", "q": query, "categories": categories}
-    async with httpx.AsyncClient(timeout=15) as client:
-        try:
-            resp = await client.get(f"{_SEARXNG_BASE}/search", params=params)
-            resp.raise_for_status()
-            data = resp.json()
-        except httpx.HTTPError as exc:
-            return {"error": {"code": "searxng_error", "message": str(exc)}}
-
-    results = data.get("results", [])[:limit]
-    return {
-        "query": query,
-        "results": [
-            {
-                "title": r.get("title", ""),
-                "url": r.get("url", ""),
-                "content": r.get("content", ""),
-                "score": r.get("score"),
-            }
-            for r in results
-        ],
-        "count": len(results),
-    }
+    try:
+        results = await searxng_search(query, categories=categories, limit=limit)
+    except (httpx.HTTPError, ValueError) as exc:
+        return {"error": {"code": "searxng_error", "message": str(exc)}}
+    return {"query": query, "results": results, "count": len(results)}
 
 
 register_tool(

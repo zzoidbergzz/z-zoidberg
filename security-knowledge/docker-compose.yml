@@ -8,9 +8,11 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://sk:sk@db/sk
       REDIS_URL: redis://redis:6379
+      SEARXNG_BASE_URL: http://searxng:8080
     depends_on:
       - db
       - redis
+      - searxng
 
   worker:
     build: .
@@ -42,6 +44,15 @@ services:
     image: dperson/torproxy
     ports:
       - "9050:9050"
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "8888:8080"
+    environment:
+      BASE_URL: http://localhost:8888/
+      INSTANCE_NAME: z-zoidberg
     restart: unless-stopped
 
 volumes:
