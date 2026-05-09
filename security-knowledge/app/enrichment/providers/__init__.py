@@ -17,6 +17,7 @@ from . import (  # noqa: F401  (import-for-side-effects)
     mitre_attack,
     nvd,
     opencti,
+    otx,
     shodan,
     urlscan,
     virustotal,

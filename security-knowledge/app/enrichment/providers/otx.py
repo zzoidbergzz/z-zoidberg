@@ -65,13 +65,9 @@ class OTXProvider(BaseEnrichmentProvider):
                         "pulse_count": data.get("pulse_info", {}).get("count", 0),
                         "sections": data.get("sections", []),
                         "type_title": data.get("type_title", ""),
-                        "base_indicator": {
-                            "id": data.get("indicator", {}).get("id", ""),
-                            "title": data.get("indicator", {}).get("title", ""),
-                            "description": data.get("indicator", {}).get("description", "")[:500],
-                            "threat_score": data.get("indicator", {}).get("threat_score"),
-                            "observed_at": data.get("indicator", {}).get("observed_at", ""),
-                        } if data.get("indicator") else None,
+                        "indicator_type": data.get("base_indicator", {}).get("type", ""),
+                        "nvd_url": data.get("nvd_url", ""),
+                        "mitre_url": data.get("mitre_url", ""),
                     }
 
                     # Get pulses (threat intel reports referencing this indicator)
