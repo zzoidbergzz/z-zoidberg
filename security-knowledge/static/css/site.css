@@ -61,8 +61,12 @@ body::before {
   font-family: "IBM Plex Mono", monospace;
   font-size: 1.2rem;
   font-weight: 700;
-  color: var(--accent);
+  color: #e07a3a;
   letter-spacing: 0.08em;
+  text-decoration: none;
+}
+.brand-dot {
+  color: #e07a3a;
 }
 
 .nav-links,
