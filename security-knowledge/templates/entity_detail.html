@@ -39,6 +39,12 @@
     <div id="enrichments-body" style="margin-top:0.75rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.75rem;"></div>
   </section>
 
+  <!-- Claims -->
+  <section class="panel" id="claims-card" style="margin-top:1rem;display:none;">
+    <div class="section-title">Claims (<span id="claims-count">0</span>)</div>
+    <div id="claims-body" style="margin-top:0.75rem;"></div>
+  </section>
+
   <!-- Relationships -->
   <section class="panel" id="rels-card" style="margin-top:1rem;display:none;">
     <div class="section-title">Relationships</div>
@@ -46,12 +52,6 @@
       <thead><tr><th>Relation</th><th>Target</th><th>Kind</th></tr></thead>
       <tbody id="rels-body"></tbody>
     </table>
-  </section>
-
-  <!-- Related items (clustering not yet implemented) -->
-  <section class="panel" id="related-card" style="margin-top:1rem;">
-    <div class="section-title">Related items</div>
-    <p class="subtle" style="font-size:0.85rem;margin-top:0.5rem;">Related: (none yet — clustering pipeline not yet active)</p>
   </section>
 
   <!-- Graph link -->
@@ -88,6 +88,14 @@
 .enrich-kv { display:grid; grid-template-columns:auto 1fr; gap:0.25rem 0.75rem; font-size:0.82rem; }
 .enrich-kv .k { color:var(--text-muted,#94a3b8); white-space:nowrap; }
 .enrich-kv .v { word-break:break-all; }
+.claim-card { background:var(--surface,#1a1a2e); border:1px solid var(--border,#2a2a4a); border-radius:8px; padding:0.85rem 1rem; margin-bottom:0.75rem; }
+.claim-type { font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--accent,#4af); margin-bottom:0.4rem; }
+.claim-assertion { font-size:0.9rem; line-height:1.6; color:var(--text-muted,#94a3b8); margin-bottom:0.5rem; }
+.claim-tags { display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.5rem; }
+.claim-iocs { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:0.5rem; margin-top:0.5rem; }
+.claim-ioc-group { font-size:0.82rem; }
+.claim-ioc-group .label { color:var(--text-muted,#94a3b8); font-weight:600; margin-bottom:0.2rem; }
+.claim-ioc-group .items { display:flex; gap:0.25rem; flex-wrap:wrap; }
 </style>
 
 <script>
@@ -116,27 +124,27 @@
   const entityId = window.location.pathname.split("/").pop();
   const statusEl = document.getElementById("status");
 
-  // ── Load entity + enrichments in parallel ────────────────────────────
   async function loadAll() {
     statusEl.textContent = "Loading…";
     try {
-      const [entityResp, enrichResp] = await Promise.all([
-        fetch(`/api/v1/entities/${entityId}`, { credentials: "same-origin" }),
-        fetch(`/api/v1/lookup/entity/${entityId}/results`, { credentials: "same-origin" }),
+      const [entityResp, enrichResp, claimsResp] = await Promise.all([
+        fetch("/api/v1/entities/" + entityId, { credentials: "same-origin" }),
+        fetch("/api/v1/lookup/entity/" + entityId + "/results", { credentials: "same-origin" }).catch(() => null),
+        fetch("/api/v1/claims/entity/" + entityId, { credentials: "same-origin" }).catch(() => null),
       ]);
       const e = entityResp.ok ? await entityResp.json() : null;
-      const enrichData = enrichResp.ok ? await enrichResp.json() : null;
+      const enrichData = enrichResp && enrichResp.ok ? await enrichResp.json() : null;
+      const claimsData = claimsResp && claimsResp.ok ? await claimsResp.json() : null;
 
       if (!e) { statusEl.textContent = "Entity not found."; return; }
       statusEl.textContent = "";
-      renderEntity(e, enrichData);
+      renderEntity(e, enrichData, claimsData);
     } catch (err) {
       statusEl.textContent = "Error: " + err.message;
     }
   }
 
-  // ── Render entity header + details ───────────────────────────────────
-  function renderEntity(e, enrichData) {
+  function renderEntity(e, enrichData, claimsData) {
     const name = e.canonical_name || e.name || e.id;
     const kind = e.kind || "";
     const icon = KIND_ICONS[kind] || "📦";
@@ -146,34 +154,33 @@
 
     const extRefs = e.external_refs || {};
 
-    // Friendly description from catalog (if backfilled) or AKA
+    // Description
     if (extRefs.description) {
       document.getElementById("description-block").style.display = "";
-      let descHtml = `<p style="line-height:1.55;margin:0 0 0.4rem 0;">${esc(extRefs.description)}</p>`;
+      var descHtml = '<p style="line-height:1.55;margin:0 0 0.4rem 0;">' + esc(extRefs.description) + '</p>';
       if (extRefs.aka && extRefs.aka.length) {
-        const akas = Array.isArray(extRefs.aka) ? extRefs.aka : [extRefs.aka];
-        descHtml += `<p class="subtle" style="font-size:0.85rem;margin:0;">Also known as: ${akas.map(esc).join(", ")}</p>`;
+        var akas = Array.isArray(extRefs.aka) ? extRefs.aka : [extRefs.aka];
+        descHtml += '<p class="subtle" style="font-size:0.85rem;margin:0;">Also known as: ' + akas.map(esc).join(", ") + '</p>';
       }
       if (extRefs.url) {
-        descHtml += `<p style="font-size:0.85rem;margin-top:0.4rem;"><a href="${esc(extRefs.url)}" target="_blank" rel="noopener">Reference ↗</a></p>`;
+        descHtml += '<p style="font-size:0.85rem;margin-top:0.4rem;"><a href="' + esc(extRefs.url) + '" target="_blank" rel="noopener">Reference \u2197</a></p>';
       }
       document.getElementById("description-text").innerHTML = descHtml;
     }
 
     const badges = document.getElementById("entity-badges");
-    badges.innerHTML = `<span class="tiny-pill">${esc(kind)}</span>`;
-    // CVE CVSS from external_refs
+    badges.innerHTML = '<span class="tiny-pill">' + esc(kind) + '</span>';
     if (extRefs.cvss) {
-      const cvssVal = parseFloat(extRefs.cvss);
-      let sev = cvssVal >= 9 ? "critical" : cvssVal >= 7 ? "high" : cvssVal >= 4 ? "medium" : "low";
-      badges.innerHTML += ` <span class="cvss-badge ${cvssClass(sev)}">${sev.toUpperCase()} ${esc(extRefs.cvss)}</span>`;
+      var cvssVal = parseFloat(extRefs.cvss);
+      var sev = cvssVal >= 9 ? "critical" : cvssVal >= 7 ? "high" : cvssVal >= 4 ? "medium" : "low";
+      badges.innerHTML += ' <span class="cvss-badge ' + cvssClass(sev) + '">' + sev.toUpperCase() + ' ' + esc(extRefs.cvss) + '</span>';
     }
     if (e.mitre_attack_id) {
-      badges.innerHTML += ` <span class="tiny-pill">${esc(e.mitre_attack_id)}</span>`;
+      badges.innerHTML += ' <span class="tiny-pill">' + esc(e.mitre_attack_id) + '</span>';
     }
     document.getElementById("entity-header").style.display = "";
 
-    // Meta grid — show EVERY field we have
+    // Meta grid
     const meta = document.getElementById("meta-grid");
     const fields = [
       ["ID", e.id],
@@ -184,106 +191,112 @@
       ["Tenant", e.tenant_id],
       ["Created", e.created_at ? new Date(e.created_at).toLocaleString() : null],
       ["Updated", e.updated_at ? new Date(e.updated_at).toLocaleString() : null],
-    ].filter(([,v]) => v != null && v !== "");
-    meta.innerHTML = fields.map(([k,v]) =>
-      `<span class="subtle" style="font-size:0.82rem;">${esc(k)}</span><span class="mono" style="font-size:0.82rem;word-break:break-all;">${esc(v)}</span>`
-    ).join("");
+    ].filter(function(pair) { return pair[1] != null && pair[1] !== ""; });
+    meta.innerHTML = fields.map(function(pair) {
+      return '<span class="subtle" style="font-size:0.82rem;">' + esc(pair[0]) + '</span><span class="mono" style="font-size:0.82rem;word-break:break-all;">' + esc(pair[1]) + '</span>';
+    }).join("");
 
-    // External refs — render as labelled rows with link explanations
-    const refs = extRefs;
-    const refKeys = Object.keys(refs).filter(k => refs[k] !== null && refs[k] !== "" && refs[k] !== false);
+    // External refs
+    var refs = extRefs;
+    var refKeys = Object.keys(refs).filter(function(k) { return refs[k] !== null && refs[k] !== "" && refs[k] !== false; });
     if (refKeys.length) {
-      const REF_LABELS = {
+      var REF_LABELS = {
         cve: "CVE id this entity refers to",
-        cvss: "CVSS v3 base score (0–10)",
+        cvss: "CVSS v3 base score (0\u201310)",
         nvd_link: "Open in NIST NVD",
         gcve_link: "Open in GCVE / CIRCL",
         mitre_link: "Open in MITRE ATT&CK",
         kev: "CISA Known-Exploited-Vulnerabilities catalogue entry",
-        epss: "EPSS exploitation-probability score (0–1)",
-        stub: "This is a stub entity — created by knowledge-graph bootstrap before full data was ingested",
-        knowledge_id: "Internal knowledge-base id used by bootstrap fixtures",
+        epss: "EPSS exploitation-probability score (0\u20131)",
+        stub: "Stub entity \u2014 created before full data was ingested",
+        knowledge_id: "Internal knowledge-base id",
         source: "Originating ingestion source",
         url: "Origin URL",
         published: "Original publication timestamp",
+        file: "Source file path",
+        trust_tier: "Source trust tier"
       };
-      const refHtml = refKeys.map(k => {
-        const v = refs[k];
-        const label = REF_LABELS[k] || "";
-        let valueHtml;
+      var refHtml = refKeys.map(function(k) {
+        var v = refs[k];
+        var label = REF_LABELS[k] || "";
+        var valueHtml;
         if (typeof v === "string" && /^https?:\/\//.test(v)) {
-          valueHtml = `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)} ↗</a>`;
+          valueHtml = '<a href="' + esc(v) + '" target="_blank" rel="noopener">' + esc(v) + ' \u2197</a>';
         } else if (typeof v === "object") {
-          valueHtml = `<code style="white-space:pre-wrap">${esc(JSON.stringify(v, null, 2))}</code>`;
+          valueHtml = '<code style="white-space:pre-wrap">' + esc(JSON.stringify(v, null, 2)) + '</code>';
         } else {
-          valueHtml = `<span class="mono">${esc(String(v))}</span>`;
+          valueHtml = '<span class="mono">' + esc(String(v)) + '</span>';
         }
-        return `<div style="margin-bottom:0.5rem;">
-          <div style="display:flex;gap:0.5rem;align-items:baseline;">
-            <strong style="font-size:0.85rem;">${esc(k)}</strong>
-            ${valueHtml}
-          </div>
-          ${label ? `<div class="subtle" style="font-size:0.78rem;margin-left:0.2rem;">${esc(label)}</div>` : ""}
-        </div>`;
+        return '<div style="margin-bottom:0.5rem;">' +
+          '<div style="display:flex;gap:0.5rem;align-items:baseline;">' +
+          '<strong style="font-size:0.85rem;">' + esc(k) + '</strong>' +
+          valueHtml +
+          '</div>' +
+          (label ? '<div class="subtle" style="font-size:0.78rem;margin-left:0.2rem;">' + esc(label) + '</div>' : '') +
+          '</div>';
       }).join("");
       meta.insertAdjacentHTML("afterend",
-        `<div style="margin-top:1rem;">
-          <div class="section-title" style="font-size:0.8rem;margin-bottom:0.5rem;">External references</div>
-          ${refHtml}
-        </div>`);
+        '<div style="margin-top:1rem;">' +
+        '<div class="section-title" style="font-size:0.8rem;margin-bottom:0.5rem;">External references</div>' +
+        refHtml +
+        '</div>');
     }
 
-    // Stub-entity banner
+    // Stub banner
     if (refs.stub === true) {
       document.getElementById("description-block").style.display = "";
       document.getElementById("description-text").innerHTML =
-        '<strong>Stub entity.</strong> This was placed by the knowledge-graph bootstrap (an internal fixture) ' +
-        'so other records can reference it. No external feed has filled in details yet. It will be enriched ' +
-        'automatically when a matching CVE/IOC/document arrives, or you can <a href="/admin">trigger enrichment</a> ' +
-        'manually from the admin panel.';
+        '<strong>Stub entity.</strong> Created by bootstrap before full data was ingested. ' +
+        'It will be enriched automatically when a matching record arrives.';
     }
 
     document.getElementById("details-card").style.display = "";
 
-    // Raw JSON dump — always available
-    const rawCard = document.createElement("section");
+    // Raw JSON
+    var rawCard = document.createElement("section");
     rawCard.className = "card";
     rawCard.style.marginTop = "1rem";
-    rawCard.innerHTML = `
-      <details>
-        <summary style="cursor:pointer;font-weight:600;">Raw entity JSON</summary>
-        <pre class="mono" style="margin-top:0.6rem;font-size:0.78rem;background:#0f1117;padding:0.8rem;border-radius:6px;overflow:auto;max-height:480px;">${esc(JSON.stringify(e, null, 2))}</pre>
-      </details>
-    `;
+    rawCard.innerHTML =
+      '<details>' +
+      '<summary style="cursor:pointer;font-weight:600;">Raw entity JSON</summary>' +
+      '<pre class="mono" style="margin-top:0.6rem;font-size:0.78rem;background:#0f1117;padding:0.8rem;border-radius:6px;overflow:auto;max-height:480px;">' + esc(JSON.stringify(e, null, 2)) + '</pre>' +
+      '</details>';
     document.getElementById("details-card").after(rawCard);
 
     // Graph + Ask AI
-    document.getElementById("graph-link").href = `/graph?entity_id=${encodeURIComponent(entityId)}`;
+    document.getElementById("graph-link").href = "/graph?entity_id=" + encodeURIComponent(entityId);
     document.getElementById("graph-link-section").style.display = "";
-    document.getElementById("ai-question").value = `Explain this ${kind || "entity"} "${name}" and its security relevance.`;
+    document.getElementById("ai-question").value = "Explain this " + (kind || "entity") + " \"" + name + "\" and its security relevance.";
     document.getElementById("ask-ai-card").style.display = "";
-    window._entityContext = JSON.stringify({ id: e.id, kind, name, external_refs: extRefs }, null, 2);
+    window._entityContext = JSON.stringify({ id: e.id, kind: kind, name: name, external_refs: extRefs }, null, 2);
 
     // Enrichments
     if (enrichData) {
       renderEnrichments(kind, name, extRefs, enrichData);
     }
-    // If nothing rendered, show a helpful explanation card
-    setTimeout(() => {
-      const enrShown = document.getElementById("enrichments-card").style.display !== "none";
-      const vulnShown = document.getElementById("vuln-card").style.display !== "none";
-      if (!enrShown && !vulnShown) {
-        const note = document.createElement("section");
+
+    // Claims
+    if (claimsData && claimsData.length) {
+      renderClaims(claimsData);
+    }
+
+    // If nothing rendered, show helpful explanation
+    setTimeout(function() {
+      var enrShown = document.getElementById("enrichments-card").style.display !== "none";
+      var vulnShown = document.getElementById("vuln-card").style.display !== "none";
+      var claimsShown = document.getElementById("claims-card").style.display !== "none";
+      if (!enrShown && !vulnShown && !claimsShown) {
+        var note = document.createElement("section");
         note.className = "card";
         note.style.marginTop = "1rem";
-        const enrichable = ["cve","cve_id","ip","ip_address","domain","url","hash","file_hash","technique","subtechnique","attack_pattern"].includes(kind);
-        note.innerHTML = `
-          <div class="section-title">No enrichment data yet</div>
-          <p class="subtle" style="font-size:0.9rem;line-height:1.6;margin-top:0.5rem;">
-            ${enrichable
-              ? `This <strong>${esc(kind)}</strong> entity has no cached enrichment results. Background workers enrich entities on first appearance and on any user lookup. If this is unexpected, check that the relevant provider is configured (Settings → Provider keys) or run <code>scripts/enrich_backfill.py</code>.`
-              : `Entities of kind <strong>${esc(kind)}</strong> are not auto-enriched. They typically appear when other records reference them (relationships, claims, evidence). Try the <a href="/graph?entity_id=${encodeURIComponent(entityId)}">graph view</a> to see context.`}
-          </p>`;
+        var enrichable = ["cve","cve_id","ip","ip_address","domain","url","hash","file_hash","technique","subtechnique","attack_pattern"].includes(kind);
+        note.innerHTML =
+          '<div class="section-title">No enrichment data yet</div>' +
+          '<p class="subtle" style="font-size:0.9rem;line-height:1.6;margin-top:0.5rem;">' +
+          (enrichable
+            ? 'This <strong>' + esc(kind) + '</strong> entity has no cached enrichment results. Background workers enrich entities on first appearance and on any user lookup.'
+            : 'Entities of kind <strong>' + esc(kind) + '</strong> are not auto-enriched. Try the <a href="/graph?entity_id=' + encodeURIComponent(entityId) + '">graph view</a> to see context.') +
+          '</p>';
         document.getElementById("ask-ai-card").before(note);
       }
     }, 600);
@@ -291,33 +304,110 @@
     loadRelationships();
   }
 
-  // ── Render enrichment results ─────────────────────────────────────────
-  function renderEnrichments(kind, name, extRefs, data) {
-    const enrichments = data.enrichments || [];
-    // Filter out empty
-    const filled = enrichments.filter(e => e.data && Object.keys(e.data).length > 0);
+  // ── Claims rendering ──────────────────────────────────────────────────
+  function renderClaims(claims) {
+    document.getElementById("claims-count").textContent = claims.length;
+    var body = document.getElementById("claims-body");
+    body.innerHTML = claims.map(function(claim) {
+      var val = claim.value || {};
+      var assertion = val.assertion || "";
+      var tags = val.tags || [];
+      var iocs = val.iocs || {};
+      var fullContent = val.full_content || "";
+      var confidence = claim.confidence;
+      var status = claim.status;
+      var claimType = claim.claim_type;
 
-    // CVE-specific card from NVD
-    const nvdEntry = filled.find(e => e.source === "nvd");
+      var html = '<div class="claim-card">';
+      html += '<div class="claim-type">' + esc(claimType);
+      if (confidence != null) html += ' <span class="tiny-pill">conf: ' + (confidence * 100).toFixed(0) + '%</span>';
+      if (status) html += ' <span class="tiny-pill">' + esc(status) + '</span>';
+      html += '</div>';
+
+      // Assertion
+      if (assertion) {
+        html += '<div class="claim-assertion">' + esc(assertion) + '</div>';
+      }
+
+      // Tags
+      if (tags.length) {
+        html += '<div class="claim-tags">' + tags.map(function(t) {
+          return '<span class="tiny-pill">' + esc(t) + '</span>';
+        }).join("") + '</div>';
+      }
+
+      // IOCs
+      var iocGroups = [];
+      var iocLabels = {
+        domains: "Domains", ips: "IPs", emails: "Emails", cves: "CVEs",
+        md5: "MD5", sha1: "SHA1", sha256: "SHA256", btc: "BTC",
+        onions: "Onions", techniques: "Techniques"
+      };
+      Object.keys(iocs).forEach(function(key) {
+        var items = iocs[key];
+        if (items && items.length) {
+          iocGroups.push({ label: iocLabels[key] || key, items: items });
+        }
+      });
+      if (iocGroups.length) {
+        html += '<div class="claim-iocs">';
+        iocGroups.forEach(function(group) {
+          html += '<div class="claim-ioc-group">';
+          html += '<div class="label">' + esc(group.label) + ' (' + group.items.length + ')</div>';
+          html += '<div class="items">' + group.items.slice(0, 20).map(function(item) {
+            return '<span class="tiny-pill">' + esc(item) + '</span>';
+          }).join("") + (group.items.length > 20 ? ' <span class="subtle" style="font-size:0.8rem;">+' + (group.items.length - 20) + ' more</span>' : '') + '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+
+      // Full content (collapsible)
+      if (fullContent) {
+        var preview = fullContent.length > 500 ? fullContent.substring(0, 500) + "..." : fullContent;
+        html += '<details style="margin-top:0.5rem;">';
+        html += '<summary style="cursor:pointer;font-size:0.85rem;color:var(--accent,#4af);">Full content (' + fullContent.length + ' chars)</summary>';
+        html += '<div style="margin-top:0.5rem;font-size:0.85rem;line-height:1.6;white-space:pre-wrap;max-height:600px;overflow:auto;color:var(--text-muted,#94a3b8);">' + esc(fullContent) + '</div>';
+        html += '</details>';
+      }
+
+      // Raw claim value (collapsible)
+      html += '<details style="margin-top:0.5rem;">';
+      html += '<summary style="cursor:pointer;font-size:0.78rem;color:var(--text-muted,#94a3b8);">Raw claim JSON</summary>';
+      html += '<pre class="mono" style="margin-top:0.4rem;font-size:0.72rem;background:#0f1117;padding:0.6rem;border-radius:6px;overflow:auto;max-height:300px;">' + esc(JSON.stringify(val, null, 2)) + '</pre>';
+      html += '</details>';
+
+      html += '</div>';
+      return html;
+    }).join("");
+
+    document.getElementById("claims-card").style.display = "";
+  }
+
+  // ── Enrichment rendering ──────────────────────────────────────────────
+  function renderEnrichments(kind, name, extRefs, data) {
+    var enrichments = data.enrichments || [];
+    var filled = enrichments.filter(function(e) { return e.data && Object.keys(e.data).length > 0; });
+
+    var nvdEntry = filled.find(function(e) { return e.source === "nvd"; });
     if (nvdEntry && nvdEntry.data) {
       renderCVECard(name, extRefs, nvdEntry.data);
     } else if (kind === "cve" || kind === "vulnerability") {
-      // Show basic CVE card from external_refs even without NVD cache
       renderCVECard(name, extRefs, {});
     }
 
     if (!filled.length) return;
 
-    const body = document.getElementById("enrichments-body");
-    body.innerHTML = filled.map(enr => {
-      const d = enr.data || {};
-      const src = enr.source || "unknown";
-      const kvPairs = renderKV(d, src);
+    var body = document.getElementById("enrichments-body");
+    body.innerHTML = filled.map(function(enr) {
+      var d = enr.data || {};
+      var src = enr.source || "unknown";
+      var kvPairs = renderKV(d, src);
       if (!kvPairs) return "";
-      return `<div class="enrich-card">
-        <div class="enrich-card-title">${esc(src)}</div>
-        <div class="enrich-kv">${kvPairs}</div>
-      </div>`;
+      return '<div class="enrich-card">' +
+        '<div class="enrich-card-title">' + esc(src) + '</div>' +
+        '<div class="enrich-kv">' + kvPairs + '</div>' +
+        '</div>';
     }).filter(Boolean).join("");
 
     if (body.innerHTML) {
@@ -326,61 +416,55 @@
   }
 
   function renderKV(d, src) {
-    const skip = new Set(["nvd_link","gcve_link","cve_id","cvss","affected_products"]);
-    const entries = Object.entries(d)
-      .filter(([k, v]) => !skip.has(k) && v !== null && v !== "" && !(Array.isArray(v) && !v.length) && typeof v !== "object")
+    var skip = new Set(["nvd_link","gcve_link","cve_id","cvss","affected_products"]);
+    var entries = Object.entries(d)
+      .filter(function(pair) { return !skip.has(pair[0]) && pair[1] !== null && pair[1] !== "" && !(Array.isArray(pair[1]) && !pair[1].length) && typeof pair[1] !== "object"; })
       .slice(0, 12);
     if (!entries.length) return "";
-    return entries.map(([k, v]) =>
-      `<span class="k">${esc(k.replace(/_/g," "))}</span><span class="v">${esc(String(v).slice(0,120))}</span>`
-    ).join("");
+    return entries.map(function(pair) {
+      return '<span class="k">' + esc(pair[0].replace(/_/g," ")) + '</span><span class="v">' + esc(String(pair[1]).slice(0,120)) + '</span>';
+    }).join("");
   }
 
-  // ── CVE-specific detail card ──────────────────────────────────────────
+  // ── CVE card ──────────────────────────────────────────────────────────
   function renderCVECard(name, extRefs, nvd) {
-    const cveId = extRefs.cve || name;
-    const cvssScore = nvd.base_score || extRefs.cvss;
-    const severity = nvd.severity || "";
-    const description = nvd.description || "";
-    const affected = nvd.affected_products || [];
-    const kev = nvd.cisa_kev || nvd.exploited_in_wild || false;
-    const nvdLink = nvd.nvd_link || (cveId ? `https://nvd.nist.gov/vuln/detail/${cveId}` : null);
-    const gcveLink = nvd.gcve_link || null;
+    var cveId = extRefs.cve || name;
+    var cvssScore = nvd.base_score || extRefs.cvss;
+    var severity = nvd.severity || "";
+    var description = nvd.description || "";
+    var affected = nvd.affected_products || [];
+    var kev = nvd.cisa_kev || nvd.exploited_in_wild || false;
+    var nvdLink = nvd.nvd_link || (cveId ? "https://nvd.nist.gov/vuln/detail/" + cveId : null);
+    var gcveLink = nvd.gcve_link || null;
 
     if (!cvssScore && !description && !kev && !affected.length && !nvdLink) return;
 
-    const card = document.getElementById("vuln-card");
-    const body = document.getElementById("vuln-body");
+    var card = document.getElementById("vuln-card");
+    var body = document.getElementById("vuln-body");
 
-    let html = "";
-    // Score + badges row
+    var html = "";
     if (cvssScore || kev) {
-      html += `<div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-bottom:0.75rem;">`;
+      html += '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;margin-bottom:0.75rem;">';
       if (cvssScore) {
-        html += `<span class="cvss-badge ${cvssClass(severity)}" title="CVSS Score">${severity ? severity.toUpperCase() + " " : ""}${esc(String(cvssScore))}</span>`;
+        html += '<span class="cvss-badge ' + cvssClass(severity) + '" title="CVSS Score">' + (severity ? severity.toUpperCase() + " " : "") + esc(String(cvssScore)) + '</span>';
       }
       if (kev) {
-        html += `<span class="kev-badge" title="CISA Known Exploited Vulnerability">⚠ Exploited in Wild (CISA KEV)</span>`;
+        html += '<span class="kev-badge" title="CISA Known Exploited Vulnerability">\u26A0 Exploited in Wild (CISA KEV)</span>';
       }
-      if (nvdLink) html += `<a href="${esc(nvdLink)}" target="_blank" rel="noopener" style="font-size:0.8rem;color:var(--accent);">NVD ↗</a>`;
-      if (gcveLink) html += `<a href="${esc(gcveLink)}" target="_blank" rel="noopener" style="font-size:0.8rem;color:var(--accent);">GCVE ↗</a>`;
-      html += `</div>`;
+      if (nvdLink) html += '<a href="' + esc(nvdLink) + '" target="_blank" rel="noopener" style="font-size:0.8rem;color:var(--accent);">NVD \u2197</a>';
+      if (gcveLink) html += '<a href="' + esc(gcveLink) + '" target="_blank" rel="noopener" style="font-size:0.8rem;color:var(--accent);">GCVE \u2197</a>';
+      html += '</div>';
     }
-
-    // Description
     if (description) {
-      html += `<p style="font-size:0.88rem;color:var(--text-muted,#94a3b8);line-height:1.6;margin-bottom:0.75rem;">${esc(description)}</p>`;
+      html += '<p style="font-size:0.88rem;color:var(--text-muted,#94a3b8);line-height:1.6;margin-bottom:0.75rem;">' + esc(description) + '</p>';
     }
-
-    // Affected products
     if (affected.length) {
-      html += `<div style="margin-top:0.5rem;">
-        <div class="section-title" style="font-size:0.78rem;margin-bottom:0.4rem;">Affected Products (${affected.length})</div>
-        <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
-          ${affected.slice(0, 15).map(p => `<span class="tiny-pill">${esc(p)}</span>`).join("")}
-          ${affected.length > 15 ? `<span class="subtle" style="font-size:0.8rem;align-self:center;">+${affected.length-15} more</span>` : ""}
-        </div>
-      </div>`;
+      html += '<div style="margin-top:0.5rem;">';
+      html += '<div class="section-title" style="font-size:0.78rem;margin-bottom:0.4rem;">Affected Products (' + affected.length + ')</div>';
+      html += '<div style="display:flex;gap:0.35rem;flex-wrap:wrap;">';
+      html += affected.slice(0, 15).map(function(p) { return '<span class="tiny-pill">' + esc(p) + '</span>'; }).join("");
+      if (affected.length > 15) html += ' <span class="subtle" style="font-size:0.8rem;align-self:center;">+' + (affected.length - 15) + ' more</span>';
+      html += '</div></div>';
     }
 
     body.innerHTML = html;
@@ -390,76 +474,75 @@
   // ── Relationships ─────────────────────────────────────────────────────
   async function loadRelationships() {
     try {
-      // Prefer dedicated relationships endpoint (works for any entity, no graph deps)
-      const resp = await fetch(`/api/v1/entities/${entityId}/relationships?limit=200`, { credentials: "same-origin" });
+      var resp = await fetch("/api/v1/entities/" + entityId + "/relationships?limit=200", { credentials: "same-origin" });
       if (resp.ok) {
-        const edges = await resp.json();
+        var edges = await resp.json();
         if (edges.length) {
-          const tbody = document.getElementById("rels-body");
-          tbody.innerHTML = edges.map(edge => {
-            const peer = edge.peer || {};
-            const arrow = edge.direction === "out" ? "→" : "←";
-            const icon = KIND_ICONS[peer.kind] || "📦";
-            return `<tr>
-              <td><span class="tiny-pill">${arrow} ${esc(edge.kind)}</span></td>
-              <td><a href="/entities/${esc(peer.id)}">${icon} ${esc(peer.canonical_name || peer.id)}</a></td>
-              <td><span class="tiny-pill">${esc(peer.kind)}</span></td>
-            </tr>`;
+          var tbody = document.getElementById("rels-body");
+          tbody.innerHTML = edges.map(function(edge) {
+            var peer = edge.peer || {};
+            var arrow = edge.direction === "out" ? "\u2192" : "\u2190";
+            var icon = KIND_ICONS[peer.kind] || "\uD83D\uDCE6";
+            return '<tr>' +
+              '<td><span class="tiny-pill">' + arrow + ' ' + esc(edge.kind) + '</span></td>' +
+              '<td><a href="/entities/' + esc(peer.id) + '">' + icon + ' ' + esc(peer.canonical_name || peer.id) + '</a></td>' +
+              '<td><span class="tiny-pill">' + esc(peer.kind) + '</span></td>' +
+              '</tr>';
           }).join("");
           document.getElementById("rels-card").style.display = "";
           return;
         }
       }
-      // Fallback to legacy graph endpoint
-      const gresp = await fetch(`/api/v1/lookup/entity/${entityId}/graph`, { credentials: "same-origin" });
+      // Fallback
+      var gresp = await fetch("/api/v1/lookup/entity/" + entityId + "/graph", { credentials: "same-origin" });
       if (!gresp.ok) return;
-      const g = await gresp.json();
-      const edges = g.edges || [];
-      const nodes = g.nodes || [];
+      var g = await gresp.json();
+      var edges = g.edges || [];
+      var nodes = g.nodes || [];
       if (!edges.length) return;
-      const nodeMap = {};
-      nodes.forEach(n => nodeMap[n.id] = n);
-      const tbody = document.getElementById("rels-body");
-      tbody.innerHTML = edges.map(edge => {
-        const target = nodeMap[edge.to] || { id: edge.to, label: edge.to };
-        const targetName = target.label || target.id;
-        const targetKind = target.kind || "";
-        const rel = edge.label || edge.type || "related";
-        const icon = KIND_ICONS[targetKind] || "📦";
-        return `<tr>
-          <td><span class="tiny-pill">${esc(rel)}</span></td>
-          <td><a href="/entities/${esc(edge.to)}">${icon} ${esc(targetName)}</a></td>
-          <td><span class="tiny-pill">${esc(targetKind)}</span></td>
-        </tr>`;
+      var nodeMap = {};
+      nodes.forEach(function(n) { nodeMap[n.id] = n; });
+      var tbody = document.getElementById("rels-body");
+      tbody.innerHTML = edges.map(function(edge) {
+        var target = nodeMap[edge.to] || { id: edge.to, label: edge.to };
+        var targetName = target.label || target.id;
+        var targetKind = target.kind || "";
+        var rel = edge.label || edge.type || "related";
+        var icon = KIND_ICONS[targetKind] || "\uD83D\uDCE6";
+        return '<tr>' +
+          '<td><span class="tiny-pill">' + esc(rel) + '</span></td>' +
+          '<td><a href="/entities/' + esc(edge.to) + '">' + icon + ' ' + esc(targetName) + '</a></td>' +
+          '<td><span class="tiny-pill">' + esc(targetKind) + '</span></td>' +
+          '</tr>';
       }).join("");
       document.getElementById("rels-card").style.display = "";
     } catch (_) {}
   }
 
   // ── Ask AI ────────────────────────────────────────────────────────────
-  document.getElementById("ask-btn").addEventListener("click", async () => {
-    const question = document.getElementById("ai-question").value.trim();
+  document.getElementById("ask-btn").addEventListener("click", async function() {
+    var question = document.getElementById("ai-question").value.trim();
     if (!question) return;
-    const askStatus = document.getElementById("ask-status");
-    const aiResponse = document.getElementById("ai-response");
-    askStatus.textContent = "Asking Claude…";
+    var askStatus = document.getElementById("ask-status");
+    var aiResponse = document.getElementById("ai-response");
+    askStatus.textContent = "Asking Claude\u2026";
     aiResponse.style.display = "none";
     try {
-      const resp = await fetch("/api/v1/ask/", {
+      var resp = await fetch("/api/v1/ask/", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question,
+          question: question,
           context: window._entityContext || "",
           model: "claude-3-5-haiku-20241022",
         }),
       });
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ detail: "error" }));
+        var err = await resp.json().catch(function() { return { detail: "error" }; });
         throw new Error(err.detail || "HTTP " + resp.status);
       }
-      const data = await resp.json();
+      var data = await resp.json();
       askStatus.textContent = data.model || "";
       aiResponse.textContent = data.answer;
       aiResponse.style.display = "";
@@ -469,230 +552,6 @@
   });
 
   loadAll();
-})();
-</script>
-<main class="page-shell">
-  <div id="status" class="status-bar"></div>
-
-  <!-- Header -->
-  <header class="page-header" id="entity-header" style="display:none;">
-    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-      <span id="entity-icon" style="font-size:2rem;"></span>
-      <div>
-        <h1 id="entity-name" style="margin:0;"></h1>
-        <div id="entity-badges" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.4rem;"></div>
-      </div>
-    </div>
-  </header>
-
-  <div class="grid-2" style="margin-top:1rem;" id="main-grid" style="display:none;">
-    <!-- Details card -->
-    <section class="card" id="details-card" style="display:none;">
-      <div class="section-title">Details</div>
-      <div id="meta-grid" style="margin-top:0.75rem;display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;"></div>
-      <div id="description-block" style="margin-top:1rem;display:none;">
-        <div class="section-title" style="font-size:0.8rem;margin-bottom:0.4rem;">Description</div>
-        <p id="description-text" class="subtle" style="font-size:0.9rem;line-height:1.6;"></p>
-      </div>
-    </section>
-
-    <!-- External References -->
-    <section class="card" id="refs-card" style="display:none;">
-      <div class="section-title">External References</div>
-      <div id="refs-list" class="result-list" style="margin-top:0.75rem;"></div>
-    </section>
-  </div>
-
-  <!-- Relationships -->
-  <section class="panel" id="rels-card" style="margin-top:1rem;display:none;">
-    <div class="section-title">Relationships</div>
-    <table class="table" style="margin-top:0.75rem;">
-      <thead><tr><th>Relation</th><th>Target</th><th>Kind</th></tr></thead>
-      <tbody id="rels-body"></tbody>
-    </table>
-  </section>
-
-  <!-- Graph link -->
-  <section class="panel" id="graph-link-section" style="margin-top:1rem;display:none;">
-    <a id="graph-link" class="button-muted" href="#">View in Graph</a>
-  </section>
-
-  <!-- Ask AI -->
-  <section class="card" id="ask-ai-card" style="margin-top:1rem;display:none;">
-    <div class="section-title">Ask AI <span class="subtle" style="font-size:0.8rem;font-weight:400;">· Claude (Anthropic)</span></div>
-    <details style="margin-top:0.75rem;">
-      <summary class="button-muted" style="cursor:pointer;display:inline-block;">Ask about this entity</summary>
-      <div style="margin-top:0.75rem;">
-        <textarea class="form-input mono" id="ai-question" rows="3" style="width:100%;resize:vertical;font-size:0.9rem;"></textarea>
-        <div style="display:flex;gap:0.75rem;align-items:center;margin-top:0.5rem;flex-wrap:wrap;">
-          <button class="button" id="ask-btn">Ask Claude</button>
-          <span id="ask-status" class="tiny-pill"></span>
-        </div>
-        <div id="ai-response" class="card" style="margin-top:0.75rem;display:none;white-space:pre-wrap;font-size:0.9rem;line-height:1.6;"></div>
-      </div>
-    </details>
-  </section>
-</main>
-
-<script>
-(function () {
-  const KIND_ICONS = {
-    cve:'🔴', malware:'🦠', actor:'🕵️', tool:'🔧', technique:'⚡',
-    tactic:'🎯', vulnerability:'🔓', domain:'🌐', ip_address:'📍',
-    hash:'#️⃣', campaign:'⚔️', report:'📄'
-  };
-
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
-
-  const entityId = window.location.pathname.split("/").pop();
-  const status = document.getElementById("status");
-
-  async function loadEntity() {
-    status.textContent = "Loading…";
-    try {
-      const resp = await fetch(`/api/v1/entities/${entityId}`, { credentials: "same-origin" });
-      if (!resp.ok) throw new Error("HTTP " + resp.status);
-      const e = await resp.json();
-      status.textContent = "";
-      renderEntity(e);
-    } catch (err) {
-      status.textContent = "Error loading entity: " + err.message;
-    }
-  }
-
-  function renderEntity(e) {
-    const icon = KIND_ICONS[e.kind] || "📦";
-    document.getElementById("entity-icon").textContent = icon;
-    document.getElementById("entity-name").textContent = e.name || e.id;
-    document.title = (e.name || e.id) + " · z.je";
-
-    const badges = document.getElementById("entity-badges");
-    badges.innerHTML = `<span class="tiny-pill">${esc(e.kind || "")}</span>`;
-    if (e.tlp) badges.innerHTML += ` <span class="tiny-pill">TLP:${esc(e.tlp)}</span>`;
-    if (e.confidence != null) badges.innerHTML += ` <span class="tiny-pill">conf:${esc(e.confidence)}</span>`;
-    document.getElementById("entity-header").style.display = "";
-
-    // Meta grid
-    const meta = document.getElementById("meta-grid");
-    const fields = [
-      ["ID", e.id],
-      ["Kind", e.kind],
-      ["Aliases", (e.aliases || []).join(", ") || null],
-      ["Created", e.created_at ? new Date(e.created_at).toLocaleString() : null],
-      ["Updated", e.updated_at ? new Date(e.updated_at).toLocaleString() : null],
-      ["TLP", e.tlp],
-      ["Confidence", e.confidence],
-      ["Source", e.source],
-    ];
-    meta.innerHTML = fields.filter(([,v]) => v != null && v !== "").map(([k,v]) =>
-      `<span class="subtle" style="font-size:0.85rem;">${esc(k)}</span><span class="mono" style="font-size:0.85rem;">${esc(v)}</span>`
-    ).join("");
-    document.getElementById("details-card").style.display = "";
-
-    if (e.description) {
-      document.getElementById("description-text").textContent = e.description;
-      document.getElementById("description-block").style.display = "";
-    }
-
-    // External refs
-    const refs = e.external_references || [];
-    if (refs.length) {
-      const refsList = document.getElementById("refs-list");
-      refsList.innerHTML = refs.map(r => `
-        <div class="card" style="padding:0.5rem 0.75rem;">
-          <strong class="mono" style="font-size:0.85rem;">${esc(r.source_name || r.name || "")}</strong>
-          ${r.external_id ? `<span class="tiny-pill" style="margin-left:0.4rem;">${esc(r.external_id)}</span>` : ""}
-          ${r.url ? `<br><a href="${esc(r.url)}" target="_blank" rel="noopener" style="font-size:0.82rem;">${esc(r.url)}</a>` : ""}
-        </div>
-      `).join("");
-      document.getElementById("refs-card").style.display = "";
-    }
-
-    document.getElementById("main-grid").style.display = "";
-
-    // Graph link
-    const graphLink = document.getElementById("graph-link");
-    graphLink.href = `/graph?entity_id=${encodeURIComponent(entityId)}`;
-    document.getElementById("graph-link-section").style.display = "";
-
-    // Ask AI setup
-    document.getElementById("ai-question").value = `Explain this ${e.kind || "entity"} "${e.name || e.id}" and its security relevance.`;
-    document.getElementById("ask-ai-card").style.display = "";
-
-    // Store context for AI
-    window._entityContext = JSON.stringify({
-      id: e.id, kind: e.kind, name: e.name,
-      description: e.description,
-      aliases: e.aliases,
-      tlp: e.tlp,
-    }, null, 2);
-
-    // Load graph / relationships
-    loadRelationships();
-  }
-
-  async function loadRelationships() {
-    try {
-      const resp = await fetch(`/api/v1/graph/?entity_id=${encodeURIComponent(entityId)}&depth=1&fmt=vis`, { credentials: "same-origin" });
-      if (!resp.ok) return;
-      const g = await resp.json();
-      const edges = g.edges || [];
-      const nodes = g.nodes || [];
-      if (!edges.length) return;
-      const nodeMap = {};
-      (nodes).forEach(n => nodeMap[n.id] = n);
-      const tbody = document.getElementById("rels-body");
-      tbody.innerHTML = edges.map(edge => {
-        const target = nodeMap[edge.to] || { id: edge.to, label: edge.to };
-        const targetName = target.label || target.id;
-        const targetKind = target.kind || "";
-        const rel = edge.label || edge.type || "related";
-        const icon = KIND_ICONS[targetKind] || "📦";
-        return `<tr>
-          <td><span class="tiny-pill">${esc(rel)}</span></td>
-          <td><a href="/entities/${esc(edge.to)}">${icon} ${esc(targetName)}</a></td>
-          <td><span class="tiny-pill">${esc(targetKind)}</span></td>
-        </tr>`;
-      }).join("");
-      document.getElementById("rels-card").style.display = "";
-    } catch (_) {}
-  }
-
-  // Ask AI
-  document.getElementById("ask-btn").addEventListener("click", async () => {
-    const question = document.getElementById("ai-question").value.trim();
-    if (!question) return;
-    const askStatus = document.getElementById("ask-status");
-    const aiResponse = document.getElementById("ai-response");
-    askStatus.textContent = "Asking Claude…";
-    aiResponse.style.display = "none";
-    try {
-      const resp = await fetch("/api/v1/ask/", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question,
-          context: window._entityContext || "",
-          model: "claude-3-5-haiku-20241022",
-        }),
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ detail: "error" }));
-        throw new Error(err.detail || "HTTP " + resp.status);
-      }
-      const data = await resp.json();
-      askStatus.textContent = data.model || "";
-      aiResponse.textContent = data.answer;
-      aiResponse.style.display = "";
-    } catch (err) {
-      askStatus.textContent = "Error: " + err.message;
-    }
-  });
-
-  loadEntity();
 })();
 </script>
 {% endblock %}

@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Any
+from datetime import datetime
 import uuid
 from app.database import get_db
 from app.auth.dependencies import require_read, require_write
@@ -61,3 +62,29 @@ async def create_claim(
     await db.flush()
     await db.refresh(claim)
     return claim
+
+
+class ClaimDetailOut(BaseModel):
+    id: uuid.UUID
+    entity_id: Optional[uuid.UUID] = None
+    claim_type: str
+    value: dict = {}
+    confidence: float
+    status: str
+    created_at: Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
+
+@router.get("/entity/{entity_id}", response_model=list[ClaimDetailOut])
+async def list_entity_claims(
+    entity_id: uuid.UUID,
+    limit: int = Query(50, le=200),
+    db: AsyncSession = Depends(get_db),
+    auth = Depends(require_read),
+):
+    q = select(Claim).where(
+        Claim.entity_id == entity_id,
+        Claim.tenant_id == auth.tenant_id,
+    ).order_by(Claim.created_at.desc()).limit(limit)
+    result = await db.execute(q)
+    return result.scalars().all()
