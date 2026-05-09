@@ -72,6 +72,9 @@ BYOK_PROVIDERS: tuple[str, ...] = (
     "anthropic",
     "abuseipdb",
     "urlscan",
+    "otx",
+    "misp",
+    "malshare",
 )
 
 
