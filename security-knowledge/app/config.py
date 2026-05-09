@@ -107,6 +107,11 @@ class Settings(BaseSettings):
     # MalShare
     MALSHARE_KEY: str = ""
     MALSHARE_BASE_URL: str = "https://malshare.com/api.php"
+    
+    # AlienVault OTX
+    OTX_KEY: str = ""
+    OTX_BASE_URL: str = "https://otx.alienvault.com"
+    ENRICHMENT_TTL_OTX: int = 86400
 
     # Embeddings
     EMBEDDING_API_URL: str = ""
