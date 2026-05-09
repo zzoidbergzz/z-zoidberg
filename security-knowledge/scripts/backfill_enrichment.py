@@ -54,7 +54,7 @@ _SKIP_ALWAYS = {"misp", "opencti", "crowdstrike"}
 _KIND_PROVIDERS: dict[str, set[str]] = {
     "ip_address": {"virustotal", "greynoise", "shodan", "ipinfo", "bgp_he", "abuseipdb"},
     "ip":         {"virustotal", "greynoise", "shodan", "ipinfo", "bgp_he", "abuseipdb"},
-    "domain":     {"virustotal", "greynoise", "ipinfo", "bgp_he"},
+    "domain":     {"virustotal", "greynoise", "ipinfo", "bgp_he", "urlscan"},
     "hostname":   {"virustotal", "greynoise", "ipinfo"},
     "asn":        {"bgp_he"},
     "cve":        {"nvd"},

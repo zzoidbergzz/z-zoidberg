@@ -7,12 +7,11 @@ We deliberately use the public **search** endpoint
   * we never accidentally publish a user-supplied URL on urlscan's
     public results feed.
 
-When ``enable_rescan`` is True (and the entity kind is ``url``), we
-additionally submit the URL via ``POST /api/v1/scan/`` with
-``visibility="unlisted"`` (cheaper quota, results not on the public feed),
-poll the result endpoint, and emit a ``rescan`` block alongside the
-existing search summary so callers can see the delta between the most
-recent historical scan and the freshly produced one.
+When ``enable_rescan`` is True (and the entity kind is ``url`` or
+``domain``), we additionally submit the target via ``POST /api/v1/scan/``
+with ``visibility="unlisted"`` (cheaper quota, results not on the public
+feed), return a ``requested/pending`` rescan block, and let the background
+poller persist the completed result back into the enrichment cache.
 """
 
 from __future__ import annotations
@@ -37,9 +36,8 @@ _SEARCH_LINK = "https://urlscan.io/search/#"
 _SCAN_URL = "https://urlscan.io/api/v1/scan/"
 _RESULT_URL = "https://urlscan.io/api/v1/result/{uuid}/"
 
-_RESCAN_OVERALL_TIMEOUT = 90.0
-_RESCAN_POLL_INTERVAL = 5.0
-_RESCAN_POLL_DEADLINE = 75.0
+_PENDING_STATUS = "requested/pending"
+_RESCAN_POLL_SECONDS = 60.0
 _RESCAN_BUDGET_KEY = "urlscan_submit"
 
 # Cap concurrent rescans per process — module global per spec.
@@ -50,7 +48,7 @@ _RESCAN_SEMAPHORE = asyncio.Semaphore(3)
 class UrlscanProvider(BaseEnrichmentProvider):
     name = "urlscan"
     kind = "url"
-    supported_kinds = {"url", "ip_address", "ip"}
+    supported_kinds = {"url", "domain", "ip_address", "ip"}
 
     def __init__(self, api_key: str | None = None, enable_rescan: bool = True) -> None:
         super().__init__(api_key=api_key)
@@ -66,6 +64,24 @@ class UrlscanProvider(BaseEnrichmentProvider):
         if self.api_key:
             h["API-Key"] = self.api_key
         return h
+
+    @staticmethod
+    def _scan_target(entity_kind: str, entity_value: str) -> str | None:
+        if entity_kind == "domain":
+            host = urlparse(entity_value).hostname or entity_value
+            host = host.strip().strip(".")
+            if not host:
+                return None
+            return f"https://{host}/"
+        return entity_value
+
+    @staticmethod
+    def _search_query(entity_kind: str, entity_value: str) -> str:
+        if entity_kind == "domain":
+            host = urlparse(entity_value).hostname or entity_value
+            host = host.strip().strip(".")
+            return f'domain:"{host}"'
+        return f'page.url:"{entity_value}"'
 
     async def _search(self, query: str) -> dict[str, Any] | None:
         params = {"q": query, "size": 10}
@@ -191,58 +207,26 @@ class UrlscanProvider(BaseEnrichmentProvider):
             return None, "submit_no_uuid"
         return uuid, None
 
-    async def _poll_result(
-        self, client: httpx.AsyncClient, uuid: str
-    ) -> tuple[dict[str, Any] | None, str | None]:
-        url = _RESULT_URL.format(uuid=uuid)
-        loop = asyncio.get_event_loop()
-        deadline = loop.time() + _RESCAN_POLL_DEADLINE
-        while loop.time() < deadline:
-            try:
-                resp = await client.get(url)
-            except httpx.HTTPError as exc:
-                return None, f"poll_http_error:{exc.__class__.__name__}"
-            if resp.status_code == 200:
-                try:
-                    return resp.json(), None
-                except ValueError:
-                    return None, "poll_invalid_json"
-            if resp.status_code == 404:
-                await asyncio.sleep(_RESCAN_POLL_INTERVAL)
-                continue
-            return None, f"poll_status_{resp.status_code}"
-        return None, "poll_deadline_exceeded"
-
-    async def _do_rescan(
-        self, url: str, before: dict[str, Any] | None
-    ) -> dict[str, Any]:
+    async def _request_rescan(self, url: str, before: dict[str, Any] | None = None) -> dict[str, Any]:
         submitted_at = utcnow_iso()
         async with httpx.AsyncClient(timeout=20, headers=self._headers()) as client:
             uuid, err = await self._submit(client, url)
             if err:
                 return {"submitted_at": submitted_at, "scan_id": uuid, "errors": [err]}
-            result_payload, err = await self._poll_result(client, uuid)
-            completed_at = utcnow_iso()
-            if err:
-                return {
-                    "submitted_at": submitted_at,
-                    "completed_at": completed_at,
-                    "scan_id": uuid,
-                    "errors": [err],
-                }
-            after = self._shape_result_payload(result_payload or {})
-            return {
+            pending: dict[str, Any] = {
                 "submitted_at": submitted_at,
-                "completed_at": completed_at,
                 "scan_id": uuid,
-                "before": before,
-                "after": after,
-                "delta": self._diff(before, after),
+                "status": _PENDING_STATUS,
+                "poll_after_seconds": _RESCAN_POLL_SECONDS,
+                "scan_url": _RESULT_URL.format(uuid=uuid),
                 "errors": [],
             }
+            if before is not None:
+                pending["before"] = before
+            return pending
 
     async def _maybe_rescan(
-        self, url: str, before: dict[str, Any] | None
+        self, url: str, before: dict[str, Any] | None = None
     ) -> dict[str, Any] | None:
         if not self.enable_rescan:
             return None
@@ -257,11 +241,7 @@ class UrlscanProvider(BaseEnrichmentProvider):
             return {"skipped": "budget_exhausted"}
         async with _RESCAN_SEMAPHORE:
             try:
-                return await asyncio.wait_for(
-                    self._do_rescan(url, before), timeout=_RESCAN_OVERALL_TIMEOUT
-                )
-            except asyncio.TimeoutError:
-                return {"errors": [f"timeout_after_{int(_RESCAN_OVERALL_TIMEOUT)}s"]}
+                return await self._request_rescan(url, before=before)
             except Exception as exc:  # never raise out of provider
                 logger.error("urlscan: rescan unexpected error", error=str(exc))
                 return {"errors": [f"unexpected:{exc.__class__.__name__}"]}
@@ -276,17 +256,18 @@ class UrlscanProvider(BaseEnrichmentProvider):
         if entity_kind not in self.supported_kinds:
             return {}
 
-        if entity_kind == "url":
-            query = f'page.url:"{entity_value}"'
+        if entity_kind in {"url", "domain"}:
+            query = self._search_query(entity_kind, entity_value)
             payload = await self._search(query)
             summary: dict[str, Any] | None = None
             if payload is None:
                 summary = None
             elif not (payload.get("results") or []):
                 # Fall back to a domain search — better recall than an exact-URL match.
-                host = urlparse(entity_value).hostname
+                host = urlparse(entity_value).hostname or entity_value
+                host = host.strip().strip(".")
                 if host:
-                    fallback_query = f"domain:{host}"
+                    fallback_query = f'domain:"{host}"'
                     fallback_payload = await self._search(fallback_query)
                     if fallback_payload is not None:
                         summary = self._summarise(fallback_query, fallback_payload)
@@ -295,11 +276,10 @@ class UrlscanProvider(BaseEnrichmentProvider):
             else:
                 summary = self._summarise(query, payload)
 
-            # Rescan path: even if initial search returned nothing useful we
-            # still want a fresh scan when enabled.
+            scan_target = self._scan_target(entity_kind, entity_value)
             rescan_before = (summary or {}).get("results", [None])[:1]
             before_baseline = rescan_before[0] if rescan_before else None
-            rescan = await self._maybe_rescan(entity_value, before_baseline)
+            rescan = await self._maybe_rescan(scan_target, before_baseline) if scan_target else None
             if summary is None:
                 summary = {}
             if rescan is not None:

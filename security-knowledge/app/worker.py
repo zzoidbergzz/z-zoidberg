@@ -25,6 +25,7 @@ from app.observability.trace_propagation import trace_from_job
 from app.observability.worker import record_job_end, record_job_start
 from app.services.audit import record_audit_event
 from app.workers.feed_poller import poll_feeds
+from app.workers.urlscan import poll_pending_urlscan_scans
 from app.workers.tor_scraper import scrape_onion_sources
 
 logger = structlog.get_logger(__name__)
@@ -144,7 +145,7 @@ _AUTO_ENRICHMENT_PROVIDERS: dict[str, tuple[str, ...]] = {
     "url": ("urlscan",),
     "ip": ("greynoise", "ipinfo", "abuseipdb"),
     "ip_address": ("greynoise", "ipinfo", "abuseipdb"),
-    "domain": ("virustotal",),
+    "domain": ("virustotal", "urlscan"),
     "hash": ("virustotal",),
     "file_hash": ("virustotal",),
 }
@@ -1049,7 +1050,16 @@ async def shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [process_ingest_job, run_enrichment, send_digests, check_ioc_watches, poll_feeds, refresh_corpora, scrape_onion_sources]
+    functions = [
+        process_ingest_job,
+        run_enrichment,
+        send_digests,
+        check_ioc_watches,
+        poll_feeds,
+        refresh_corpora,
+        scrape_onion_sources,
+        poll_pending_urlscan_scans,
+    ]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
@@ -1063,6 +1073,8 @@ class WorkerSettings:
         cron(scrape_onion_sources, minute={2, 22, 42}),
         # Hourly digest dispatch (function checks each digest's own schedule)
         cron(send_digests, minute={2}),
+        # urlscan pending scans are revisited every minute until completion
+        cron(poll_pending_urlscan_scans, minute=set(range(60))),
         # Historical corpus refresh — daily 03:17 UTC (after most upstream daily syncs)
         cron(refresh_corpora, hour={3}, minute={17}),
     ]

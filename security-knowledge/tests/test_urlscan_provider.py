@@ -25,6 +25,20 @@ def _patched_client(handler):
     return patch("app.enrichment.providers.urlscan.httpx.AsyncClient", side_effect=factory)
 
 
+def _search_response(ip="1.1.1.1", domain="example.com", malicious=False, score=0):
+    return {
+        "total": 1,
+        "results": [
+            {
+                "task": {"time": "2025-01-01T00:00:00Z", "url": "https://example.com/"},
+                "page": {"domain": domain, "ip": ip, "country": "US", "server": "x"},
+                "verdicts": {"overall": {"malicious": malicious, "score": score}},
+                "result": "https://urlscan.io/result/old/",
+            }
+        ],
+    }
+
+
 @pytest.mark.asyncio
 async def test_url_search_success():
     captured = {}
@@ -140,8 +154,53 @@ async def test_empty_results_falls_back_to_domain_for_url():
         out = await prov.enrich("url", "https://foo.example/never-seen")
 
     assert len(calls) == 2
-    assert "domain%3Afoo.example" in calls[1] or "domain:foo.example" in calls[1]
+    assert "domain%3A%22foo.example%22" in calls[1] or 'domain:"foo.example"' in calls[1]
     assert out["total_results"] == 1
+
+
+@pytest.mark.asyncio
+async def test_url_request_triggers_pending_rescan():
+    seen = {"posted": False}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and "search" in str(request.url):
+            return httpx.Response(200, json=_search_response(ip="142.250.74.4", domain="www.google.com"))
+        if request.method == "POST" and "/scan/" in str(request.url):
+            seen["posted"] = True
+            return httpx.Response(200, json={"uuid": "scan-123"})
+        return httpx.Response(500)
+
+    with _patched_client(handler):
+        prov = UrlscanProvider(api_key="test-key")
+        out = await prov.enrich("url", "https://www.google.com/")
+
+    assert seen["posted"] is True
+    assert out["rescan"]["status"] == "requested/pending"
+    assert out["rescan"]["scan_id"] == "scan-123"
+    assert out["rescan"]["poll_after_seconds"] == 60.0
+    assert out["rescan"]["before"]["page_ip"] == "142.250.74.4"
+    assert out["rescan"]["scan_url"].endswith("/scan-123/")
+
+
+@pytest.mark.asyncio
+async def test_domain_kind_is_supported_and_requests_scan():
+    posted = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and "search" in str(request.url):
+            return httpx.Response(200, json={"total": 0, "results": []})
+        if request.method == "POST":
+            posted.append(str(request.url))
+            return httpx.Response(200, json={"uuid": "dom-1"})
+        return httpx.Response(500)
+
+    with _patched_client(handler):
+        prov = UrlscanProvider(api_key="test-key")
+        out = await prov.enrich("domain", "example.com")
+
+    assert posted
+    assert out["rescan"]["status"] == "requested/pending"
+    assert "before" not in out["rescan"]
 
 
 @pytest.mark.asyncio
@@ -200,6 +259,7 @@ async def test_unsupported_kind_short_circuits():
 def test_supports_url_and_ip_kinds():
     assert "url" in UrlscanProvider.supported_kinds
     assert "ip_address" in UrlscanProvider.supported_kinds
+    assert "domain" in UrlscanProvider.supported_kinds
 
 
 def test_api_key_override():

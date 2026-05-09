@@ -45,7 +45,7 @@ window.ZjeApp = (() => {
   const _PROVIDER_ICONS = {
     virustotal: "🦠", greynoise: "🔇", shodan: "🔍", ipinfo: "📍",
     bgp_he: "🌐", mitre_attack: "⚔️", nvd: "🛡", crowdstrike: "🦅",
-    abuseipdb: "⚠️", misp: "🔗", opencti: "🕵️",
+    abuseipdb: "⚠️", misp: "🔗", opencti: "🕵️", otx: "🧿", urlscan: "🧭",
   };
 
   function _providerBody(item) {
@@ -115,12 +115,42 @@ window.ZjeApp = (() => {
         <dl class="enrich-dl">
           ${d.org     ?`<dt>Org</dt><dd>${escapeHtml(d.org)}</dd>`:""}
           ${d.country ?`<dt>Country</dt><dd>${escapeHtml(d.country)}</dd>`:""}
+          ${d.country_code ?`<dt>Country Code</dt><dd>${escapeHtml(d.country_code)}</dd>`:""}
           ${d.isp     ?`<dt>ISP</dt><dd>${escapeHtml(d.isp)}</dd>`:""}
           ${d.os      ?`<dt>OS</dt><dd>${escapeHtml(d.os)}</dd>`:""}
+          ${d.data_count != null ?`<dt>Banners</dt><dd>${escapeHtml(String(d.data_count))}</dd>`:""}
         </dl>
-        ${d.ports?.length?`<div style="margin:.4rem 0;">Ports: ${d.ports.map(p=>`<span class="mono" style="background:rgba(0,0,0,.3);padding:.1rem .35rem;border-radius:.3rem;">${p}</span>`).join(" ")}</div>`:""}
+        ${d.open_ports?.length?`<div style="margin:.4rem 0;">Open ports: ${d.open_ports.map(p=>`<span class="mono" style="background:rgba(0,0,0,.3);padding:.1rem .35rem;border-radius:.3rem;">${p}</span>`).join(" ")}</div>`:""}
+        ${d.ssl_snis?.length?`<div class="enrich-pills">${d.ssl_snis.slice(0,12).map(s=>`<span class="tiny-pill mono">${escapeHtml(s)}</span>`).join("")}</div>`:""}
+        ${d.banners?.length?`<div style="margin-top:.5rem;font-size:.8rem;opacity:.9;">${d.banners.slice(0,8).map(b=>`
+          <div style="margin-bottom:.35rem;">
+            <span class="mono">${escapeHtml(String(b.port ?? ""))}</span>
+            ${b.product ? ` — ${escapeHtml(b.product)}` : ""}
+            ${b.version ? ` ${escapeHtml(b.version)}` : ""}
+            ${b.ssl_snis?.length ? ` · SNIs: ${b.ssl_snis.slice(0,4).map(s=>escapeHtml(s)).join(", ")}` : ""}
+            ${b.banner ? `<div class="mono" style="opacity:.8;white-space:pre-wrap;">${escapeHtml(String(b.banner)).slice(0,160)}</div>` : ""}
+          </div>`).join("")}</div>`:""}
         ${d.hostnames?.length?`<p class="subtle">Hostnames: ${d.hostnames.slice(0,5).map(h=>escapeHtml(h)).join(", ")}</p>`:""}
         ${d.tags?.length?`<div class="enrich-pills">${d.tags.map(t=>`<span class="tiny-pill">${escapeHtml(t)}</span>`).join("")}</div>`:""}
+      `;
+    }
+    if (item.source === "otx") {
+      return `
+        <dl class="enrich-dl">
+          ${d.otx_info?.pulse_count != null ?`<dt>Pulse Hits</dt><dd>${escapeHtml(String(d.otx_info.pulse_count))}</dd>`:""}
+          ${d.otx_info?.type_title ?`<dt>Type</dt><dd>${escapeHtml(d.otx_info.type_title)}</dd>`:""}
+          ${d.otx_info?.indicator_url ?`<dt>Indicator</dt><dd><a href="${escapeHtml(d.otx_info.indicator_url)}" target="_blank" rel="noopener">Click through ↗</a></dd>`:""}
+        </dl>
+        ${d.otx_pulses?.length?`<div style="margin-top:.5rem;">${d.otx_pulses.slice(0,8).map(p=>`
+          <div style="margin-bottom:.45rem;">
+            <a href="${escapeHtml(p.url || p.id || "#")}" target="_blank" rel="noopener">${escapeHtml(p.name || p.id || "OTX pulse")}</a>
+            ${p.description ? `<div class="subtle">${escapeHtml(p.description)}</div>` : ""}
+          </div>`).join("")}</div>`:""}
+        ${d.otx_url_list?.length?`<div style="margin-top:.5rem;">${d.otx_url_list.slice(0,8).map(u=>`
+          <div style="margin-bottom:.35rem;">
+            <a href="${escapeHtml(u.url || "#")}" target="_blank" rel="noopener">${escapeHtml(u.title || u.url || "OTX hit")}</a>
+          </div>`).join("")}</div>`:""}
+        ${d.search_url?`<a class="button-muted enrich-link" href="${escapeHtml(d.search_url)}" target="_blank" rel="noopener">OTX search ↗</a>`:""}
       `;
     }
     if (item.source === "ipinfo") {
@@ -137,16 +167,45 @@ window.ZjeApp = (() => {
       const asn = d.asn_detail || {};
       const asnNum = d.origin_asn || asn.asn || "";
       const routes = d.routes || [];
+      const country = [
+        asn.country_flag || "",
+        asn.country_code || asn.country || "",
+      ].filter(Boolean).join(" ");
       return `
         <dl class="enrich-dl">
           ${d.containing_prefix?`<dt>Prefix</dt><dd class="mono">${escapeHtml(d.containing_prefix)}</dd>`:""}
           ${asnNum?`<dt>Origin AS</dt><dd class="mono">AS${escapeHtml(String(asnNum))}</dd>`:""}
           ${asn.name?`<dt>AS Name</dt><dd>${escapeHtml(asn.name)}</dd>`:""}
+          ${country?`<dt>Country</dt><dd>${escapeHtml(country)}</dd>`:""}
           ${asn.prefix_count_v4?`<dt>Prefixes</dt><dd>${asn.prefix_count_v4} v4 · ${asn.prefix_count_v6||0} v6</dd>`:""}
-          ${asn.peer_count?`<dt>Peers</dt><dd>${asn.peer_count}</dd>`:""}
+          ${asn.peer_count_label?`<dt>Peers</dt><dd>${escapeHtml(asn.peer_count_label)}</dd>`:asn.peer_count?`<dt>Peers</dt><dd>${asn.peer_count}</dd>`:""}
         </dl>
         ${routes.length?`<div style="margin-top:.5rem;font-size:.8rem;opacity:.8;">${routes.slice(0,5).map(r=>`<div class="mono">${escapeHtml(r.prefix)} via AS${escapeHtml(String(r.origin_asn))} — ${escapeHtml(r.description)}</div>`).join("")}</div>`:""}
         ${asnNum?`<a class="button-muted enrich-link" href="https://bgp.he.net/AS${escapeHtml(String(asnNum))}" target="_blank" rel="noopener">bgp.he.net ↗</a>`:""}
+      `;
+    }
+    if (item.source === "urlscan") {
+      const rescan = d.rescan || {};
+      const scanStatus = rescan.status || (rescan.scan_id ? "requested/pending" : "");
+      const recent = d.results || [];
+      return `
+        <dl class="enrich-dl">
+          ${d.total_results != null ?`<dt>Scans</dt><dd>${escapeHtml(String(d.total_results))}</dd>`:""}
+          ${d.latest_scan_time ?`<dt>Latest</dt><dd>${escapeHtml(d.latest_scan_time)}</dd>`:""}
+          ${d.any_malicious != null ?`<dt>Malicious</dt><dd>${d.any_malicious ? "yes" : "no"}</dd>`:""}
+          ${d.unique_ips?.length ?`<dt>IPs</dt><dd>${escapeHtml(d.unique_ips.join(", "))}</dd>`:""}
+          ${d.unique_domains?.length ?`<dt>Domains</dt><dd>${escapeHtml(d.unique_domains.join(", "))}</dd>`:""}
+        </dl>
+        ${scanStatus ? `<div class="tiny-pill" style="margin-bottom:.5rem;">Scan ${escapeHtml(scanStatus)}</div>` : ""}
+        ${scanStatus === "requested/pending" && rescan.scan_url ? `<a class="button-muted enrich-link" href="${escapeHtml(rescan.scan_url)}" target="_blank" rel="noopener">Pending scan ↗</a>` : ""}
+        ${rescan.after?.report_url ? `<a class="button-muted enrich-link" href="${escapeHtml(rescan.after.report_url)}" target="_blank" rel="noopener">Completed report ↗</a>` : ""}
+        ${recent.length?`<div style="margin-top:.5rem;font-size:.8rem;opacity:.85;">${recent.slice(0,5).map(r=>`
+          <div style="margin-bottom:.35rem;">
+            ${r.result ? `<a href="${escapeHtml(r.result)}" target="_blank" rel="noopener">${escapeHtml(r.task_url || r.result)}</a>` : escapeHtml(r.task_url || "result")}
+            ${r.page_ip ? ` · ${escapeHtml(r.page_ip)}` : ""}
+            ${r.score != null ? ` · score ${escapeHtml(String(r.score))}` : ""}
+          </div>`).join("")}</div>`:""}
+        ${d.urlscan_search_link?`<a class="button-muted enrich-link" href="${escapeHtml(d.urlscan_search_link)}" target="_blank" rel="noopener">urlscan search ↗</a>`:""}
       `;
     }
     // Generic fallback

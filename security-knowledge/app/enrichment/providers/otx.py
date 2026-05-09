@@ -24,6 +24,14 @@ logger = structlog.get_logger(__name__)
 _OTX_BASE = "https://otx.alienvault.com"
 
 
+def _indicator_url(section: str, value: str) -> str:
+    return f"{_OTX_BASE}/indicator/{section}/{value}"
+
+
+def _pulse_url(pulse_id: str) -> str:
+    return f"{_OTX_BASE}/pulse/{pulse_id}"
+
+
 @register
 class OTXProvider(BaseEnrichmentProvider):
     name = "otx"
@@ -54,6 +62,7 @@ class OTXProvider(BaseEnrichmentProvider):
         headers = {"X-OTX-API-KEY": key}
 
         result: dict[str, Any] = {"value": entity_value, "source": "otx"}
+        result["search_url"] = f"{_OTX_BASE}/search?q={entity_value}"
 
         try:
             async with httpx.AsyncClient(timeout=15) as client:
@@ -68,6 +77,7 @@ class OTXProvider(BaseEnrichmentProvider):
                         "indicator_type": data.get("base_indicator", {}).get("type", ""),
                         "nvd_url": data.get("nvd_url", ""),
                         "mitre_url": data.get("mitre_url", ""),
+                        "indicator_url": _indicator_url(section, entity_value),
                     }
 
                     # Get pulses (threat intel reports referencing this indicator)
@@ -83,6 +93,7 @@ class OTXProvider(BaseEnrichmentProvider):
                             "targeted_countries": p.get("targeted_countries", [])[:5],
                             "attack_ids": [a.get("attack_id", "") for a in p.get("attack_ids", [])[:10]],
                             "industries": p.get("industries", [])[:5],
+                            "url": _pulse_url(p.get("id", "")),
                         }
                         for p in pulses[:10]
                     ]
@@ -101,7 +112,19 @@ class OTXProvider(BaseEnrichmentProvider):
                     url_resp = await client.get(url_list_url, headers=headers)
                     if url_resp.status_code == 200:
                         url_data = url_resp.json()
-                        result["otx_url_list"] = url_data.get("url_list", [])[:10]
+                        url_hits = []
+                        for item in url_data.get("url_list", [])[:10]:
+                            if isinstance(item, dict):
+                                url_hits.append(
+                                    {
+                                        **item,
+                                        "url": item.get("url") or item.get("url_string") or item.get("value"),
+                                        "title": item.get("title") or item.get("url") or item.get("value") or "",
+                                    }
+                                )
+                            elif isinstance(item, str):
+                                url_hits.append({"url": item, "title": item})
+                        result["otx_url_list"] = url_hits
 
         except Exception as e:
             logger.warning("otx_enrichment_failed", error=str(e), entity=entity_value)
@@ -128,9 +151,11 @@ class OTXProvider(BaseEnrichmentProvider):
                             "description": (p.get("description", "") or "")[:300],
                             "author": p.get("author", {}).get("username", ""),
                             "tags": p.get("tags", [])[:10],
+                            "url": _pulse_url(p.get("id", "")),
                         }
                         for p in data.get("results", [])[:5]
                     ]
+                    result["search_url"] = f"{_OTX_BASE}/search?q={query}"
         except Exception as e:
             logger.warning("otx_search_failed", error=str(e))
 

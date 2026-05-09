@@ -76,6 +76,21 @@ def _norm_asn(value: str) -> str | None:
     return m.group(0) if m else None
 
 
+def _country_code(value: str | None) -> str | None:
+    if not value:
+        return None
+    code = value.strip().upper()
+    if re.fullmatch(r"[A-Z]{2}", code):
+        return code
+    return None
+
+
+def _country_flag(code: str | None) -> str | None:
+    if not code or not re.fullmatch(r"[A-Z]{2}", code):
+        return None
+    return "".join(chr(ord(ch) + 127397) for ch in code)
+
+
 def _parse_prefix_table(soup: BeautifulSoup, table_id: str) -> list[dict]:
     """Parse a prefixes table by its HTML id.  Returns list of dicts."""
     table = soup.find("table", {"id": table_id})
@@ -142,6 +157,13 @@ async def _enrich_asn(client: httpx.AsyncClient, asn_num: str) -> dict[str, Any]
                 key = cells[0].get_text(strip=True).lower().replace(" ", "_")
                 val = cells[1].get_text(strip=True)
                 result[key] = val
+    country_value = result.get("country") or result.get("country_code")
+    country_code = _country_code(country_value if isinstance(country_value, str) else None)
+    if country_code:
+        result["country_code"] = country_code
+        result["country_flag"] = _country_flag(country_code)
+    elif isinstance(country_value, str) and country_value:
+        result.setdefault("country_name", country_value)
 
     # --- IPv4 / IPv6 prefixes ---
     result["ipv4_prefixes"] = _parse_prefix_table(soup, "table_prefixes4")
@@ -166,6 +188,7 @@ async def _enrich_asn(client: httpx.AsyncClient, asn_num: str) -> dict[str, Any]
     result["prefix_count_v4"] = len(result["ipv4_prefixes"])
     result["prefix_count_v6"] = len(result["ipv6_prefixes"])
     result["peer_count"] = len(result["connected_asns"])
+    result["peer_count_label"] = f"{result['peer_count']} peer{'s' if result['peer_count'] != 1 else ''}"
 
     return result
 
