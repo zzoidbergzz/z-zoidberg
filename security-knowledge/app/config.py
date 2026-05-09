@@ -103,6 +103,10 @@ class Settings(BaseSettings):
 
     # MISP compat alias
     MISP_VERIFYCERT: bool = True
+    
+    # MalShare
+    MALSHARE_KEY: str = ""
+    MALSHARE_BASE_URL: str = "https://malshare.com/api.php"
 
     # Embeddings
     EMBEDDING_API_URL: str = ""
