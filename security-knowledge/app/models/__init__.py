@@ -18,6 +18,7 @@ from app.models.relationships import Relationship
 from app.models.sectors import Sector, SectorInvite, SectorMembership
 from app.models.sources import FetchOutcome, RawObject, SourceRecord
 from app.models.sync import SyncState, TaxiiCollection
+from app.models.flags import FlaggedItem
 from app.models.webhooks import WebhookDelivery, WebhookSubscription
 
 __all__ = [

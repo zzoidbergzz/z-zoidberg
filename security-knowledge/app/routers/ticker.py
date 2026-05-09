@@ -221,7 +221,7 @@ async def ack_flag(
 ):
     """ACK a flagged item as reviewed/completed."""
     item = await db.get(FlaggedItem, item_id)
-    if not item or item.tenant_id != auth.tenant_id:
+    if not item or str(item.tenant_id) != str(auth.tenant_id):
         from fastapi import HTTPException
         raise HTTPException(404, "Flagged item not found")
     item.acked_by = body.acked_by
@@ -239,7 +239,7 @@ async def delete_flag(
 ):
     """Remove a flag."""
     item = await db.get(FlaggedItem, item_id)
-    if not item or item.tenant_id != auth.tenant_id:
+    if not item or str(item.tenant_id) != str(auth.tenant_id):
         from fastapi import HTTPException
         raise HTTPException(404, "Flagged item not found")
     await db.delete(item)
