@@ -53,6 +53,9 @@ services:
     environment:
       BASE_URL: http://localhost:8888/
       INSTANCE_NAME: z-zoidberg
+      SEARXNG_SECRET: zje-local-searxng-secret-key
+    volumes:
+      - ./ops/searxng/settings.yml:/etc/searxng/settings.yml
     restart: unless-stopped
 
 volumes:
