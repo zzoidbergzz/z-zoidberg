@@ -87,6 +87,13 @@
     }
     .status.error { color: var(--danger); }
     .status.success { color: var(--accent); }
+    .footer {
+      margin-top: 1.25rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
   </style>
 </head>
 <body>
@@ -98,8 +105,10 @@
       <button type="submit" id="login-btn">Sign in</button>
       <div class="status" id="status"></div>
     </form>
+    <div class="footer">Need access? <a href="/register">Request an account</a>.</div>
   </div>
   <script>
+    const nextUrl = {{ (next_url or "/")|tojson }};
     document.getElementById("login-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const btn = document.getElementById("login-btn");
@@ -118,8 +127,7 @@
         if (!res.ok) throw new Error(json.detail || "Login failed");
         status.className = "status success";
         status.textContent = "Success — redirecting…";
-        const next = new URLSearchParams(location.search).get("next") || "/";
-        window.location.href = next;
+        window.location.href = nextUrl;
       } catch (err) {
         status.className = "status error";
         status.textContent = err.message;

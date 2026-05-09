@@ -1,6 +1,7 @@
 """Security Knowledge FastAPI application."""
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import bcrypt as _bcrypt
 from fastapi import FastAPI, Request
@@ -135,10 +136,20 @@ def _is_public(path: str) -> bool:
 
 
 @app.get("/login", include_in_schema=False, response_class=HTMLResponse)
-async def login_page(request: Request, error: str = ""):
+async def login_page(request: Request, error: str = "", next: str = "/"):
     if _templates is None:
         return HTMLResponse("<html><body><p>Templates not found</p></body></html>", status_code=503)
-    return _templates.TemplateResponse(request, "login.html", {"current_user": None, "error": error})
+    safe_next = "/"
+    parsed = urlsplit(next or "/")
+    if parsed.scheme == "" and parsed.netloc == "" and parsed.path.startswith("/"):
+        safe_next = parsed.path
+        if parsed.query:
+            safe_next = f"{safe_next}?{parsed.query}"
+    return _templates.TemplateResponse(
+        request,
+        "login.html",
+        {"current_user": None, "error": error, "next_url": safe_next},
+    )
 
 
 @app.get("/register", include_in_schema=False, response_class=HTMLResponse)
@@ -201,4 +212,3 @@ if _static_dir.exists():
 # Mount real MCP SSE transport at /api/v1/mcp/sse
 from app.mcp.server import mount_sse as _mount_mcp_sse  # noqa: E402
 _mount_mcp_sse(app)
-

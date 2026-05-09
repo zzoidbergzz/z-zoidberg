@@ -44,6 +44,17 @@ _ENTITY_SQL = text(
               )
             ORDER BY c.created_at DESC
             LIMIT 1
+        ) AS claim_desc,
+        COALESCE(
+            (SELECT c.value->>'assertion'
+             FROM claims c
+             WHERE c.entity_id = e.id
+               AND c.claim_type IN (
+                   'vulnerability_detail', 'technique_detail', 'actor_profile', 'report_detail', 'organization_profile',
+                   'product_detail', 'framework_detail', 'tool_capability', 'detection_detail'
+               )
+             ORDER BY c.created_at DESC LIMIT 1),
+            e.external_refs->>'description'
         ) AS description,
         (
             SELECT c.value->'tags'
