@@ -1,0 +1,150 @@
+# Offensive Security Repository Collection
+# Curated for CTI analysis, entity recording, hash data, sigma rule testing
+# Target: <5GB total, high signal-to-noise
+
+repos:
+  # === C2 Frameworks (analysis targets) ===
+  - name: "sliver"
+    repo: "SliverTool/sliver"
+    desc: "Cross-platform adversary emulation framework (Bishop Fox)"
+    category: "c2-framework"
+    est_size_mb: 50
+  
+  - name: "mythic"
+    repo: "its-a-feature/Mythic"
+    desc: "Collaborative multi-platform C2 framework"
+    category: "c2-framework"
+    est_size_mb: 30
+  
+  - name: "havoc"
+    repo: "HavocFramework/Havoc"
+    desc: "Modern C2 framework focused on evasion"
+    category: "c2-framework"
+    est_size_mb: 15
+  
+  - name: "merlin"
+    repo: "Ne0nd0g/merlin"
+    desc: "Cross-platform HTTP/2 C2 framework"
+    category: "c2-framework"
+    est_size_mb: 20
+  
+  - name: "empire"
+    repo: "BC-SECURITY/Empire"
+    desc: "Post-exploitation framework (PowerShell + Python)"
+    category: "c2-framework"
+    est_size_mb: 30
+
+  # === Ransomware analysis ===
+  - name: "ransomware-tool-matrix"
+    repo: "BushidoUK/Ransomware-Tool-Matrix"
+    desc: "Tools each ransomware gang uses - TTP mapping resource"
+    category: "ransomware"
+    est_size_mb: 1
+  
+  - name: "ransomware-samples"
+    repo: "kh4sh3i/Ransomware-Samples"
+    desc: "Small collection of ransomware organized by family"
+    category: "ransomware"
+    est_size_mb: 10
+
+  # === Kernel Exploits ===
+  - name: "windows-kernel-exploits"
+    repo: "SecWiki/windows-kernel-exploits"
+    desc: "Windows privilege escalation exploit collection"
+    category: "kernel-exploit"
+    est_size_mb: 240
+    already_cloned: true  # in ~/repo/
+  
+  - name: "linux-kernel-exploitation"
+    repo: "xairy/linux-kernel-exploitation"
+    desc: "Linux kernel security and exploitation resources"
+    category: "kernel-exploit"
+    est_size_mb: 1
+  
+  - name: "linux-kernel-exploits"
+    repo: "SecWiki/linux-kernel-exploits"
+    desc: "Linux privilege escalation exploit collection"
+    category: "kernel-exploit"
+    est_size_mb: 10
+  
+  - name: "cve-2024-1086"
+    repo: "Notselwyn/CVE-2024-1086"
+    desc: "Universal local privilege escalation PoC (netfilter)"
+    category: "kernel-exploit"
+    est_size_mb: 3
+  
+  - name: "linux-exploit-suggester-2"
+    repo: "jondonas/linux-exploit-suggester-2"
+    desc: "Next-Gen Linux Kernel Exploit Suggester"
+    category: "kernel-exploit"
+    est_size_mb: 1
+
+  # === Malware Samples / Collections ===
+  - name: "the-zoo"
+    repo: "ytisf/theZoo"
+    desc: "Live malware repository for analysis"
+    category: "malware-samples"
+    est_size_mb: 1100
+    skip: "too large for current disk"
+  
+  - name: "malware-samples"
+    repo: "fabrimagic72/malware-samples"
+    desc: "Malware samples from honeypots"
+    category: "malware-samples"
+    est_size_mb: 57
+  
+  - name: "the-malware-repo"
+    repo: "Da2dalus/The-MALWARE-Repo"
+    desc: "Malware sample repository"
+    category: "malware-samples"
+    est_size_mb: 176
+
+  # === CVE PoC / Exploit Collections ===
+  - name: "cve"
+    repo: "trickest/cve"
+    desc: "All CVEs with PoCs, auto-updated"
+    category: "exploit-poc"
+    est_size_mb: 824
+    skip: "too large - use API instead"
+  
+  - name: "poc-in-github"
+    repo: "nomi-sec/PoC-in-GitHub"
+    desc: "Auto-collected PoCs from GitHub by CVE"
+    category: "exploit-poc"
+    est_size_mb: 840
+    skip: "too large - use API instead"
+  
+  - name: "cve-2020-0796"
+    repo: "danigargu/CVE-2020-0796"
+    desc: "SMBGhost Windows SMBv3 LPE exploit"
+    category: "exploit-poc"
+    est_size_mb: 1
+
+  # === Awesome Lists (curated references) ===
+  - name: "awesome-malware-analysis"
+    repo: "rshipp/awesome-malware-analysis"
+    desc: "Curated malware analysis tools and resources"
+    category: "awesome-list"
+    est_size_mb: 1
+
+  # === Exploit Kits / Tools ===
+  - name: "winpwn"
+    repo: "k8gege/K8tools"  
+    desc: "Windows penetration testing toolkit"
+    category: "exploit-tool"
+    est_size_mb: 20
+  
+  - name: "linux-kernel-defence-map"
+    repo: "a13xp0p0v/linux-kernel-defence-map"
+    desc: "Linux kernel vulnerability/defence relationship map"
+    category: "kernel-exploit"
+    est_size_mb: 10
+
+search_methodology:
+  - "GitHub Topics: c2-framework, ransomware, malware-samples, kernel-exploit"
+  - "GitHub Search: topic:c2-framework stars:>500 sort:stars"
+  - "CVE ID search: query GitHub for 'CVE-YYYY-NNNNN' repos"
+  - "Sigma rule keyword extraction → GitHub search"
+  - "MITRE ATT&CK technique IDs → GitHub search (T1059, T1548, etc.)"
+  - "LibHunt/awesome-list aggregation"
+  - "InQuest/malware-samples for hash-verified samples"

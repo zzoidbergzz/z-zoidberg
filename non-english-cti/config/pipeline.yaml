@@ -1,0 +1,170 @@
+# Pipeline configuration for non-English CTI collection
+
+pipeline:
+  name: "non-english-cti"
+  version: "0.1.0"
+  description: "Non-English Cyber Threat Intelligence Collection & Ingestion Pipeline"
+
+# Source catalogue
+sources:
+  catalogue_path: "./catalogue/sources.yaml"
+  top30_path: "./catalogue/top30.yaml"
+  priority_matrix_path: "./catalogue/priority_matrix.yaml"
+
+# Fetching configuration
+fetching:
+  user_agent: "NonEnglishCTI-Pipeline/0.1 (collection; responsible-disclosure)"
+  rate_limit_seconds: 2.0
+  request_timeout: 30.0
+  max_retries: 3
+  retry_delay: 60.0
+  respect_robots_txt: true
+  max_items_per_source: 100
+  concurrent_fetches: 5
+
+# Translation configuration
+translation:
+  # Primary: self-hosted LibreTranslate
+  libretranslate_url: "http://localhost:5000"
+  use_libretranslate: true
+
+  # Secondary: commercial providers (optional)
+  deepl_api_key: ""  # Set via environment variable
+  google_api_key: ""  # Set via environment variable
+
+  # Quality thresholds
+  high_value_confidence_threshold: 0.8  # Items above this may use commercial translation
+  translation_confidence_warning: 0.5  # Flag translations below this confidence
+
+  # Text processing
+  max_text_length: 5000  # Characters per translation request
+  chunk_overlap: 200  # Characters overlap between chunks
+
+# Language detection
+detection:
+  min_text_length: 20  # Minimum characters for reliable detection
+  confidence_threshold: 0.7
+
+# Extraction configuration
+extraction:
+  # IOC extraction
+  ioc_extraction: true
+
+  # CVE extraction and enrichment
+  cve_extraction: true
+  cve_enrichment: true
+  nvd_api_key: ""  # Optional, increases rate limit
+  nvd_rate_limit: 0.6  # Seconds between NVD API calls (50/30s without key)
+
+  # TTP mapping
+  ttp_mapping: true
+
+  # Entity extraction (requires spaCy models)
+  entity_extraction: false  # Enable after installing models
+  spacy_models:
+    zh: "zh_core_web_sm"
+    ru: "ru_core_news_sm"
+    ko: "ko_core_news_sm"
+    ja: "ja_core_news_sm"
+    fr: "fr_core_news_sm"
+    de: "de_core_news_sm"
+    es: "es_core_news_sm"
+    pt: "pt_core_news_sm"
+    pl: "pl_core_news_sm"
+    en: "en_core_web_sm"
+
+# Deduplication
+deduplication:
+  check_url: true
+  check_content_hash: true
+  check_fuzzy_title: true
+  fuzzy_title_threshold: 0.85
+  check_ioc_overlap: true
+  ioc_overlap_threshold: 0.7
+
+# Scoring
+scoring:
+  # Source reliability (based on source type and track record)
+  source_type_reliability:
+    cert: 0.9
+    vulndb: 0.8
+    vendor: 0.7
+    news: 0.5
+    social: 0.3
+
+  # Item confidence factors
+  cross_reference_bonus: 0.1  # Bonus for items referenced by other sources
+  ioc_count_bonus: 0.05  # Bonus per IOC (capped)
+  translation_confidence_weight: 0.3
+  source_reliability_weight: 0.4
+  extraction_quality_weight: 0.3
+
+# Analyst review
+review:
+  # Mandatory review for high-impact items
+  mandatory_review_thresholds:
+    actor_attribution: true  # Any actor attribution requires review
+    victim_claim: true  # Any named victim requires review
+    exploit_in_wild: true  # Any exploit-in-wild assertion requires review
+    confidence_below: 0.3  # Items below this confidence require review
+
+  # Auto-approve items from trusted sources with high confidence
+  auto_approve:
+    enabled: false  # Disabled by default for safety
+    min_source_reliability: 0.9
+    min_confidence: 0.8
+    source_types: ["cert", "vulndb"]
+
+# Export configuration
+export:
+  stix:
+    enabled: true
+    output_dir: "./output/stix"
+  misp:
+    enabled: false
+    url: ""  # MISP URL
+    api_key: ""  # MISP API key
+  opencti:
+    enabled: false
+    url: ""  # OpenCTI URL
+    api_key: ""  # OpenCTI API key
+
+# Storage
+storage:
+  # PostgreSQL
+  postgres:
+    host: "localhost"
+    port: 5433
+    database: "non_english_cti"
+    user: "necti"
+    password: "necti_dev_password"
+
+  # Raw evidence store
+  raw_store_path: "./raw_store"
+
+  # OpenSearch (full-text search)
+  opensearch:
+    host: "localhost"
+    port: 9201
+    index_prefix: "necti"
+
+# Scheduling
+scheduling:
+  rss_poll_interval_minutes: 60
+  api_poll_interval_minutes: 120
+  html_crawl_interval_minutes: 360
+  pdf_check_interval_minutes: 1440  # Daily
+  health_check_interval_minutes: 60
+  source_refresh_interval_hours: 24
+
+# Security and compliance
+security:
+  treat_all_urls_as_malicious: true
+  treat_all_iocs_as_malicious: true
+  controlled_egress: false  # True if using proxy
+  egress_proxy: ""
+  audit_all_collections: true
+  never_bypass_paywalls: true
+  never_bypass_auth: true
+  never_download_malware_samples: true
+  copyright_excerpt_max_chars: 1000  # Max excerpt without full license

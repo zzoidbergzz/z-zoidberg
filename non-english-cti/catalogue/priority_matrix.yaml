@@ -1,0 +1,224 @@
+# Language/Region Priority Matrix
+# For non-English CTI collection and translation pipeline
+
+languages:
+  - language: "Chinese (ZH)"
+    iso: "zh"
+    region: "East Asia (CN, TW, HK, SG)"
+    strategic_value: "Critical"
+    main_source_types: ["CERT", "vulndb", "vendor", "news", "research"]
+    translation_difficulty: "High"
+    analyst_validation_needs: "High — actor aliases, proper nouns, political terminology, technical jargon"
+    recommended_initial_coverage: 25
+    notes: "CNVD/CNNVD vulnerability ecosystem, 360/QiAnXin/NSFOCUS vendor research, botnet/IoT reporting, APT campaigns. Traditional Chinese for Taiwan. Different character sets."
+
+  - language: "Russian (RU)"
+    iso: "ru"
+    region: "Eastern Europe (RU, UA, BY, KZ)"
+    strategic_value: "Critical"
+    main_source_types: ["CERT", "vulndb", "vendor", "news", "academic"]
+    translation_difficulty: "Medium-High"
+    analyst_validation_needs: "High — cybercrime slang, actor aliases, military terminology, political context"
+    recommended_initial_coverage: 20
+    notes: "BDU/FSTEC vuln DB, Kaspersky/Group-IB/Positive Technologies research, wartime cyber operations, Russian-speaking cybercrime ecosystem. Also covers Ukraine (CERT-UA) and Belarus."
+
+  - language: "Ukrainian (UK)"
+    iso: "uk"
+    region: "Eastern Europe (UA)"
+    strategic_value: "Critical"
+    main_source_types: ["CERT", "government"]
+    translation_difficulty: "Medium"
+    analyst_validation_needs: "High — military terminology, wartime context, Russian APT naming"
+    recommended_initial_coverage: 5
+    notes: "CERT-UA is essential for Russian APT activity. Wartime cyber operations. Often bilingual (UA/EN)."
+
+  - language: "Korean (KO)"
+    iso: "ko"
+    region: "East Asia (KR, KP context)"
+    strategic_value: "Very High"
+    main_source_types: ["CERT", "vendor", "news"]
+    translation_difficulty: "High"
+    analyst_validation_needs: "High — DPRK-specific terminology, military jargon, Korean-specific malware naming"
+    recommended_initial_coverage: 15
+    notes: "DPRK APT reporting (Lazarus, Kimsuky, etc.), Korean financial sector threats, AhnLab/KISA material, domestic malware. Korean-language content is significantly richer than English translations."
+
+  - language: "Japanese (JA)"
+    iso: "ja"
+    region: "East Asia (JP)"
+    strategic_value: "High"
+    main_source_types: ["CERT", "vulndb", "vendor", "news"]
+    translation_difficulty: "High"
+    analyst_validation_needs: "Medium-High — Japanese product names, technical terminology, keigo (formal language) in government advisories"
+    recommended_initial_coverage: 10
+    notes: "JVN/JPCERT vulnerability portal, Japanese product vulnerabilities, LAC/FFRI vendor research. Rich structured data (APIs, RSS)."
+
+  - language: "French (FR)"
+    iso: "fr"
+    region: "Western Europe (FR, BE, CH, LU, CA, AF)"
+    strategic_value: "High"
+    main_source_types: ["CERT", "government", "news"]
+    translation_difficulty: "Low"
+    analyst_validation_needs: "Low-Medium — standard terminology, government formal language"
+    recommended_initial_coverage: 10
+    notes: "CERT-FR and ANSSI are among most prolific non-English CERTs. French-language threat reporting, IOCs, strategic reports. Also covers Francophone Africa."
+
+  - language: "German (DE)"
+    iso: "de"
+    region: "Western Europe (DE, AT, CH)"
+    strategic_value: "High"
+    main_source_types: ["CERT", "government", "news"]
+    translation_difficulty: "Low"
+    analyst_validation_needs: "Low-Medium — compound technical nouns, BSI-specific terminology"
+    recommended_initial_coverage: 8
+    notes: "BSI/CERT-Bund comprehensive RSS, German incident reporting, Heise Security. Good structured data availability."
+
+  - language: "Spanish (ES)"
+    iso: "es"
+    region: "Southern Europe, Latin America (ES, MX, CO, AR, CL, UY, PE)"
+    strategic_value: "High"
+    main_source_types: ["CERT", "news", "government"]
+    translation_difficulty: "Low"
+    analyst_validation_needs: "Low — standard terminology, some regional variations"
+    recommended_initial_coverage: 12
+    notes: "INCIBE-CERT, CCN-CERT, Latin American CERTs. Important for LATAM ransomware victimology, banking trojans, government incidents. Broad regional coverage."
+
+  - language: "Portuguese (PT)"
+    iso: "pt"
+    region: "Latin America, Southern Europe (BR, PT)"
+    strategic_value: "Medium-High"
+    main_source_types: ["CERT", "news"]
+    translation_difficulty: "Low"
+    analyst_validation_needs: "Low — standard terminology, some Brazilian Portuguese variations"
+    recommended_initial_coverage: 5
+    notes: "CERT.br, Brazilian banking trojan research, LATAM fraud. Important for financial sector threats."
+
+  - language: "Polish (PL)"
+    iso: "pl"
+    region: "Eastern Europe (PL)"
+    strategic_value: "Medium-High"
+    main_source_types: ["CERT", "news", "research"]
+    translation_difficulty: "Medium"
+    analyst_validation_needs: "Medium — technical terminology, some slang in security blogs"
+    recommended_initial_coverage: 5
+    notes: "CERT Polska, Niebezpiecznik, Sekurak. Active technical community. Good for Eastern European threat context."
+
+  - language: "Arabic (AR)"
+    iso: "ar"
+    region: "Middle East, North Africa (AE, EG, SA, JO, IQ)"
+    strategic_value: "Medium-High"
+    main_source_types: ["CERT", "government", "vendor"]
+    translation_difficulty: "High"
+    analyst_validation_needs: "High — RTL text, political terminology, hacktivist language, dialectal variations"
+    recommended_initial_coverage: 5
+    notes: "aeCERT, EG-CERT, Middle East hacktivism, government-targeted threats, energy sector. Right-to-left text handling required."
+
+  - language: "Persian/Farsi (FA)"
+    iso: "fa"
+    region: "Middle East (IR, AF)"
+    strategic_value: "Medium-High"
+    main_source_types: ["CERT", "vendor"]
+    translation_difficulty: "High"
+    analyst_validation_needs: "High — RTL, political sensitivity, dual-use terminology"
+    recommended_initial_coverage: 3
+    notes: "IR-CERT, Iranian security vendors. Important for understanding Iranian threat landscape. Access may be restricted. RTL text."
+
+  - language: "Turkish (TR)"
+    iso: "tr"
+    region: "Middle East, Europe (TR)"
+    strategic_value: "Medium"
+    main_source_types: ["CERT", "government", "news"]
+    translation_difficulty: "Medium"
+    analyst_validation_needs: "Medium — hacktivist terminology, regional context"
+    recommended_initial_coverage: 3
+    notes: "USOM/TR-CERT, Turkish hacktivism, government-targeted threats. Regional geopolitical significance."
+
+  - language: "Hebrew (HE)"
+    iso: "he"
+    region: "Middle East (IL)"
+    strategic_value: "Medium"
+    main_source_types: ["CERT", "vendor"]
+    translation_difficulty: "High"
+    analyst_validation_needs: "High — RTL, military terminology, sensitive context"
+    recommended_initial_coverage: 2
+    notes: "IL-CERT, Israeli security vendors. Important for Middle East cyber conflict. Most content available in English. RTL text."
+
+  - language: "Vietnamese (VI)"
+    iso: "vi"
+    region: "Southeast Asia (VN)"
+    strategic_value: "Medium"
+    main_source_types: ["CERT", "vendor", "news"]
+    translation_difficulty: "Medium-High"
+    analyst_validation_needs: "Medium — banking terminology, fraud context"
+    recommended_initial_coverage: 3
+    notes: "VNCERT, BKAV. Important for SE Asian banking malware, fraud, regional threats."
+
+  - language: "Thai (TH)"
+    iso: "th"
+    region: "Southeast Asia (TH)"
+    strategic_value: "Low-Medium"
+    main_source_types: ["CERT", "government"]
+    translation_difficulty: "High"
+    analyst_validation_needs: "Medium — regional financial terminology"
+    recommended_initial_coverage: 2
+    notes: "ThaiCERT. Regional SE Asian threats, ATM malware, banking fraud."
+
+  - language: "Indonesian (ID)"
+    iso: "id"
+    region: "Southeast Asia (ID)"
+    strategic_value: "Low-Medium"
+    main_source_types: ["CERT", "government"]
+    translation_difficulty: "Medium"
+    analyst_validation_needs: "Low-Medium — standard terminology"
+    recommended_initial_coverage: 2
+    notes: "ID-CERT, Kominfo. Regional SE Asian threats, government defacement, fraud."
+
+  - language: "Hindi (HI)"
+    iso: "hi"
+    region: "South Asia (IN)"
+    strategic_value: "Low-Medium"
+    main_source_types: ["government"]
+    translation_difficulty: "High"
+    analyst_validation_needs: "Medium — government terminology"
+    recommended_initial_coverage: 2
+    notes: "CERT-In (mostly English). Hindi content from government advisories. Limited CTI value in Hindi vs English."
+
+  - language: "Urdu (UR)"
+    iso: "ur"
+    region: "South Asia (PK)"
+    strategic_value: "Low"
+    main_source_types: ["CERT"]
+    translation_difficulty: "High"
+    analyst_validation_needs: "Medium — RTL, limited security terminology"
+    recommended_initial_coverage: 1
+    notes: "PK-CERT (mostly English). Very limited Urdu CTI content. Low priority."
+
+regional_clusters:
+  east_asia:
+    languages: ["zh", "ja", "ko"]
+    key_sources: ["CNCERT/CC", "JPCERT/CC", "JVN", "KrCERT/KISA", "AhnLab ASEC", "360 Netlab", "QiAnXin"]
+    primary_threats: ["Chinese APT (APT41, APT10, Winnti)", "DPRK APT (Lazarus, Kimsuky)", "IoT botnets", "Regional banking malware"]
+    collection_feasibility: "Medium — some access restrictions, strong RSS/API availability"
+
+  eastern_europe:
+    languages: ["ru", "uk", "pl"]
+    key_sources: ["CERT-UA", "Kaspersky", "Group-IB", "BDU/FSTEC", "CERT Polska", "Sekurak"]
+    primary_threats: ["Russian APT (Sandworm, APT28, APT29)", "Ransomware", "Wartime cyber operations", "Cybercrime forums"]
+    collection_feasibility: "High — strong RSS availability, some sites may restrict Western IPs"
+
+  western_europe:
+    languages: ["fr", "de", "nl"]
+    key_sources: ["CERT-FR", "ANSSI", "BSI/CERT-Bund", "CERT-EU", "NCSC-NL"]
+    primary_threats: ["State-sponsored espionage", "Ransomware", "Data breaches", "ICS/OT threats"]
+    collection_feasibility: "Very High — excellent RSS/API, no access restrictions"
+
+  latin_america:
+    languages: ["es", "pt"]
+    key_sources: ["INCIBE-CERT", "CERT.br", "CCN-CERT", "InfoMoney"]
+    primary_threats: ["Banking trojans", "Ransomware", "Government-targeted phishing", "Telecom fraud"]
+    collection_feasibility: "Medium — good RSS for Spain/Portugal, limited for LATAM CERTs"
+
+  middle_east:
+    languages: ["ar", "fa", "tr", "he"]
+    key_sources: ["aeCERT", "USOM", "IR-CERT", "IL-CERT", "Check Point Research"]
+    primary_threats: ["Hacktivism", "State-sponsored APT", "Critical infrastructure targeting", "Energy sector"]
+    collection_feasibility: "Low-Medium — limited RSS, some access restrictions, RTL text handling"

@@ -1,0 +1,3268 @@
+# Non-English CTI Source Catalogue
+# 150+ sources for cyber threat intelligence collection
+# Scores: intelligence_value (1-5), reliability (1-5), legal_ethical_risk (1=lowest)
+
+# ============================================================================
+# A. NATIONAL CERTs / CSIRTs / GOVERNMENT CYBER AGENCIES
+# ============================================================================
+
+- source_name: "CERT-FR"
+  url: "https://www.cert.ssi.gouv.fr/"
+  country: "FR"
+  region: "Western Europe"
+  language: "fr"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Primary French national CERT. Rich advisories, threat reports, CTI bulletins, IOCs. One of the most prolific non-English CERTs."
+  tos_robots_rate: "Public government service. Standard rate limits apply."
+  example_intelligence: "CERTFR-2026-AVI-0514: Multiple vulnerabilities in Curl"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.cert.ssi.gouv.fr/feed/"
+      description: "Main RSS feed for all CERT-FR publications"
+    - type: "html"
+      url: "https://www.cert.ssi.gouv.fr/alerte/"
+      description: "Security alerts listing"
+    - type: "html"
+      url: "https://www.cert.ssi.gouv.fr/avis/"
+      description: "Advisories listing"
+    - type: "html"
+      url: "https://www.cert.ssi.gouv.fr/ti/"
+      description: "Threat intelligence reports"
+
+- source_name: "BSI / CERT-Bund"
+  url: "https://www.bsi.bund.de/"
+  country: "DE"
+  region: "Western Europe"
+  language: "de"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "German federal BSI. Strong vulnerability advisories, security warnings, IT-Grundschutz. WID portal has dedicated RSS."
+  tos_robots_rate: "Public government service. Standard rate limits."
+  example_intelligence: "BSI-WID security advisory on critical infrastructure vulnerabilities"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.bsi.bund.de/SiteGlobals/Functions/RSSFeed/RSSNewsfeed/RSSNewsfeed.xml"
+      description: "BSI main RSS news feed"
+    - type: "rss"
+      url: "https://wid.cert-bund.de/content/public/securityAdvisory/rss"
+      description: "WID vulnerability advisory RSS"
+    - type: "html"
+      url: "https://wid.cert-bund.de/"
+      description: "BSI Warn- und Informationsdienst portal"
+
+- source_name: "CERT-EU"
+  url: "https://cert.europa.eu/"
+  country: "EU"
+  region: "Western Europe"
+  language: "en"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "EU institutional CERT. Publishes in English but with EU-specific context. RSS for advisories, guidance, and TI."
+  tos_robots_rate: "Public EU institution. Standard rate limits."
+  example_intelligence: "CERT-EU security advisory on APT targeting EU institutions"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://cert.europa.eu/static/rss/security-advisory.xml"
+      description: "Security advisories RSS"
+    - type: "rss"
+      url: "https://cert.europa.eu/static/rss/threat-intelligence.xml"
+      description: "Threat intelligence RSS"
+    - type: "rss"
+      url: "https://cert.europa.eu/static/rss/security-guidance.xml"
+      description: "Security guidance RSS"
+
+- source_name: "JPCERT/CC"
+  url: "https://www.jpcert.or.jp/"
+  country: "JP"
+  region: "East Asia"
+  language: "ja"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Japan's national CERT. Manages JVN vulnerability portal. Japanese-language content has richer detail than English translations."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "JPCERT alert on Emotet distribution campaigns targeting Japan"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.jpcert.or.jp/rss/jpcert.rdf"
+      description: "JPCERT RSS feed"
+    - type: "html"
+      url: "https://www.jpcert.or.jp/english/menu_alertsandadvisories.html"
+      description: "Alerts and advisories"
+
+- source_name: "KrCERT/KISA"
+  url: "https://www.krcert.or.kr/"
+  country: "KR"
+  region: "East Asia"
+  language: "ko"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Korea's national CERT under KISA. Korean-language advisories on domestic threats, malware, vulnerabilities. Less accessible via RSS."
+  tos_robots_rate: "Public government service. Korean-language site."
+  example_intelligence: "KrCERT advisory on voice phishing campaigns targeting Korean financial sector"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.krcert.or.kr/krcert/secNoticeList.do"
+      description: "Security notices (Korean)"
+    - type: "html"
+      url: "https://www.krcert.or.kr/krcert/secBulletinList.do"
+      description: "Security bulletins (Korean)"
+
+- source_name: "INCIBE-CERT"
+  url: "https://www.incibe-cert.es/"
+  country: "ES"
+  region: "Southern Europe"
+  language: "es"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Spanish national CERT. Spanish-language advisories, vulnerability notes, incident reports. Strong on ICS/OT."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "INCIBE-CERT advisory on ransomware targeting Spanish SMEs"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.incibe-cert.es/feed/alertas"
+      description: "Alert RSS feed (Spanish)"
+    - type: "html"
+      url: "https://www.incibe-cert.es/alerta-temprana/vulnerabilidades"
+      description: "Vulnerability alerts"
+
+- source_name: "CERT.br"
+  url: "https://www.cert.br/"
+  country: "BR"
+  region: "Latin America"
+  language: "pt"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Brazilian national CERT. Portuguese-language advisories. Key source for LATAM banking malware and fraud intelligence."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT.br alert on banking trojan campaigns targeting Brazilian banks"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert.br/alertas/"
+      description: "Security alerts (Portuguese)"
+    - type: "rss"
+      url: "https://www.cert.br/rss/alertas/"
+      description: "Alerts RSS feed"
+
+- source_name: "CERT Polska"
+  url: "https://www.cert.pl/"
+  country: "PL"
+  region: "Eastern Europe"
+  language: "pl"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Polish national CERT. Polish and English content. Active in malware analysis and incident reporting."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT.pl report on Dridex distribution in Poland"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://cert.pl/feed/"
+      description: "Main RSS feed"
+    - type: "html"
+      url: "https://cert.pl/en/posts/"
+      description: "Blog posts and reports"
+
+- source_name: "NCSC-NL"
+  url: "https://www.ncsc.nl/"
+  country: "NL"
+  region: "Western Europe"
+  language: "nl"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Dutch NCSC. Dutch-language advisories, often with English versions. Strong on vuln coordination and DDoS reporting."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NCSC-NL advisory on critical VPN vulnerabilities"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.ncsc.nl/rss.xml"
+      description: "Main RSS feed"
+    - type: "html"
+      url: "https://www.ncsc.nl/documenten/advisories"
+      description: "Advisories listing"
+
+- source_name: "CERT.at"
+  url: "https://www.cert.at/"
+  country: "AT"
+  region: "Western Europe"
+  language: "de"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Austrian CERT. German-language advisories. Smaller scope but reliable."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT.at warning on phishing targeting Austrian tax authority"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.cert.at/rss.xml"
+      description: "Main RSS feed"
+    - type: "html"
+      url: "https://www.cert.at/de/warnungen"
+      description: "Warnings page (German)"
+
+- source_name: "SWITCH-CERT"
+  url: "https://www.switch.ch/security/"
+  country: "CH"
+  region: "Western Europe"
+  language: "de"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Swiss academic CERT. German and English. Focus on .ch domain abuse, phishing, DDoS."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "SWITCH-CERT phishing report for .ch domains"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.switch.ch/security/news/"
+      description: "Security news and advisories"
+
+- source_name: "CERT-EE"
+  url: "https://www.cert.ee/"
+  country: "EE"
+  region: "Eastern Europe"
+  language: "et"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Estonian CERT. Estonian and English. Important given Estonia's cyber history. Focus on state-sponsored threats."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT-EE advisory on Russian APT targeting Estonian government"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert.ee/en/advisories/"
+      description: "Advisories listing"
+
+- source_name: "CERT.LV"
+  url: "https://cert.lv/"
+  country: "LV"
+  region: "Eastern Europe"
+  language: "lv"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Latvian CERT. Latvian and English. Important for Baltic threat landscape, Russian APT activity."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT.LV alert on DDoS campaigns against Latvian infrastructure"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://cert.lv/en/alerts"
+      description: "Alerts and advisories"
+
+- source_name: "CERT LT"
+  url: "https://www.nksc.lt/"
+  country: "LT"
+  region: "Eastern Europe"
+  language: "lt"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Lithuanian National Cyber Security Centre. Lithuanian and English content. Baltic threat context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NKSC advisory on phishing targeting Lithuanian banks"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.nksc.lt/en/alerts/"
+      description: "Alerts and advisories"
+
+- source_name: "SK-CERT"
+  url: "https://www.sk-cert.sk/"
+  country: "SK"
+  region: "Eastern Europe"
+  language: "sk"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Slovak national CERT. Slovak and English. Regional threat context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "SK-CERT report on ransomware targeting Slovak healthcare"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.sk-cert.sk/en/warnings/"
+      description: "Warnings and advisories"
+
+- source_name: "CSIRT.cz"
+  url: "https://www.csirt.cz/"
+  country: "CZ"
+  region: "Eastern Europe"
+  language: "cs"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Czech national CSIRT. Czech and English. Active in vulnerability coordination."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CSIRT.cz advisory on critical vulnerability in Czech e-government systems"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.csirt.cz/feed/"
+      description: "Main RSS feed"
+    - type: "html"
+      url: "https://www.csirt.cz/aktuality/"
+      description: "News and advisories (Czech)"
+
+- source_name: "CERT.ro"
+  url: "https://www.cert.ro/"
+  country: "RO"
+  region: "Eastern Europe"
+  language: "ro"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Romanian national CERT. Romanian and English. Regional context for Eastern European cybercrime."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT.ro advisory on banking malware campaigns"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert.ro/en/alerte"
+      description: "Alerts page"
+
+- source_name: "CNCERT/CC"
+  url: "https://www.cert.org.cn/"
+  country: "CN"
+  region: "East Asia"
+  language: "zh"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 3
+  legal_ethical_risk: 2
+  collection_priority: 1
+  notes: "China's national CERT. Chinese-language advisories. Operates CNVD. Critical for Chinese threat landscape but some content may be politically filtered. Rich vulnerability data."
+  tos_robots_rate: "Chinese government site. May have rate limiting and access restrictions from non-Chinese IPs."
+  example_intelligence: "CNCERT advisory on domestic IoT botnet activity"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert.org.cn/publish/main/index.html"
+      description: "Main advisories page (Chinese)"
+    - type: "html"
+      url: "https://www.cnvd.org.cn/"
+      description: "CNVD vulnerability database"
+
+- source_name: "HKCERT"
+  url: "https://www.hkcert.org/"
+  country: "HK"
+  region: "East Asia"
+  language: "zh"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Hong Kong CERT. Chinese and English. Regional phishing, malware, and scam intelligence."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "HKCERT alert on phishing targeting Hong Kong banking customers"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.hkcert.org/rss/alert"
+      description: "Security alert RSS"
+    - type: "html"
+      url: "https://www.hkcert.org/security-bulletin"
+      description: "Security bulletins"
+
+- source_name: "MyCERT"
+  url: "https://www.mycert.org.my/"
+  country: "MY"
+  region: "Southeast Asia"
+  language: "en"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Malaysian CERT. English and Malay. Important for SE Asian threat landscape."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "MyCERT advisory on Android banking malware targeting Malaysian users"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.mycert.org.my/portal/advisory"
+      description: "Advisory listing"
+
+- source_name: "SingCERT"
+  url: "https://www.csa.gov.sg/singcert/"
+  country: "SG"
+  region: "Southeast Asia"
+  language: "en"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Singapore CERT. English. Strong regional coordination hub. Advisories often have APAC context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "SingCERT advisory on supply chain compromise affecting APAC"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.csa.gov.sg/singcert/alerts-advisories"
+      description: "Alerts and advisories"
+
+- source_name: "ID-CERT"
+  url: "https://cert.id/"
+  country: "ID"
+  region: "Southeast Asia"
+  language: "id"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Indonesian CERT. Indonesian and English. Emerging source for SE Asian threats."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ID-CERT advisory on defacement campaigns targeting government sites"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://cert.id/advisories/"
+      description: "Advisories listing"
+
+- source_name: "Thai CERT"
+  url: "https://www.thaicert.or.th/"
+  country: "TH"
+  region: "Southeast Asia"
+  language: "th"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Thai national CERT. Thai and English. Regional threat intelligence for SE Asia."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ThaiCERT alert on ATM malware targeting Thai banks"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.thaicert.or.th/alerts/"
+      description: "Alerts listing (Thai)"
+
+- source_name: "VNCERT/CC"
+  url: "https://vn-certs.vn/"
+  country: "VN"
+  region: "Southeast Asia"
+  language: "vi"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Vietnamese CERT. Vietnamese. Important for SE Asian banking malware and fraud context."
+  tos_robots_rate: "Public. May have limited English interface."
+  example_intelligence: "VNCERT advisory on local phishing campaigns"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://vn-certs.vn/thong-bao/"
+      description: "Advisories (Vietnamese)"
+
+- source_name: "aeCERT"
+  url: "https://aecert.ae/"
+  country: "AE"
+  region: "Middle East"
+  language: "ar"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "UAE CERT. Arabic and English. Important for Middle East threat landscape, especially critical infrastructure."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "aeCERT advisory on APT targeting UAE energy sector"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://aecert.ae/advisories"
+      description: "Advisories listing"
+
+- source_name: "EG-CERT"
+  url: "https://www.egcert.eg/"
+  country: "EG"
+  region: "Middle East"
+  language: "ar"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Egyptian CERT. Arabic and English. Regional context for North Africa/Middle East."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "EG-CERT alert on phishing targeting Egyptian financial institutions"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.egcert.eg/advisory"
+      description: "Advisories listing"
+
+- source_name: "TR-CERT"
+  url: "https://www.usom.gov.tr/"
+  country: "TR"
+  region: "Middle East"
+  language: "tr"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Turkish national CERT (USOM). Turkish and English. Important for regional hacktivism and state-sponsored activity."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "USOM advisory on DDoS campaigns against Turkish government"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.usom.gov.tr/bildirimler"
+      description: "Advisories (Turkish)"
+
+- source_name: "IL-CERT"
+  url: "https://www.gov.il/he/departments/units/il-cert"
+  country: "IL"
+  region: "Middle East"
+  language: "he"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Israeli CERT. Hebrew and English. Important for Middle East cyber conflict context."
+  tos_robots_rate: "Public government site. Standard rate limits."
+  example_intelligence: "IL-CERT advisory on Iranian APT targeting Israeli organizations"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.gov.il/he/departments/units/il-cert"
+      description: "IL-CERT main page (Hebrew)"
+
+- source_name: "CERT-In"
+  url: "https://www.cert-in.org.in/"
+  country: "IN"
+  region: "South Asia"
+  language: "en"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Indian CERT. English and Hindi. Large volume of advisories. Important for South Asian threat landscape."
+  tos_robots_rate: "Public government site. May have rate limiting."
+  example_intelligence: "CERT-In advisory on critical vulnerability in Indian banking infrastructure"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert-in.org.in/"
+      description: "Advisories and alerts listing"
+
+- source_name: "KZ-CERT"
+  url: "https://kz-cert.kz/"
+  country: "KZ"
+  region: "Central Asia"
+  language: "ru"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Kazakh CERT. Russian and Kazakh. Regional context for Central Asian threats."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "KZ-CERT advisory on banking malware in Central Asia"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://kz-cert.kz/notifications/"
+      description: "Notifications (Russian)"
+
+- source_name: "CERT-UA"
+  url: "https://cert.gov.ua/"
+  country: "UA"
+  region: "Eastern Europe"
+  language: "uk"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Ukrainian CERT. Ukrainian and English. CRITICAL for Russian APT activity, wartime cyber operations, and Sandworm/Fancy Bear reporting."
+  tos_robots_rate: "Public. Standard rate limits. May have heightened security."
+  example_intelligence: "CERT-UA alert on Russian GRU cyber operations against Ukrainian energy infrastructure"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://cert.gov.ua/article/"
+      description: "Articles and advisories (Ukrainian)"
+    - type: "rss"
+      url: "https://cert.gov.ua/rss"
+      description: "RSS feed"
+
+- source_name: "AR-CERT"
+  url: "https://www.argentina.gob.ar/jefatura/innovacion-publica/politica-y-gestion-estrategica/cert"
+  country: "AR"
+  region: "Latin America"
+  language: "es"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Argentine CERT. Spanish. Regional LATAM context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "AR-CERT advisory on ransomware targeting Argentine organizations"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.argentina.gob.ar/jefatura/innovacion-publica/politica-y-gestion-estrategica/cert"
+      description: "Main CERT page (Spanish)"
+
+- source_name: "CERT.uy"
+  url: "https://www.cert.uy/"
+  country: "UY"
+  region: "Latin America"
+  language: "es"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Uruguayan CERT. Spanish. Regional LATAM context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT.uy advisory on phishing targeting Uruguayan government"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert.uy/advisories"
+      description: "Advisories listing"
+
+- source_name: "CII-CERT (Taiwan)"
+  url: "https://www.nccst.nat.gov.tw/"
+  country: "TW"
+  region: "East Asia"
+  language: "zh"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Taiwan NCCST/CERT. Traditional Chinese and English. Critical for Chinese APT targeting Taiwan, cross-strait cyber operations."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NCCST alert on APT41 targeting Taiwanese semiconductor firms"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.nccst.nat.gov.tw/News"
+      description: "News and advisories (Traditional Chinese)"
+
+- source_name: "AusCERT"
+  url: "https://www.auscert.org.au/"
+  country: "AU"
+  region: "Oceania"
+  language: "en"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Australian CERT. English. Good for APAC threat context."
+  tos_robots_rate: "Public. Some content requires membership."
+  example_intelligence: "AusCERT advisory on regional phishing campaigns"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.auscert.org.au/rss/"
+      description: "RSS feed"
+    - type: "html"
+      url: "https://www.auscert.org.au/bulletins/"
+      description: "Bulletins listing"
+
+- source_name: "GOVCERT.NL"
+  url: "https://www.ncsc.nl/"
+  country: "NL"
+  region: "Western Europe"
+  language: "nl"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Dutch government CERT (merged into NCSC-NL). Dutch and English. Strong vulnerability coordination."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NCSC-NL advisory on critical infrastructure vulnerabilities"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.ncsc.nl/rss.xml"
+      description: "Main RSS feed"
+
+# ============================================================================
+# B. NATIONAL / REGIONAL VULNERABILITY DATABASES
+# ============================================================================
+
+- source_name: "JVN / JVN iPedia"
+  url: "https://jvn.jp/"
+  country: "JP"
+  region: "East Asia"
+  language: "ja"
+  source_type: "vulndb"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Japan Vulnerability Notes. Comprehensive Japanese vuln database. Often has earlier disclosure for Japanese products. RSS available."
+  tos_robots_rate: "Public. Standard rate limits. Attribution required."
+  example_intelligence: "JVN#84604712: Buffer overflow in Japanese router firmware"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://jvn.jp/rss/jvnrss.rdf"
+      description: "JVNRSS feed (RDF Site Summary)"
+    - type: "rss"
+      url: "https://jvn.jp/rss/jvnnew.rdf"
+      description: "New vulnerabilities RSS"
+    - type: "html"
+      url: "https://jvn.jp/vuldid/"
+      description: "Vulnerability search (Japanese)"
+    - type: "api"
+      url: "https://jvndb.jvn.jp/apis/"
+      description: "JVN iPedia API (REST/JSON)"
+
+- source_name: "CNVD"
+  url: "https://www.cnvd.org.cn/"
+  country: "CN"
+  region: "East Asia"
+  language: "zh"
+  source_type: "vulndb"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 3
+  legal_ethical_risk: 2
+  collection_priority: 1
+  notes: "China National Vulnerability Database. Critical for Chinese product vulnerabilities, often earlier or exclusive disclosures. May be slow from non-Chinese IPs."
+  tos_robots_rate: "Chinese government site. May restrict automated access. Rate limit carefully."
+  example_intelligence: "CNVD-2026-XXXXX: Remote code execution in Chinese-brand IoT device"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cnvd.org.cn/flaw/list.htm"
+      description: "Vulnerability listing (Chinese)"
+    - type: "html"
+      url: "https://www.cnvd.org.cn/home/rss"
+      description: "RSS feed listing"
+
+- source_name: "CNNVD"
+  url: "https://www.cnnvd.org.cn/"
+  country: "CN"
+  region: "East Asia"
+  language: "zh"
+  source_type: "news"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Seebug (漏洞盒子). Chinese vulnerability database and exploit research. KnownSec-affiliated."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Seebug vulnerability disclosure for Chinese web framework"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.seebug.org/vuldb/vulnerabilities"
+      description: "Vulnerability database (Chinese)"
+
+- source_name: "BoanNews (Korea)"
+  url: "https://www.boannews.com/"
+  country: "KR"
+  region: "East Asia"
+  language: "ko"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Korean cybersecurity news. Reports Korean data breaches, APT activity, financial sector threats before English outlets."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "BoanNews report on Korean hospital ransomware attack"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.boannews.com/media/rss.asp"
+      description: "Main RSS feed (Korean)"
+
+- source_name: "DailySecu (Korea)"
+  url: "https://www.dailysecu.com/"
+  country: "KR"
+  region: "East Asia"
+  language: "ko"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Korean daily cybersecurity news. General Korean security reporting."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "DailySecu report on Korean DDoS attacks"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.dailysecu.com/rss/S1N1.xml"
+      description: "Main RSS feed (Korean)"
+
+- source_name: "Security NEXT (Japan)"
+  url: "https://www.security-next.com/"
+  country: "JP"
+  region: "East Asia"
+  language: "ja"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Japanese cybersecurity news. Reports Japanese incidents, vulnerabilities, government policy. Often before English outlets."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Security NEXT report on Japanese university data breach"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.security-next.com/feed"
+      description: "Main RSS feed (Japanese)"
+
+- source_name: "Scan Net Security (Japan)"
+  url: "https://scan.netsecurity.ne.jp/"
+  country: "JP"
+  region: "East Asia"
+  language: "ja"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Japanese network security news and research. Technical articles and incident reports."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Scan report on Japanese corporate espionage case"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://scan.netsecurity.ne.jp/rss/index.xml"
+      description: "Main RSS feed (Japanese)"
+
+- source_name: "ITmedia Security (Japan)"
+  url: "https://www.atmarkit.co.jp/ait/subtop/security/"
+  country: "JP"
+  region: "East Asia"
+  language: "ja"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Japanese IT media security section. General security news with Japanese context."
+  tos_robots_rate: "Commercial news site. Standard rate limits."
+  example_intelligence: "ITmedia report on Japanese data protection law changes"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://rss.itmedia.co.jp/rss/2.0/ait_security.xml"
+      description: "Security RSS feed (Japanese)"
+
+- source_name: "Habr InfoSec (Russia)"
+  url: "https://habr.com/ru/hub/infosecurity/"
+  country: "RU"
+  region: "Eastern Europe"
+  language: "ru"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Russian tech community hub. InfoSec section has Russian-language vulnerability research, incident reports, exploit discussion. Community content."
+  tos_robots_rate: "Public. Standard rate limits. API available."
+  example_intelligence: "Habr article on Russian bank phishing campaign techniques"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://habr.com/ru/rss/hub/infosecurity/?fl=ru"
+      description: "InfoSec hub RSS (Russian)"
+
+- source_name: "Anti-Malware.ru"
+  url: "https://www.anti-malware.ru/"
+  country: "RU"
+  region: "Eastern Europe"
+  language: "ru"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Russian anti-malware news and research. Russian-language malware analysis, vendor reports."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Anti-Malware.ru report on new ransomware targeting Russian businesses"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.anti-malware.ru/rss"
+      description: "Main RSS feed (Russian)"
+
+- source_name: "XuanwuLab"
+  url: "https://xlab.tencent.com/"
+  country: "CN"
+  region: "East Asia"
+  language: "zh"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Tencent Xuanwu Lab. High-quality Chinese vulnerability research, browser security, VM escape, advanced exploitation. Chinese and English."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "XuanwuLab research on browser zero-click exploit chain"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://xlab.tencent.com/en/"
+      description: "Research blog (English)"
+    - type: "html"
+      url: "https://xlab.tencent.com/cn/"
+      description: "Research blog (Chinese)"
+
+- source_name: "TideSec"
+  url: "https://www.tidesec.com/"
+  country: "CN"
+  region: "East Asia"
+  language: "zh"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Chinese security research group. Vulnerability scanning tools, red team research, Chinese product security."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "TideSec vulnerability research on Chinese IoT devices"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.tidesec.com/"
+      description: "Research blog (Chinese)"
+
+- source_name: "InfoMoney (Brazil)"
+  url: "https://www.infomoney.com.br/seguranca/"
+  country: "BR"
+  region: "Latin America"
+  language: "pt"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Brazilian financial news with security section. Reports Brazilian data breaches, banking trojans, financial fraud."
+  tos_robots_rate: "Commercial news site. Standard rate limits."
+  example_intelligence: "InfoMoney report on Brazilian banking trojan campaign"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.infomoney.com.br/feed/"
+      description: "Main RSS feed (Portuguese)"
+
+- source_name: "TecMundo (Brazil)"
+  url: "https://www.tecmundo.com.br/seguranca"
+  country: "BR"
+  region: "Latin America"
+  language: "pt"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 2
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Brazilian tech news with security section. General consumer security and data breach reporting."
+  tos_robots_rate: "Commercial news site. Standard rate limits."
+  example_intelligence: "TecMundo report on Brazilian consumer data leak"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://rss.tecmundo.com.br/feed"
+      description: "Main RSS feed (Portuguese)"
+
+- source_name: "Convergência Digital (Brazil)"
+  url: "https://convergenciadigital.uol.com.br/"
+  country: "BR"
+  region: "Latin America"
+  language: "pt"
+  source_type: "news"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Brazilian telecom and digital policy news. Reports on Brazilian telecom incidents, LGPD enforcement."
+  tos_robots_rate: "Commercial news site. Some content paywalled."
+  example_intelligence: "Convergência Digital report on Brazilian telecom data breach"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://convergenciadigital.uol.com.br/seguranca"
+      description: "Security section (Portuguese)"
+
+- source_name: "MuyComputer (Spain)"
+  url: "https://www.muycomputer.com/"
+  country: "ES"
+  region: "Southern Europe"
+  language: "es"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 2
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Spanish IT news. General security reporting with Spanish context."
+  tos_robots_rate: "Commercial news site. Standard rate limits."
+  example_intelligence: "MuyComputer report on Spanish data breach"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.muycomputer.com/feed/"
+      description: "Main RSS feed (Spanish)"
+
+- source_name: "ComputerWorld España"
+  url: "https://www.computerworld.es/"
+  country: "ES"
+  region: "Southern Europe"
+  language: "es"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Spanish enterprise IT news. Security section covers Spanish corporate incidents, data protection."
+  tos_robots_rate: "Commercial news site. Standard rate limits."
+  example_intelligence: "ComputerWorld España report on Spanish corporate data breach"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.computerworld.es/rss/feed"
+      description: "Main RSS feed (Spanish)"
+
+# ============================================================================
+# F. ADDITIONAL CERTs AND GOVERNMENT AGENCIES
+# ============================================================================
+
+- source_name: "NCSC UK"
+  url: "https://www.ncsc.gov.uk/"
+  country: "GB"
+  region: "Western Europe"
+  language: "en"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "UK National Cyber Security Centre. English. Top-tier APT advisories, vulnerability guidance. Reference source for cross-referencing."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NCSC advisory on Russian APT targeting UK critical infrastructure"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.ncsc.gov.uk/api/1/rss-feed"
+      description: "Main RSS feed"
+
+- source_name: "Bundeswehr CIR"
+  url: "https://www.bundeswehr.de/"
+  country: "DE"
+  region: "Western Europe"
+  language: "de"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "German military CIR. Limited public output but relevant for German defence cyber context."
+  tos_robots_rate: "Public. Limited public content."
+  example_intelligence: "CIR advisory on APT targeting German defence sector"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.bundeswehr.de/de/organisation/cir"
+      description: "CIR page (German)"
+
+- source_name: "ANSSI (France)"
+  url: "https://www.ssi.gouv.fr/"
+  country: "FR"
+  region: "Western Europe"
+  language: "fr"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "French national cybersecurity agency (ANSSI). Parent of CERT-FR. Strategic threat reports, incident response, ICS security guidance."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ANSSI strategic threat landscape report for French critical infrastructure"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.ssi.gouv.fr/feed/"
+      description: "Main RSS feed (French)"
+    - type: "html"
+      url: "https://www.ssi.gouv.fr/publication/"
+      description: "Publications listing"
+
+- source_name: "CISA (US)"
+  url: "https://www.cisa.gov/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "US CISA. Reference source for cross-referencing. English. Top-tier advisories, KEV catalog, ICS advisories."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CISA advisory on Chinese APT targeting US infrastructure"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.cisa.gov/news-events/cybersecurity-advisories.xml"
+      description: "Cybersecurity advisories RSS"
+
+- source_name: "ENISA"
+  url: "https://www.enisa.europa.eu/"
+  country: "EU"
+  region: "Western Europe"
+  language: "en"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "EU Agency for Cybersecurity. Threat landscape reports, EUVD vulnerability database, policy guidance. Reference source."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ENISA threat landscape report on EU-targeted APT"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.enisa.europa.eu/rss-feeds"
+      description: "RSS feeds"
+    - type: "api"
+      url: "https://euvd.enisa.europa.eu/api/"
+      description: "EUVD vulnerability API"
+
+- source_name: "ACSC (Australia)"
+  url: "https://www.cyber.gov.au/"
+  country: "AU"
+  region: "Oceania"
+  language: "en"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Australian Cyber Security Centre. English. Good APAC threat context, especially Chinese APT reporting."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ACSC advisory on state-sponsored cyber actor targeting Australian orgs"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.cyber.gov.au/rss-feed"
+      description: "Main RSS feed"
+
+- source_name: "CCCS (Canada)"
+  url: "https://www.cyber.gc.ca/"
+  country: "CA"
+  region: "North America"
+  language: "en"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Canadian Centre for Cyber Security. English and French. Five Eyes context, ICS advisories."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CCCS advisory on Russian cyber threat activity"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.cyber.gc.ca/api/rss/alertes"
+      description: "Alerts RSS feed"
+
+- source_name: "NCSC-NL (Netherlands)"
+  url: "https://www.ncsc.nl/"
+  country: "NL"
+  region: "Western Europe"
+  language: "nl"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Dutch NCSC. Dutch and English. Strong vulnerability coordination, DDoS reporting, ICS guidance."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NCSC-NL advisory on critical VPN vulnerabilities"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.ncsc.nl/rss.xml"
+      description: "Main RSS feed"
+
+- source_name: "CERT.se"
+  url: "https://cert.se/"
+  country: "SE"
+  region: "Northern Europe"
+  language: "sv"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Swedish CERT. Swedish and English. Regional Nordic threat context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT.se advisory on phishing targeting Swedish authorities"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://cert.se/rss"
+      description: "Main RSS feed (Swedish)"
+
+- source_name: "NCSC.ch"
+  url: "https://www.ncsc.admin.ch/"
+  country: "CH"
+  region: "Western Europe"
+  language: "de"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Swiss NCSC. German, French, Italian, English. Swiss incident reporting and advisories."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NCSC.ch advisory on Swiss critical infrastructure threats"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.ncsc.admin.ch/ncsc/de/home/themen/warnungen.html"
+      description: "Warnings (German)"
+
+- source_name: "CERT-FI"
+  url: "https://www.kyberturvallisuuskeskus.fi/"
+  country: "FI"
+  region: "Northern Europe"
+  language: "fi"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Finnish NCSC. Finnish and English. Important for Russian APT context given Finland's NATO membership."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT-FI advisory on APT targeting Finnish defence sector"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.kyberturvallisuuskeskus.fi/fi/uutiset"
+      description: "News and advisories (Finnish)"
+
+- source_name: "NKSC (Lithuania)"
+  url: "https://www.nksc.lt/"
+  country: "LT"
+  region: "Eastern Europe"
+  language: "lt"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Lithuanian National Cyber Security Centre. Lithuanian and English. Baltic threat context, DDoS reporting."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NKSC alert on DDoS against Lithuanian infrastructure"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.nksc.lt/en/alerts/"
+      description: "Alerts listing"
+
+- source_name: "CertUA (Ukraine)"
+  url: "https://cert.gov.ua/"
+  country: "UA"
+  region: "Eastern Europe"
+  language: "uk"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Ukrainian CERT. CRITICAL for wartime Russian APT intelligence. Daily output on Russian cyber operations."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT-UA alert on GRU Sandworm wiper attack"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://cert.gov.ua/rss"
+      description: "RSS feed"
+
+- source_name: "CSIRT-ONI (Romania)"
+  url: "https://csirt-oti.defense.gov.ro/"
+  country: "RO"
+  region: "Eastern Europe"
+  language: "ro"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Romanian defence CSIRT. Romanian. Limited public output."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CSIRT-ONI advisory on Romanian military-targeted phishing"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://csirt-oti.defense.gov.ro/alerte/"
+      description: "Alerts (Romanian)"
+
+- source_name: "GovCERT.ch"
+  url: "https://www.govcert.ch/"
+  country: "CH"
+  region: "Western Europe"
+  language: "de"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Swiss Government CERT. German and English. Part of MELANI reporting framework."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "GovCERT.ch report on Swiss-targeted espionage campaign"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.govcert.ch/blog/"
+      description: "Blog and reports"
+
+- source_name: "CERT-PH (Philippines)"
+  url: "https://www.cert.gov.ph/"
+  country: "PH"
+  region: "Southeast Asia"
+  language: "en"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Philippine CERT. English. Regional SE Asian threat context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT-PH advisory on government website defacement"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert.gov.ph/advisories/"
+      description: "Advisories listing"
+
+# ============================================================================
+# G. ADDITIONAL VENDOR AND RESEARCH SOURCES
+# ============================================================================
+
+- source_name: "F-Secure (Finnish)"
+  url: "https://www.f-secure.com/"
+  country: "FI"
+  region: "Northern Europe"
+  language: "fi"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "F-Secure (WithSecure). Finnish security vendor. Threat reports in Finnish and English. Strong APT research."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "WithSecure report on APT29 targeting Nordic organisations"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.withsecure.com/en/rss/feed"
+      description: "Blog RSS feed"
+
+- source_name: "Check Point Research"
+  url: "https://research.checkpoint.com/"
+  country: "IL"
+  region: "Middle East"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Check Point Research. English and Hebrew context. Top-tier APT, malware, vulnerability research. Middle East focus."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CPR report on Iranian APT targeting Middle Eastern governments"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://research.checkpoint.com/feed/"
+      description: "Research blog RSS"
+
+- source_name: "Trend Micro Research"
+  url: "https://www.trendmicro.com/en_us/research.html"
+  country: "JP"
+  region: "East Asia"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Trend Micro Research. English and Japanese. Strong APAC threat research, Japanese market context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Trend Micro report on Earth Hundun APT targeting Southeast Asian governments"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.trendmicro.com/en_us/rss/news-research.xml"
+      description: "Research RSS feed"
+
+- source_name: "Dr.Web (Russian)"
+  url: "https://news.drweb.com/"
+  country: "RU"
+  region: "Eastern Europe"
+  language: "ru"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Dr.Web Russian anti-virus vendor. Russian-language virus news, threat bulletins."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Dr.Web virus review of new Russian ransomware"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://news.drweb.com/rss/"
+      description: "Virus news RSS (Russian)"
+
+- source_name: "Kaspersky Securelist (English)"
+  url: "https://securelist.com/"
+  country: "RU"
+  region: "Eastern Europe"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Kaspersky Securelist English. Top-tier threat research. Cross-reference with Russian version for deeper context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Securelist APT report on new threat actor"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://securelist.com/feed/"
+      description: "Main RSS feed"
+
+- source_name: "Cisco Talos"
+  url: "https://blog.talosintelligence.com/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Cisco Talos. Reference source. Top-tier threat intelligence, vulnerability research."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Talos report on new malware campaign"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://blog.talosintelligence.com/feeds/posts/default"
+      description: "Blog RSS feed"
+
+- source_name: "Mandiant (Google Cloud)"
+  url: "https://www.mandiant.com/resources/blog"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Mandiant threat research. Reference source. Premier APT attribution, incident analysis."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Mandiant report on new Chinese APT cluster"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.mandiant.com/resources/feed"
+      description: "Blog RSS feed"
+
+- source_name: "Unit 42 (Palo Alto)"
+  url: "https://unit42.paloaltonetworks.com/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Unit 42 threat research. Reference source. Strong APT research, malware analysis, cloud threats."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Unit 42 report on North Korean cryptocurrency heist campaign"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://unit42.paloaltonetworks.com/feed/"
+      description: "Blog RSS feed"
+
+- source_name: "Recorded Future"
+  url: "https://www.recordedfuture.com/blog"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Recorded Future threat research. Reference source. Strategic threat intelligence, adversary profiling."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Recorded Future report on Chinese state-sponsored cyber espionage"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.recordedfuture.com/feed"
+      description: "Blog RSS feed"
+
+# ============================================================================
+# H. MIDDLE EAST / SOUTH ASIA / AFRICA
+# ============================================================================
+
+- source_name: "DarkMatter (UAE)"
+  url: "https://www.darkmatter.ae/"
+  country: "AE"
+  region: "Middle East"
+  language: "ar"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "UAE cybersecurity firm. Middle East threat context. Limited public research output."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "DarkMatter report on Middle East critical infrastructure threats"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.darkmatter.ae/insights/"
+      description: "Insights and reports"
+
+- source_name: "Help AG (UAE)"
+  url: "https://www.helpag.com/"
+  country: "AE"
+  region: "Middle East"
+  language: "ar"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Middle East security integrator. Limited public threat content."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Help AG advisory on Middle East phishing trends"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.helpag.com/resources/"
+      description: "Resources page"
+
+- source_name: "SISA (India)"
+  url: "https://www.sisainfosec.com/"
+  country: "IN"
+  region: "South Asia"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Indian payment security specialist. PCI DSS, forensic investigations. Limited public threat content."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "SISA forensic report on Indian banking fraud"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.sisainfosec.com/resources/"
+      description: "Resources page"
+
+- source_name: "Network Intelligence (India)"
+  url: "https://www.niiconsulting.com/"
+  country: "IN"
+  region: "South Asia"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Indian security vendor. Threat intelligence, incident response. Some public reports."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NII report on Indian sector-specific threats"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.niiconsulting.com/threat-intelligence.html"
+      description: "Threat intelligence page"
+
+- source_name: "Lucideus (India)"
+  url: "https://lucideus.com/"
+  country: "IN"
+  region: "South Asia"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Indian cybersecurity company (now Safe Security). Risk quantification, threat modelling."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Lucideus research on Indian critical infrastructure threats"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://lucideus.com/resources/"
+      description: "Resources page"
+
+- source_name: "IR-CERT"
+  url: "https://certcc.ir/"
+  country: "IR"
+  region: "Middle East"
+  language: "fa"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 2
+  legal_ethical_risk: 3
+  collection_priority: 2
+  notes: "Iranian CERT. Persian. Important for understanding Iranian domestic threat landscape. Content may be politically filtered. Access may be restricted."
+  tos_robots_rate: "Iranian government site. May restrict access. Collect with caution."
+  example_intelligence: "IR-CERT advisory on domestic malware campaign"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://certcc.ir/detail/"
+      description: "Advisories (Persian)"
+
+- source_name: "PK-CERT (Pakistan)"
+  url: "https://pkcert.pk/"
+  country: "PK"
+  region: "South Asia"
+  language: "ur"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 2
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Pakistan CERT. Urdu and English. Emerging. Regional context for South Asian threats."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "PK-CERT advisory on banking phishing in Pakistan"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://pkcert.pk/advisory/"
+      description: "Advisories listing"
+
+- source_name: "Serbian CERT"
+  url: "https://www.scert.gov.rs/"
+  country: "RS"
+  region: "Eastern Europe"
+  language: "sr"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Serbian national CERT. Serbian and English. Regional Balkan threat context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Serbian CERT advisory on regional phishing campaigns"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.scert.gov.rs/alerts/"
+      description: "Alerts listing"
+
+- source_name: "CERT.by (Belarus)"
+  url: "https://cert.by/"
+  country: "BY"
+  region: "Eastern Europe"
+  language: "ru"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 3
+  reliability: 2
+  legal_ethical_risk: 3
+  collection_priority: 3
+  notes: "Belarusian CERT. Russian. Important for understanding Belarus-linked threat activity. Content may be state-influenced."
+  tos_robots_rate: "Government site. Access may be restricted. Collect with caution."
+  example_intelligence: "CERT.by advisory on domestic cybersecurity threats"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://cert.by/advisories/"
+      description: "Advisories (Russian)"
+
+- source_name: "ColCERT (Colombia)"
+  url: "https://www.colcert.gov.co/"
+  country: "CO"
+  region: "Latin America"
+  language: "es"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Colombian CERT. Spanish. Regional LATAM context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ColCERT advisory on LATAM banking trojan"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.colcert.gov.co/alertas/"
+      description: "Alerts (Spanish)"
+
+- source_name: "MexCERT (Mexico)"
+  url: "https://www.gob.mx/cert-mx"
+  country: "MX"
+  region: "Latin America"
+  language: "es"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Mexican CERT. Spanish. Regional LATAM context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "MexCERT advisory on Mexican government-targeted phishing"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.gob.mx/cert-mx/documentos"
+      description: "Documents and advisories"
+
+- source_name: "CL-CERT (Chile)"
+  url: "https://www.cl-cert.cl/"
+  country: "CL"
+  region: "Latin America"
+  language: "es"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Chilean CERT. Spanish. Regional LATAM context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CL-CERT advisory on Chilean critical infrastructure threats"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cl-cert.cl/alertas/"
+      description: "Alerts (Spanish)"
+
+- source_name: "CSIRT AM (Armenia)"
+  url: "https://cert.am/"
+  country: "AM"
+  region: "Caucasus"
+  language: "hy"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Armenian CERT. Armenian and English. Regional Caucasus threat context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CSIRT AM advisory on regional DDoS attacks"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://cert.am/advisories/"
+      description: "Advisories listing"
+
+- source_name: "CERT.ge (Georgia)"
+  url: "https://cert.ge/"
+  country: "GE"
+  region: "Caucasus"
+  language: "ka"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Georgian CERT. Georgian and English. Important for Russian APT activity given 2008 cyber operations history."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT.ge advisory on Russian APT targeting Georgian government"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://cert.ge/alerts/"
+      description: "Alerts listing"
+
+- source_name: "Kaspersky Daily (Russian)"
+  url: "https://www.kaspersky.ru/blog/"
+  country: "RU"
+  region: "Eastern Europe"
+  language: "ru"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Kaspersky Russian blog. Consumer and enterprise security content in Russian. Some exclusive Russian-language threat content."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Kaspersky Daily Russian article on domestic cyber threats"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.kaspersky.ru/blog/feed/"
+      description: "Blog RSS (Russian)"
+
+- source_name: "CyberLeninka (Russian)"
+  url: "https://cyberleninka.ru/"
+  country: "RU"
+  region: "Eastern Europe"
+  language: "ru"
+  source_type: "news"
+  collection_method: "api"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Russian open-access academic papers. Cybersecurity research, cryptography, information security. Academic but useful for emerging techniques."
+  tos_robots_rate: "Public. API available. Standard rate limits."
+  example_intelligence: "CyberLeninka paper on novel Russian malware detection techniques"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://cyberleninka.ru/api/"
+      description: "Search API"
+
+- source_name: "VirusTotal Blog"
+  url: "https://blog.virustotal.com/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "VirusTotal blog. Malware analysis, threat hunting techniques. Reference for IOC enrichment."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "VirusTotal blog on new malware detection methodology"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://blog.virustotal.com/feed/"
+      description: "Blog RSS feed"
+
+- source_name: "MalwareBazaar"
+  url: "https://bazaar.abuse.ch/"
+  country: "CH"
+  region: "Western Europe"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Malware sample sharing project. API for querying malware hashes, signatures. Useful for IOC enrichment."
+  tos_robots_rate: "Public API. Rate limited. Do not download samples automatically."
+  example_intelligence: "MalwareBazaar query for Lazarus-linked malware samples"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://bazaar.abuse.ch/api/"
+      description: "API documentation"
+
+- source_name: "URLhaus"
+  url: "https://urlhaus.abuse.ch/"
+  country: "CH"
+  region: "Western Europe"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Malicious URL sharing project. API for querying malware distribution URLs. IOC enrichment."
+  tos_robots_rate: "Public API. Rate limited."
+  example_intelligence: "URLhaus query for recently reported malware distribution sites"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://urlhaus.abuse.ch/api/"
+      description: "API documentation"
+
+- source_name: "ThreatFox"
+  url: "https://threatfox.abuse.ch/"
+  country: "CH"
+  region: "Western Europe"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "IOC sharing platform. API for querying IOCs (IPs, domains, URLs, hashes). IOC enrichment."
+  tos_robots_rate: "Public API. Rate limited."
+  example_intelligence: "ThreatFox query for APT-related IOCs"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://threatfox.abuse.ch/api/"
+      description: "API documentation"
+
+- source_name: "AlienVault OTX"
+  url: "https://otx.alienvault.com/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "api_key"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Open Threat Exchange. Community-contributed IOCs, pulse subscriptions. Free API key required."
+  tos_robots_rate: "Free API. Rate limited by plan."
+  example_intelligence: "OTX pulse on APT41 latest campaigns"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://otx.alienvault.com/api/"
+      description: "API documentation"
+
+- source_name: "Abuse.ch SSL Blacklist"
+  url: "https://sslbl.abuse.ch/"
+  country: "CH"
+  region: "Western Europe"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "SSL certificate blacklist for botnet C2 detection. IOC enrichment for SSL-based C2."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "SSLBL query for botnet C2 SSL certificates"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://sslbl.abuse.ch/api/"
+      description: "API documentation"
+
+- source_name: "Feodo Tracker"
+  url: "https://feodotracker.abuse.ch/"
+  country: "CH"
+  region: "Western Europe"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Botnet C2 tracker (Emotet, Dridex, TrickBot, QakBot). IOC enrichment."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Feodo Tracker query for Emotet C2 servers"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://feodotracker.abuse.ch/api/"
+      description: "API documentation"
+
+- source_name: "SANS ISC"
+  url: "https://isc.sans.edu/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "SANS Internet Storm Center. Reference source. Daily threat monitoring, handler diaries."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "SANS ISC handler diary on new exploit activity"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://isc.sans.edu/rssfeed_full.xml"
+      description: "Full RSS feed"
+
+# ============================================================================
+# I. ADDITIONAL NON-ENGLISH NEWS AND RESEARCH
+# ============================================================================
+
+- source_name: "ITespresso (France)"
+  url: "https://www.itespresso.fr/"
+  country: "FR"
+  region: "Western Europe"
+  language: "fr"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 2
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "French IT news. Security section covers French data breaches, cyber incidents."
+  tos_robots_rate: "Commercial site. Standard rate limits."
+  example_intelligence: "ITespresso report on French corporate data breach"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.itespresso.fr/feed/"
+      description: "Main RSS feed (French)"
+
+- source_name: "Journal du Net (France)"
+  url: "https://www.jdn.fr/"
+  country: "FR"
+  region: "Western Europe"
+  language: "fr"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 2
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "French digital economy news. Some cybersecurity coverage."
+  tos_robots_rate: "Commercial site. Standard rate limits."
+  example_intelligence: "JDN report on French data privacy enforcement"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.jdn.fr/rss/"
+      description: "Main RSS feed (French)"
+
+- source_name: "Computerwoche (Germany)"
+  url: "https://www.computerwoche.de/"
+  country: "DE"
+  region: "Western Europe"
+  language: "de"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 2
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "German enterprise IT news. Security coverage with German corporate context."
+  tos_robots_rate: "Commercial site. Standard rate limits."
+  example_intelligence: "Computerwoche report on German enterprise ransomware trends"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.computerwoche.de/rss/feed"
+      description: "Main RSS feed (German)"
+
+- source_name: "Antyweb (Poland)"
+  url: "https://antyweb.pl/"
+  country: "PL"
+  region: "Eastern Europe"
+  language: "pl"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Polish tech news. Occasional security reporting. General tech audience."
+  tos_robots_rate: "Public blog. Standard rate limits."
+  example_intelligence: "Antyweb article on Polish data breach"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://antyweb.pl/feed/"
+      description: "Main RSS feed (Polish)"
+
+- source_name: "MuyComputer (Spain)"
+  url: "https://www.muycomputerpro.com/"
+  country: "ES"
+  region: "Southern Europe"
+  language: "es"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 2
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Spanish enterprise IT news. Security coverage with Spanish corporate context."
+  tos_robots_rate: "Commercial site. Standard rate limits."
+  example_intelligence: "MuyComputerPro report on Spanish enterprise security trends"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.muycomputerpro.com/feed/"
+      description: "Main RSS feed (Spanish)"
+
+- source_name: "Silicon.es"
+  url: "https://www.silicon.es/"
+  country: "ES"
+  region: "Southern Europe"
+  language: "es"
+  source_type: "news"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 2
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Spanish IT news. Cybersecurity section."
+  tos_robots_rate: "Commercial site. Standard rate limits."
+  example_intelligence: "Silicon.es report on Spanish data breach"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.silicon.es/rss"
+      description: "Main RSS feed (Spanish)"
+
+- source_name: "CSIRT GK (Greece)"
+  url: "https://csirt.gov.gr/"
+  country: "GR"
+  region: "Southern Europe"
+  language: "el"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Greek national CERT. Greek and English. Regional Mediterranean threat context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CSIRT GK advisory on Greek government-targeted phishing"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://csirt.gov.gr/en/alerts/"
+      description: "Alerts listing"
+
+- source_name: "CERT.hu (Hungary)"
+  url: "https://www.cert.hu/"
+  country: "HU"
+  region: "Eastern Europe"
+  language: "hu"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Hungarian national CERT. Hungarian and English. Regional Central European threat context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT.hu advisory on Hungarian-targeted malware campaign"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert.hu/en/infos/"
+      description: "Information and alerts"
+
+- source_name: "CERT SI (Slovenia)"
+  url: "https://www.cert-si.si/"
+  country: "SI"
+  region: "Eastern Europe"
+  language: "sl"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Slovenian CERT. Slovenian and English. Regional context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT SI advisory on regional phishing"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert-si.si/en/alerts/"
+      description: "Alerts listing"
+
+- source_name: "CSIRT.EU (Hungary)"
+  url: "https://csirt.eu/"
+  country: "EU"
+  region: "Western Europe"
+  language: "en"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "European CSIRT directory. Useful for discovering additional national teams."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CSIRT.EU directory of European CSIRTs"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://csirt.eu/members/"
+      description: "Member CSIRT directory"
+
+- source_name: "FIRST Members"
+  url: "https://www.first.org/members/map"
+  country: "INT"
+  region: "Global"
+  language: "en"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 3
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "FIRST member directory. Use for discovering additional CERTs globally. Meta-source."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "FIRST directory listing for new national CERTs"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.first.org/members/map"
+      description: "Member map and directory"
+
+- source_name: "Trusted Introducer"
+  url: "https://www.trusted-introducer.org/"
+  country: "EU"
+  region: "Western Europe"
+  language: "en"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 3
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "European CSIRT directory and accreditation. Use for discovering EU CSIRTs. Meta-source."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "TI directory listing for European CSIRTs"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.trusted-introducer.org/directory/"
+      description: "CSIRT directory"
+
+- source_name: "JVNDB API"
+  url: "https://jvndb.jvn.jp/apis/"
+  country: "JP"
+  region: "East Asia"
+  language: "ja"
+  source_type: "vulndb"
+  collection_method: "api"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "JVN iPedia API. REST/JSON API for Japanese vulnerability data. Comprehensive coverage of Japanese product vulnerabilities."
+  tos_robots_rate: "Public API. Rate limited. Attribution required."
+  example_intelligence: "JVNDB API query for recent Japanese product vulnerabilities"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://jvndb.jvn.jp/apis/myjvn"
+      description: "MyJVN REST API"
+    - type: "rss"
+      url: "https://jvndb.jvn.jp/rss/jvndb.rdf"
+      description: "JVNDB RSS feed"
+
+- source_name: "NIST NVD API"
+  url: "https://nvd.nist.gov/developers/vulnerabilities"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vulndb"
+  collection_method: "api"
+  authentication: "api_key"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "NVD API. Reference source for CVE enrichment. Required for CVE detail lookup."
+  tos_robots_rate: "Public API. Rate limited. API key recommended."
+  example_intelligence: "NVD API query for CVE-2026-XXXXX details"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://services.nvd.nist.gov/rest/json/cves/2.0"
+      description: "CVE API v2.0"
+
+- source_name: "EUVD API"
+  url: "https://euvd.enisa.europa.eu/api/"
+  country: "EU"
+  region: "Western Europe"
+  language: "en"
+  source_type: "vulndb"
+  collection_method: "api"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "ENISA EU Vulnerability Database API. European perspective on vulnerabilities. Good for EU-specific product coverage."
+  tos_robots_rate: "Public API. Standard rate limits."
+  example_intelligence: "EUVD query for European product vulnerability"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://euvd.enisa.europa.eu/api/vulnerabilities/"
+      description: "Vulnerability API"
+
+- source_name: "MITRE ATT&CK"
+  url: "https://attack.mitre.org/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vulndb"
+  collection_method: "api"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "MITRE ATT&CK framework. Reference for TTP mapping. Required for normalisation."
+  tos_robots_rate: "Public. Standard rate limits. STIX 2.1 exports available."
+  example_intelligence: "ATT&CK technique T1059.001 mapping for PowerShell execution"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://attack.taxii.mitre.org/api/v21/"
+      description: "ATT&CK TAXII 2.1 API"
+
+# ============================================================================
+# J. MIDDLE EAST / NORTH AFRICA / SOUTH ASIA / SE ASIA - ADDITIONAL
+# ============================================================================
+
+- source_name: "BTK (Turkey)"
+  url: "https://www.btk.gov.tr/"
+  country: "TR"
+  region: "Middle East"
+  language: "tr"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Turkish ICT Authority. Turkish. Cyber incident reporting for Turkish telecom sector."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "BTK report on Turkish telecom security incident"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.btk.gov.tr/siber-guvenlik/"
+      description: "Cybersecurity section (Turkish)"
+
+- source_name: "Siber Güvenlik Portal (Turkey)"
+  url: "https://siberguvenlik.org.tr/"
+  country: "TR"
+  region: "Middle East"
+  language: "tr"
+  source_type: "news"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Turkish cybersecurity portal. Turkish-language security news and research."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Siber Güvenlik article on Turkish hacktivist activity"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://siberguvenlik.org.tr/haberler/"
+      description: "News (Turkish)"
+
+- source_name: "CERTEG (Egypt)"
+  url: "https://certeg.org/"
+  country: "EG"
+  region: "Middle East"
+  language: "ar"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Egyptian cybersecurity community. Arabic-language security content."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERTEG article on Middle East phishing campaigns"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://certeg.org/articles/"
+      description: "Articles (Arabic)"
+
+- source_name: "Arab Security Cyber Wargames"
+  url: "https://arabsecuritycyberwargames.com/"
+  country: "AE"
+  region: "Middle East"
+  language: "ar"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Arab cybersecurity community and competition. Research and threat briefings in Arabic."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ASCW research on Middle East APT trends"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://arabsecuritycyberwargames.com/resources/"
+      description: "Resources (Arabic)"
+
+- source_name: "Samaneh (Iran)"
+  url: "https://www.samaneh.com/"
+  country: "IR"
+  region: "Middle East"
+  language: "fa"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 2
+  legal_ethical_risk: 3
+  collection_priority: 4
+  notes: "Iranian security vendor. Persian. Limited access from Western IPs. Use with caution."
+  tos_robots_rate: "Iranian site. May restrict access. Collect with caution."
+  example_intelligence: "Samaneh advisory on Iranian domestic malware"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.samaneh.com/security/"
+      description: "Security advisories (Persian)"
+
+- source_name: "AmnPardazan (Iran)"
+  url: "https://amnpardazan.com/"
+  country: "IR"
+  region: "Middle East"
+  language: "fa"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 2
+  legal_ethical_risk: 3
+  collection_priority: 4
+  notes: "Iranian antivirus vendor. Persian. AMNP products and threat bulletins."
+  tos_robots_rate: "Iranian site. May restrict access. Collect with caution."
+  example_intelligence: "AmnPardazan virus bulletin for Persian malware"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://amnpardazan.com/virus-bulletin/"
+      description: "Virus bulletins (Persian)"
+
+- source_name: "BKAV (Vietnam)"
+  url: "https://www.bkav.com.vn/"
+  country: "VN"
+  region: "Southeast Asia"
+  language: "vi"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Vietnamese security vendor. Vietnamese-language threat research, malware analysis. Regional SE Asian threats."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "BKAV report on Vietnamese banking malware"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.bkav.com.vn/tin-tuc"
+      description: "News (Vietnamese)"
+
+- source_name: "VNISA (Vietnam)"
+  url: "https://vnisa.org.vn/"
+  country: "VN"
+  region: "Southeast Asia"
+  language: "vi"
+  source_type: "news"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Vietnam Information Security Association. Vietnamese-language security community."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "VNISA report on Vietnamese cybersecurity landscape"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://vnisa.org.vn/tin-tuc/"
+      description: "News (Vietnamese)"
+
+- source_name: "ETDA (Thailand)"
+  url: "https://www.etda.or.th/"
+  country: "TH"
+  region: "Southeast Asia"
+  language: "th"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Thailand Electronic Transactions Development Agency. ThaiCERT parent. Thai and English."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ETDA/ThaiCERT advisory on Thai government-targeted phishing"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.etda.or.th/th/cyber-security/"
+      description: "Cybersecurity section (Thai)"
+
+- source_name: "ID-SIRTII (Indonesia)"
+  url: "https://idsirtii.or.id/"
+  country: "ID"
+  region: "Southeast Asia"
+  language: "id"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Indonesian security incident response team. Indonesian. Regional SE Asian threats."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ID-SIRTII advisory on Indonesian government defacement"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://idsirtii.or.id/advisory/"
+      description: "Advisories (Indonesian)"
+
+- source_name: "Kominfo (Indonesia)"
+  url: "https://kominfo.go.id/"
+  country: "ID"
+  region: "Southeast Asia"
+  language: "id"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Indonesian Ministry of Communication. Indonesian. Data breach reporting, cyber regulation."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Kominfo enforcement action for Indonesian data breach"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://kominfo.go.id/content/category/siber/"
+      description: "Cybersecurity section (Indonesian)"
+
+- source_name: "DSCI (India)"
+  url: "https://www.dsci.in/"
+  country: "IN"
+  region: "South Asia"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Data Security Council of India. English. Threat landscape reports, sector-specific advisories."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "DSCI threat landscape report for Indian BFSI sector"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.dsci.in/publications"
+      description: "Publications"
+
+- source_name: "CERT-In Vulnerability Notes"
+  url: "https://www.cert-in.org.in/"
+  country: "IN"
+  region: "South Asia"
+  language: "en"
+  source_type: "vulndb"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "CERT-In vulnerability notes and advisories. English. Indian product vulnerability coverage."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT-In vulnerability note on Indian software product"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert-in.org.in/s2cMain?pageid=13"
+      description: "Vulnerability notes"
+
+- source_name: "NCSC Flanders (Belgium)"
+  url: "https://www.ncsc.be/"
+  country: "BE"
+  region: "Western Europe"
+  language: "nl"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Belgian NCSC (Flemish). Dutch and French. Belgian threat advisories."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NCSC Flanders advisory on Belgian-targeted phishing"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.ncsc.be/advisories"
+      description: "Advisories listing"
+
+- source_name: "CERT.be (Federal)"
+  url: "https://www.cert.be/"
+  country: "BE"
+  region: "Western Europe"
+  language: "fr"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Federal Belgian CERT. French and Dutch. Federal-level Belgian advisories."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CERT.be advisory on Belgian critical infrastructure threats"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert.be/advisories"
+      description: "Advisories listing"
+
+- source_name: "CERT-PT (Portugal)"
+  url: "https://www.cncs.gov.pt/"
+  country: "PT"
+  region: "Southern Europe"
+  language: "pt"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Portuguese NCSC. Portuguese. Iberian and Lusophone threat context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "CNCS PT advisory on Portuguese-targeted ransomware"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cncs.gov.pt/alertas/"
+      description: "Alerts (Portuguese)"
+
+- source_name: "Cybersecurity Italy"
+  url: "https://www.acn.gov.it/"
+  country: "IT"
+  region: "Southern Europe"
+  language: "it"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Agenzia Cybertionale Sicurezza (ACN). Italian national cybersecurity agency. Italian and English."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ACN advisory on Italian critical infrastructure threats"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.acn.gov.it/advisories"
+      description: "Advisories (Italian)"
+
+- source_name: "INCIBE (Spain - main)"
+  url: "https://www.incibe.es/"
+  country: "ES"
+  region: "Southern Europe"
+  language: "es"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Spanish National Cybersecurity Institute. Spanish. Threat alerts, incident reporting, awareness campaigns."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "INCIBE alert on Spanish-targeted phishing campaign"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.incibe.es/rss/alertas"
+      description: "Alerts RSS (Spanish)"
+
+- source_name: "CCN-CERT (Spain)"
+  url: "https://www.ccn-cert.cni.es/"
+  country: "ES"
+  region: "Southern Europe"
+  language: "es"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Spanish National Cryptologic Centre CERT. Spanish and English. Government-focused, ICS, classified intelligence. High-value reports."
+  tos_robots_rate: "Public. Standard rate limits. Some content restricted."
+  example_intelligence: "CCN-CERT intelligence report on APT targeting Spanish government"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.ccn-cert.cni.es/es/informes.html"
+      description: "Reports (Spanish)"
+    - type: "rss"
+      url: "https://www.ccn-cert.cni.es/es/feed.html"
+      description: "RSS feed"
+
+- source_name: "ZDI (Zero Day Initiative)"
+  url: "https://www.zerodayinitiative.com/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vulndb"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Trend Micro ZDI. Vulnerability disclosures, advisories. Reference for 0-day tracking."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "ZDI advisory on 0-day vulnerability under active exploitation"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.zerodayinitiative.com/rss/advisories/"
+      description: "Advisory RSS feed"
+
+- source_name: "VulDB"
+  url: "https://vuldb.com/"
+  country: "CH"
+  region: "Western Europe"
+  language: "en"
+  source_type: "vulndb"
+  collection_method: "api"
+  authentication: "api_key"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Vulnerability database. API access. Good for vulnerability correlation and enrichment."
+  tos_robots_rate: "API requires key. Rate limited."
+  example_intelligence: "VulDB query for recent critical vulnerabilities"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://vuldb.com/?api"
+      description: "API documentation"
+
+- source_name: "SNTVL (Ukraine)"
+  url: "https://sntvl.com/"
+  country: "UA"
+  region: "Eastern Europe"
+  language: "uk"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 3
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "Ukrainian security research. Ukrainian and English. Wartime cyber intelligence."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "SNTVL analysis of Russian cyber operations in Ukraine"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://sntvl.com/research/"
+      description: "Research publications"
+
+- source_name: "State Service of Special Communications (Ukraine)"
+  url: "https://cip.gov.ua/"
+  country: "UA"
+  region: "Eastern Europe"
+  language: "uk"
+  source_type: "cert"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Ukrainian critical infrastructure protection. Ukrainian and English. Important for wartime cyber threat context."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "SSSCIP report on Russian cyber attacks on Ukrainian energy infrastructure"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://cip.gov.ua/en/news"
+      description: "News and reports"
+
+- source_name: "Cyberpeace Foundation (India)"
+  url: "https://www.cyberpeace.org/"
+  country: "IN"
+  region: "South Asia"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 2
+  reliability: 3
+  legal_ethical_risk: 1
+  collection_priority: 4
+  notes: "Indian cybersecurity NGO. English. Threat research, policy advocacy."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Cyberpeace report on Indian cyber threat landscape"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cyberpeace.org/research/"
+      description: "Research publications"
+
+- source_name: "InfraGard (US)"
+  url: "https://www.infragard.org/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "html"
+  authentication: "login"
+  update_frequency: "weekly"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "FBI-affiliated public-private partnership. Login required. Reference for US critical infrastructure threats."
+  tos_robots_rate: "Requires membership. Do not bypass access controls."
+  example_intelligence: "InfraGard advisory on critical infrastructure threats"
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.infragard.org/"
+      description: "Member portal (requires login)"
+
+- source_name: "NCCoE (NIST)"
+  url: "https://www.nccoe.nist.gov/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "cert"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "monthly"
+  intelligence_value: 3
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "NIST National Cybersecurity Center of Excellence. Reference for security practice guides."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "NCCoE practice guide for zero trust architecture"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.nccoe.nist.gov/rss.xml"
+      description: "RSS feed"
+
+- source_name: "Belingcat"
+  url: "https://www.bellingcat.com/"
+  country: "NL"
+  region: "Western Europe"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  authentication: "none"
+  update_frequency: "weekly"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Open source intelligence collective. Cyber investigations, Russian APT analysis, conflict zone digital forensics."
+  tos_robots_rate: "Public. Standard rate limits."
+  example_intelligence: "Bellingcat investigation into Russian GRU cyber operations"
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.bellingcat.com/feed/"
+      description: "Main RSS feed"
+
+- source_name: "CIRCL.lu"
+  url: "https://www.circl.lu/"
+  country: "LU"
+  region: "Western Europe"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "api_key"
+  update_frequency: "daily"
+  intelligence_value: 5
+  reliability: 5
+  legal_ethical_risk: 1
+  collection_priority: 1
+  notes: "Computer Incident Response Center Luxembourg. MISP project maintainers. AIL framework, Passive DNS, SSL observatory. Critical for CTI tooling."
+  tos_robots_rate: "Public APIs. Rate limited. Some require registration."
+  example_intelligence: "CIRCL Passive DNS lookup for APT infrastructure"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://www.circl.lu/services/"
+      description: "API services"
+    - type: "html"
+      url: "https://www.circl.lu/pub/tr-74/"
+      description: "Threat intelligence reports"
+
+- source_name: "AbuseIPDB"
+  url: "https://www.abuseipdb.com/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "api_key"
+  update_frequency: "daily"
+  intelligence_value: 3
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 3
+  notes: "IP abuse reporting database. API for IOC enrichment. Community-contributed."
+  tos_robots_rate: "Free API. Rate limited by plan."
+  example_intelligence: "AbuseIPDB query for malicious IP reputation"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://docs.abuseipdb.com/"
+      description: "API documentation"
+
+- source_name: "Shodan"
+  url: "https://www.shodan.io/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "api_key"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Internet-wide scanning. API for infrastructure reconnaissance, exposed service detection. IOC enrichment."
+  tos_robots_rate: "API requires key. Rate limited by plan."
+  example_intelligence: "Shodan query for exposed ICS systems in specific region"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://developer.shodan.io/api"
+      description: "API documentation"
+
+- source_name: "GreyNoise"
+  url: "https://www.greynoise.io/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "api_key"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Internet noise analysis. API for filtering mass-scanner traffic from IOCs. Enrichment for alert triage."
+  tos_robots_rate: "Free community API. Rate limited."
+  example_intelligence: "GreyNoise query to identify mass-scanner vs targeted activity"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://docs.greynoise.io/reference"
+      description: "API documentation"
+
+- source_name: "Censys"
+  url: "https://censys.io/"
+  country: "US"
+  region: "North America"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "api"
+  authentication: "api_key"
+  update_frequency: "daily"
+  intelligence_value: 4
+  reliability: 4
+  legal_ethical_risk: 1
+  collection_priority: 2
+  notes: "Internet-wide scanning and certificate monitoring. API for infrastructure reconnaissance. IOC enrichment."
+  tos_robots_rate: "API requires key. Rate limited by plan."
+  example_intelligence: "Censys query for APT-linked TLS certificates"
+  feeds_endpoints:
+    - type: "api"
+      url: "https://search.censys.io/api"
+      description: "API documentation"

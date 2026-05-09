@@ -1,0 +1,452 @@
+# Top 30 Non-English CTI Sources for Immediate Ingestion
+# Prioritised by: RSS/API availability, intelligence value, reliability, collection ease
+
+- source_name: "CERT-FR"
+  url: "https://www.cert.ssi.gouv.fr/"
+  country: "FR"
+  region: "Western Europe"
+  language: "fr"
+  source_type: "cert"
+  collection_method: "rss"
+  intelligence_value: 5
+  reliability: 5
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.cert.ssi.gouv.fr/feed/"
+      description: "Main RSS feed"
+
+- source_name: "BSI / CERT-Bund"
+  url: "https://www.bsi.bund.de/"
+  country: "DE"
+  region: "Western Europe"
+  language: "de"
+  source_type: "cert"
+  collection_method: "rss"
+  intelligence_value: 5
+  reliability: 5
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://wid.cert-bund.de/content/public/securityAdvisory/rss"
+      description: "WID vulnerability advisory RSS"
+    - type: "rss"
+      url: "https://www.bsi.bund.de/SiteGlobals/Functions/RSSFeed/RSSNewsfeed/RSSNewsfeed.xml"
+      description: "BSI main RSS"
+
+- source_name: "CERT-EU"
+  url: "https://cert.europa.eu/"
+  country: "EU"
+  region: "Western Europe"
+  language: "en"
+  source_type: "cert"
+  collection_method: "rss"
+  intelligence_value: 4
+  reliability: 5
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://cert.europa.eu/static/rss/security-advisory.xml"
+      description: "Security advisories RSS"
+    - type: "rss"
+      url: "https://cert.europa.eu/static/rss/threat-intelligence.xml"
+      description: "Threat intelligence RSS"
+
+- source_name: "JPCERT/CC + JVN"
+  url: "https://www.jpcert.or.jp/"
+  country: "JP"
+  region: "East Asia"
+  language: "ja"
+  source_type: "cert"
+  collection_method: "rss"
+  intelligence_value: 5
+  reliability: 5
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.jpcert.or.jp/rss/jpcert.rdf"
+      description: "JPCERT RSS"
+    - type: "rss"
+      url: "https://jvn.jp/rss/jvnrss.rdf"
+      description: "JVN vulnerability RSS"
+    - type: "api"
+      url: "https://jvndb.jvn.jp/apis/myjvn"
+      description: "MyJVN REST API"
+
+- source_name: "CERT-UA (Ukraine)"
+  url: "https://cert.gov.ua/"
+  country: "UA"
+  region: "Eastern Europe"
+  language: "uk"
+  source_type: "cert"
+  collection_method: "rss"
+  intelligence_value: 5
+  reliability: 4
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://cert.gov.ua/rss"
+      description: "RSS feed"
+
+- source_name: "CNCERT/CC + CNVD"
+  url: "https://www.cert.org.cn/"
+  country: "CN"
+  region: "East Asia"
+  language: "zh"
+  source_type: "cert"
+  collection_method: "html"
+  intelligence_value: 5
+  reliability: 3
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cnvd.org.cn/flaw/list.htm"
+      description: "CNVD vulnerability listing"
+
+- source_name: "AhnLab ASEC"
+  url: "https://asec.ahnlab.com/"
+  country: "KR"
+  region: "East Asia"
+  language: "ko"
+  source_type: "vendor"
+  collection_method: "rss"
+  intelligence_value: 5
+  reliability: 5
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://asec.ahnlab.com/en/feed/"
+      description: "English RSS feed"
+    - type: "html"
+      url: "https://asec.ahnlab.com/ko/"
+      description: "Korean blog (richer)"
+
+- source_name: "360 Netlab"
+  url: "https://netlab.360.com/"
+  country: "CN"
+  region: "East Asia"
+  language: "zh"
+  source_type: "vendor"
+  collection_method: "html"
+  intelligence_value: 5
+  reliability: 4
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "html"
+      url: "https://netlab.360.com/blog/"
+      description: "Blog posts"
+
+- source_name: "QiAnXin TI Center"
+  url: "https://ti.qianxin.com/"
+  country: "CN"
+  region: "East Asia"
+  language: "zh"
+  source_type: "vendor"
+  collection_method: "html"
+  intelligence_value: 5
+  reliability: 4
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "html"
+      url: "https://ti.qianxin.com/blog/"
+      description: "Threat intelligence blog"
+
+- source_name: "Kaspersky (Russian)"
+  url: "https://securelist.ru/"
+  country: "RU"
+  region: "Eastern Europe"
+  language: "ru"
+  source_type: "vendor"
+  collection_method: "rss"
+  intelligence_value: 5
+  reliability: 5
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://securelist.ru/feed/"
+      description: "Russian RSS feed"
+
+- source_name: "Group-IB / F.A.C.C.T."
+  url: "https://www.group-ib.com/"
+  country: "RU"
+  region: "Eastern Europe"
+  language: "ru"
+  source_type: "vendor"
+  collection_method: "html"
+  intelligence_value: 5
+  reliability: 4
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.fact-cc.com/blog/"
+      description: "F.A.C.C.T. Russian blog"
+
+- source_name: "ESET WeLiveSecurity"
+  url: "https://www.welivesecurity.com/"
+  country: "SK"
+  region: "Eastern Europe"
+  language: "en"
+  source_type: "vendor"
+  collection_method: "rss"
+  intelligence_value: 5
+  reliability: 5
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://feeds.feedburner.com/eset/blog"
+      description: "Blog RSS"
+
+- source_name: "INCIBE-CERT"
+  url: "https://www.incibe-cert.es/"
+  country: "ES"
+  region: "Southern Europe"
+  language: "es"
+  source_type: "cert"
+  collection_method: "rss"
+  intelligence_value: 4
+  reliability: 4
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.incibe-cert.es/feed/alertas"
+      description: "Alert RSS"
+
+- source_name: "KrCERT/KISA"
+  url: "https://www.krcert.or.kr/"
+  country: "KR"
+  region: "East Asia"
+  language: "ko"
+  source_type: "cert"
+  collection_method: "html"
+  intelligence_value: 4
+  reliability: 4
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.krcert.or.kr/krcert/secNoticeList.do"
+      description: "Security notices"
+
+- source_name: "CERT Polska"
+  url: "https://www.cert.pl/"
+  country: "PL"
+  region: "Eastern Europe"
+  language: "pl"
+  source_type: "cert"
+  collection_method: "rss"
+  intelligence_value: 4
+  reliability: 4
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://cert.pl/feed/"
+      description: "Main RSS"
+
+- source_name: "ANSSI (France)"
+  url: "https://www.ssi.gouv.fr/"
+  country: "FR"
+  region: "Western Europe"
+  language: "fr"
+  source_type: "cert"
+  collection_method: "rss"
+  intelligence_value: 5
+  reliability: 5
+  collection_priority: 1
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.ssi.gouv.fr/feed/"
+      description: "Main RSS feed"
+
+- source_name: "CCN-CERT (Spain)"
+  url: "https://www.ccn-cert.cni.es/"
+  country: "ES"
+  region: "Southern Europe"
+  language: "es"
+  source_type: "cert"
+  collection_method: "html"
+  intelligence_value: 4
+  reliability: 4
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.ccn-cert.cni.es/es/informes.html"
+      description: "Reports"
+
+- source_name: "BDU / FSTEC (Russia)"
+  url: "https://bdu.fstec.ru/"
+  country: "RU"
+  region: "Eastern Europe"
+  language: "ru"
+  source_type: "vulndb"
+  collection_method: "html"
+  intelligence_value: 4
+  reliability: 3
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "html"
+      url: "https://bdu.fstec.ru/vul/"
+      description: "Vulnerability listing"
+
+- source_name: "S2W (Korean TI)"
+  url: "https://s2w-lab.com/"
+  country: "KR"
+  region: "East Asia"
+  language: "ko"
+  source_type: "vendor"
+  collection_method: "html"
+  intelligence_value: 4
+  reliability: 4
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "html"
+      url: "https://s2w-lab.com/blog/"
+      description: "Research blog"
+
+- source_name: "Heise Security"
+  url: "https://www.heise.de/security/"
+  country: "DE"
+  region: "Western Europe"
+  language: "de"
+  source_type: "news"
+  collection_method: "rss"
+  intelligence_value: 4
+  reliability: 4
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.heise.de/security/rss/news-atom.xml"
+      description: "Security RSS"
+
+- source_name: "Sekurak"
+  url: "https://sekurak.pl/"
+  country: "PL"
+  region: "Eastern Europe"
+  language: "pl"
+  source_type: "news"
+  collection_method: "rss"
+  intelligence_value: 4
+  reliability: 4
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://sekurak.pl/feed/"
+      description: "Main RSS"
+
+- source_name: "FreeBuf"
+  url: "https://www.freebuf.com/"
+  country: "CN"
+  region: "East Asia"
+  language: "zh"
+  source_type: "news"
+  collection_method: "rss"
+  intelligence_value: 4
+  reliability: 3
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.freebuf.com/feed"
+      description: "Main RSS"
+
+- source_name: "BoanNews"
+  url: "https://www.boannews.com/"
+  country: "KR"
+  region: "East Asia"
+  language: "ko"
+  source_type: "news"
+  collection_method: "rss"
+  intelligence_value: 4
+  reliability: 3
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.boannews.com/media/rss.asp"
+      description: "Main RSS"
+
+- source_name: "Security NEXT (Japan)"
+  url: "https://www.security-next.com/"
+  country: "JP"
+  region: "East Asia"
+  language: "ja"
+  source_type: "news"
+  collection_method: "rss"
+  intelligence_value: 4
+  reliability: 4
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.security-next.com/feed"
+      description: "Main RSS"
+
+- source_name: "Habr InfoSec"
+  url: "https://habr.com/ru/hub/infosecurity/"
+  country: "RU"
+  region: "Eastern Europe"
+  language: "ru"
+  source_type: "news"
+  collection_method: "rss"
+  intelligence_value: 4
+  reliability: 3
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://habr.com/ru/rss/hub/infosecurity/?fl=ru"
+      description: "InfoSec hub RSS"
+
+- source_name: "CII-CERT (Taiwan)"
+  url: "https://www.nccst.nat.gov.tw/"
+  country: "TW"
+  region: "East Asia"
+  language: "zh"
+  source_type: "cert"
+  collection_method: "html"
+  intelligence_value: 4
+  reliability: 4
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.nccst.nat.gov.tw/News"
+      description: "News and advisories"
+
+- source_name: "XuanwuLab (Tencent)"
+  url: "https://xlab.tencent.com/"
+  country: "CN"
+  region: "East Asia"
+  language: "zh"
+  source_type: "vendor"
+  collection_method: "html"
+  intelligence_value: 4
+  reliability: 4
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "html"
+      url: "https://xlab.tencent.com/cn/"
+      description: "Chinese research blog"
+
+- source_name: "Le Monde Informatique"
+  url: "https://www.lemondeinformatique.fr/"
+  country: "FR"
+  region: "Western Europe"
+  language: "fr"
+  source_type: "news"
+  collection_method: "rss"
+  intelligence_value: 3
+  reliability: 4
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "rss"
+      url: "https://www.lemondeinformatique.fr/rss.xml"
+      description: "Main RSS"
+
+- source_name: "CERT.br"
+  url: "https://www.cert.br/"
+  country: "BR"
+  region: "Latin America"
+  language: "pt"
+  source_type: "cert"
+  collection_method: "html"
+  intelligence_value: 3
+  reliability: 4
+  collection_priority: 2
+  feeds_endpoints:
+    - type: "html"
+      url: "https://www.cert.br/alertas/"
+      description: "Security alerts"

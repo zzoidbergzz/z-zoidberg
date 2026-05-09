@@ -1,0 +1,76 @@
+version: "3.8"
+
+services:
+  # LibreTranslate — self-hosted translation
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    container_name: necti-libretranslate
+    ports:
+      - "5000:5000"
+    environment:
+      - LT_LOAD_ONLY=zh,ru,ko,ja,fr,de,es,pt,pl,uk,ar,fa,tr,he,vi,th,id,hi
+      - LT_THREADS=4
+      - LT_CHAR_LIMIT=5000
+    volumes:
+      - libretranslate_models:/home/libretranslate/.local/share/argos-translate
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "f", "http://localhost:5000/languages"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+  # PostgreSQL — primary storage
+  postgres:
+    image: postgres:16-alpine
+    container_name: necti-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=non_english_cti
+      - POSTGRES_USER=necti
+      - POSTGRES_PASSWORD=necti_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U necti"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis — queue and cache
+  redis:
+    image: redis:7-alpine
+    container_name: necti-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # OpenSearch — full-text search
+  opensearch:
+    image: opensearchproject/opensearch:2
+    container_name: necti-opensearch
+    ports:
+      - "9201:9200"
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - DISABLE_SECURITY_PLUGIN=true  # Dev only
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    restart: unless-stopped
+
+volumes:
+  libretranslate_models:
+  postgres_data:
+  redis_data:
+  opensearch_data:

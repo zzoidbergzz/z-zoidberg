@@ -1,0 +1,876 @@
+================================================================================
+OFFENSIVE SECURITY REPO SCAN — INGESTION & CROSS-REFERENCE REPORT
+Generated: 2026-05-09 16:27 UTC
+================================================================================
+
+1. EXECUTIVE SUMMARY
+----------------------------------------
+   Repos scanned:              42
+   New entities created:       1074
+   CVE matches (existing DB):  391
+   CVE new (added):            431
+   Hash matches (existing DB): 160
+   Hash new (added):           3284
+   Malware family matches:     118
+   Malware family new:         18
+   ATT&CK technique matches:   793
+   ATT&CK technique new:       125
+
+2. DATABASE CROSS-REFERENCE BASELINE
+----------------------------------------
+   Existing CVEs indexed:      4141
+   Existing hashes indexed:    9715
+   Existing malware indexed:   3894
+   Existing ATT&CK indexed:    2139
+   Existing actors indexed:    882
+
+3. CVE CROSS-REFERENCE MATCHES
+----------------------------------------
+   CVE-2020-0796 (2 matches):
+     CVE-2020-0796        → DB: CVE-2020-0796
+     CVE-2020-0796        → DB: CVE-2020-0796
+   CVE-2024-1086 (1 matches):
+     CVE-2024-1086        → DB: CVE-2024-1086
+   DrvEye (1 matches):
+     CVE-2019-0808        → DB: CVE-2019-0808
+   Empire (10 matches):
+     CVE-2016-7255        → DB: CVE-2016-7255
+     CVE-2016-7255        → DB: CVE-2016-7255
+     CVE-2019-0211        → DB: CVE-2019-0211
+     CVE-2019-13272       → DB: CVE-2019-13272
+     CVE-2019-3010        → DB: CVE-2019-3010
+     CVE-2019-5736        → DB: CVE-2019-5736
+     CVE-2020-1472        → DB: CVE-2020-1472
+     CVE-2021-1675        → DB: CVE-2021-1675
+     CVE-2021-3560        → DB: CVE-2021-3560
+     CVE-2021-4034        → DB: CVE-2021-4034
+   Exploits (4 matches):
+     CVE-2016-3309        → DB: CVE-2016-3309
+     CVE-2016-7255        → DB: CVE-2016-7255
+     CVE-2016-7255        → DB: CVE-2016-7255
+     CVE-2017-0213        → DB: CVE-2017-0213
+   PrivEsc (9 matches):
+     CVE-2005-4605        → DB: CVE-2005-4605
+     CVE-2008-4113        → DB: CVE-2008-4113
+     CVE-2009-0036        → DB: CVE-2009-0036
+     CVE-2009-0360        → DB: CVE-2009-0360
+     CVE-2009-1185        → DB: CVE-2009-1185
+     CVE-2009-3002        → DB: CVE-2009-3002
+     CVE-2010-3904        → DB: CVE-2010-3904
+     CVE-2011-1496        → DB: CVE-2011-1496
+     CVE-2014-3153        → DB: CVE-2014-3153
+   Qu1cksc0pe (1 matches):
+     CVE-2017-11882       → DB: cve-2017-11882
+   ReactExploitGUI (1 matches):
+     CVE-2025-55182       → DB: cve-2025-55182
+   WindowsElevation (76 matches):
+     CVE-2008-4250        → DB: CVE-2008-4250
+     CVE-2010-0232        → DB: CVE-2010-0232
+     CVE-2010-1899        → DB: CVE-2010-1899
+     CVE-2010-2554        → DB: CVE-2010-2554
+     CVE-2010-3338        → DB: CVE-2010-3338
+     CVE-2010-4398        → DB: CVE-2010-4398
+     CVE-2011-0045        → DB: CVE-2011-0045
+     CVE-2011-2005        → DB: CVE-2011-2005
+     CVE-2012-0002        → DB: CVE-2012-0002
+     CVE-2013-0008        → DB: CVE-2013-0008
+     CVE-2013-1300        → DB: CVE-2013-1300
+     CVE-2013-1340        → DB: CVE-2013-1340
+     CVE-2013-1345        → DB: CVE-2013-1345
+     CVE-2013-3129        → DB: CVE-2013-3129
+     CVE-2013-3167        → DB: CVE-2013-3167
+     CVE-2013-3172        → DB: CVE-2013-3172
+     CVE-2013-3173        → DB: CVE-2013-3173
+     CVE-2013-3660        → DB: CVE-2013-3660
+     CVE-2013-3660        → DB: CVE-2013-3660
+     CVE-2013-5065        → DB: CVE-2013-5065
+     ... and 56 more
+   awesome-windows-kernel-security-development (17 matches):
+     CVE-2014-4113        → DB: CVE-2014-4113
+     CVE-2015-1701        → DB: CVE-2015-1701
+     CVE-2015-2546        → DB: CVE-2015-2546
+     CVE-2016-0040        → DB: CVE-2016-0040
+     CVE-2016-3088        → DB: CVE-2016-3088
+     CVE-2016-3309        → DB: CVE-2016-3309
+     CVE-2016-7255        → DB: CVE-2016-7255
+     CVE-2017-8570        → DB: CVE-2017-8570
+     CVE-2018-8453        → DB: CVE-2018-8453
+     CVE-2018-8453        → DB: CVE-2018-8453
+     CVE-2019-0708        → DB: CVE-2019-0708
+     CVE-2019-0803        → DB: CVE-2019-0803
+     CVE-2019-0808        → DB: CVE-2019-0808
+     CVE-2019-1132        → DB: CVE-2019-1132
+     CVE-2019-1215        → DB: CVE-2019-1215
+     CVE-2019-16098       → DB: CVE-2019-16098
+     CVE-2020-0601        → DB: CVE-2020-0601
+   conti-pentester-guide-leak (1 matches):
+     CVE-2020-1472        → DB: CVE-2020-1472
+   linux-exploit-suggester-2 (1 matches):
+     CVE-2016-5195        → DB: CVE-2016-5195
+   linux-kernel-exploitation (117 matches):
+     CVE-2007-4573        → DB: CVE-2007-4573
+     CVE-2008-0010        → DB: CVE-2008-0010
+     CVE-2008-0600        → DB: CVE-2008-0600
+     CVE-2009-1046        → DB: CVE-2009-1046
+     CVE-2009-2692        → DB: CVE-2009-2692
+     CVE-2010-2959        → DB: CVE-2010-2959
+     CVE-2010-2963        → DB: CVE-2010-2963
+     CVE-2010-3081        → DB: CVE-2010-3081
+     CVE-2010-3437        → DB: CVE-2010-3437
+     CVE-2010-4258        → DB: CVE-2010-4258
+     CVE-2010-4258        → DB: CVE-2010-4258
+     CVE-2013-2094        → DB: CVE-2013-2094
+     CVE-2013-2094        → DB: CVE-2013-2094
+     CVE-2014-0038        → DB: CVE-2014-0038
+     CVE-2014-0196        → DB: CVE-2014-0196
+     CVE-2014-0196        → DB: CVE-2014-0196
+     CVE-2014-3153        → DB: CVE-2014-3153
+     CVE-2014-3153        → DB: CVE-2014-3153
+     CVE-2014-4014        → DB: CVE-2014-4014
+     CVE-2014-4699        → DB: CVE-2014-4699
+     ... and 97 more
+   linux-kernel-exploits (44 matches):
+     CVE-2004-0077        → DB: CVE-2004-0077
+     CVE-2006-2451        → DB: CVE-2006-2451
+     CVE-2008-0600        → DB: CVE-2008-0600
+     CVE-2009-1185        → DB: CVE-2009-1185
+     CVE-2009-2692        → DB: CVE-2009-2692
+     CVE-2009-2698        → DB: CVE-2009-2698
+     CVE-2010-2959        → DB: CVE-2010-2959
+     CVE-2010-3081        → DB: CVE-2010-3081
+     CVE-2010-3301        → DB: CVE-2010-3301
+     CVE-2010-3437        → DB: CVE-2010-3437
+     CVE-2010-3437        → DB: CVE-2010-3437
+     CVE-2010-3848        → DB: CVE-2010-3848
+     CVE-2010-3849        → DB: CVE-2010-3849
+     CVE-2010-3850        → DB: CVE-2010-3850
+     CVE-2010-3904        → DB: CVE-2010-3904
+     CVE-2010-4073        → DB: CVE-2010-4073
+     CVE-2010-4258        → DB: CVE-2010-4258
+     CVE-2010-4347        → DB: CVE-2010-4347
+     CVE-2012-0056        → DB: CVE-2012-0056
+     CVE-2013-1763        → DB: CVE-2013-1763
+     ... and 24 more
+   windows-kernel-exploits (106 matches):
+     CVE-2005-1983        → DB: CVE-2005-1983
+     CVE-2006-3439        → DB: CVE-2006-3439
+     CVE-2008-1084        → DB: CVE-2008-1084
+     CVE-2008-4037        → DB: CVE-2008-4037
+     CVE-2008-4250        → DB: CVE-2008-4250
+     CVE-2008-4250        → DB: CVE-2008-4250
+     CVE-2009-0079        → DB: CVE-2009-0079
+     CVE-2009-1122        → DB: CVE-2009-1122
+     CVE-2009-1535        → DB: CVE-2009-1535
+     CVE-2009-2532        → DB: CVE-2009-2532
+     CVE-2010-0020        → DB: CVE-2010-0020
+     CVE-2010-0021        → DB: CVE-2010-0021
+     CVE-2010-0022        → DB: CVE-2010-0022
+     CVE-2010-0231        → DB: CVE-2010-0231
+     CVE-2010-0232        → DB: CVE-2010-0232
+     CVE-2010-0270        → DB: CVE-2010-0270
+     CVE-2010-1887        → DB: CVE-2010-1887
+     CVE-2010-1899        → DB: CVE-2010-1899
+     CVE-2010-1899        → DB: CVE-2010-1899
+     CVE-2010-2554        → DB: CVE-2010-2554
+     ... and 86 more
+
+4. NEW CVEs (NOT IN DATABASE)
+----------------------------------------
+   Total new CVEs: 431
+     CVE-2002-1614        ← Empire
+     CVE-2003-0352        ← WindowsElevation
+     CVE-2004-0077        ← linux-kernel-exploitation
+     CVE-2004-1235        ← linux-kernel-exploits
+     CVE-2005-0736        ← linux-kernel-exploits
+     CVE-2005-1263        ← linux-kernel-exploits
+     CVE-2005-1983        ← WindowsElevation
+     CVE-2005-4605        ← PrivEsc
+     CVE-2006-2451        ← PrivEsc
+     CVE-2006-3439        ← WindowsElevation
+     CVE-2006-3626        ← linux-kernel-exploits
+     CVE-2007-1000        ← PrivEsc
+     CVE-2007-3103        ← PrivEsc
+     CVE-2007-4573        ← linux-kernel-exploitation
+     CVE-2007-5301        ← PrivEsc
+     CVE-2008-0009        ← linux-kernel-exploitation
+     CVE-2008-0010        ← linux-kernel-exploitation
+     CVE-2008-0600        ← linux-kernel-exploitation
+     CVE-2008-0900        ← linux-kernel-exploits
+     CVE-2008-1084        ← WindowsElevation
+     CVE-2008-2936        ← PrivEsc
+     CVE-2008-3464        ← WindowsElevation
+     CVE-2008-4037        ← WindowsElevation
+     CVE-2008-4113        ← PrivEsc
+     CVE-2008-4190        ← PrivEsc
+     CVE-2008-4210        ← linux-kernel-exploits
+     CVE-2008-4250        ← WindowsElevation
+     CVE-2009-0036        ← PrivEsc
+     CVE-2009-0065        ← linux-kernel-exploitation
+     CVE-2009-0079        ← WindowsElevation
+     CVE-2009-0360        ← PrivEsc
+     CVE-2009-1046        ← PrivEsc
+     CVE-2009-1122        ← WindowsElevation
+     CVE-2009-1185        ← PrivEsc
+     CVE-2009-1337        ← linux-kernel-exploits
+     CVE-2009-1535        ← WindowsElevation
+     CVE-2009-1894        ← PrivEsc
+     CVE-2009-1895        ← PrivEsc
+     CVE-2009-1897        ← linux-kernel-exploitation
+     CVE-2009-2532        ← WindowsElevation
+     CVE-2009-2692        ← PrivEsc
+     CVE-2009-2698        ← PrivEsc
+     CVE-2009-2910        ← linux-kernel-exploitation
+     CVE-2009-3001        ← linux-kernel-exploitation
+     CVE-2009-3002        ← PrivEsc
+     CVE-2009-3547        ← linux-kernel-exploits
+     CVE-2010-0020        ← WindowsElevation
+     CVE-2010-0021        ← WindowsElevation
+     CVE-2010-0022        ← WindowsElevation
+     CVE-2010-0231        ← WindowsElevation
+   ... and 381 more
+
+5. HASH CROSS-REFERENCE MATCHES
+----------------------------------------
+   Hashes matching existing DB: 160
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/test/__init__.py
+     5ffa717e96790957... → DB: 5ffa717e96790957d16d19709bec9f41ea6baf468e0916c145ad7ffe86135b0a ← Empire/empire/test/test-upload-2.yaml
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/test/plugin_install/FooPluginTemplate/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/test/plugin_install/LoadExceptionPlugin/__init__.py
+     04ff2677729c7064... → DB: 04ff2677729c70643931997adee42a07b4ce1344ff83b3c93be190c6b716e7ee ← Empire/empire/test/data/modules/test_custom_module.yaml
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/common/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/utils/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/health/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/stager/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/tag/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/plugin/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/listener/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/host/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/bypass/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/obfuscation/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/ip/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/credential/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/download/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/admin/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/module/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/user/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/websocket/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/meta/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/profile/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/api/v2/agent/__init__.py
+     e3b0c44298fc1c14... → DB: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 ← Empire/empire/server/data/__init__.py
+   ... and 130 more
+
+6. NEW FILE HASHES (ADDED TO DATABASE)
+----------------------------------------
+   Total new SHA256 hashes: 3284
+   CVE-2024-1086: 972 hashes
+     0f2c34e83b4bfec59b55ebbd42bd27b6...  include/linux-lts-6.1.72/asm-generic/.auxvec.h.cmd
+     e13ac0803f726eed7377671a3bbd977c...  include/linux-lts-6.1.72/asm-generic/.bitsperlong.h.cmd
+     23b1c73e9f149cdd415eda61851a9f61...  include/linux-lts-6.1.72/asm-generic/.bpf_perf_event.h.cmd
+     27745d132dc1f0a75eb1ddaff572435a...  include/linux-lts-6.1.72/asm-generic/.errno-base.h.cmd
+     263ea3dde96aed963c2d3f5ff5be4402...  include/linux-lts-6.1.72/asm-generic/.errno.h.cmd
+     18c15584e8334d0239661c8fe2402dbf...  include/linux-lts-6.1.72/asm-generic/.fcntl.h.cmd
+     8ca673be45e84b888cd3f20e7c7e3fba...  include/linux-lts-6.1.72/asm-generic/.hugetlb_encode.h.cmd
+     158d7cfb0ed28528cf8c1b925f3f62d1...  include/linux-lts-6.1.72/asm-generic/.int-l64.h.cmd
+     7d36fbcb06f854a259af0040ca7d676a...  include/linux-lts-6.1.72/asm-generic/.int-ll64.h.cmd
+     dc062993e90d008c40e6862be04ef191...  include/linux-lts-6.1.72/asm-generic/.ioctl.h.cmd
+     ... and 962 more
+   Chaos-Rootkit: 5 hashes
+     c6e7dc5b8f2b29e110128911e59ef5ca...  Chaos-Rootkit/Chaos-Rootkit.inf
+     ac72542240cd622a53572ed40e2a27c2...  ring3-gui/libs/glfw/lib-vc2022-32/glfw3.dll
+     5f2541c4ec613e96679f600f3101155b...  ring3-gui/libs/glfw/lib-vc2022-64/glfw3.dll
+     c3abb9fe51a4c033003ddabfd97c7958...  ring3-gui/libs/imgui/backends/vulkan/generate_spv.sh
+     ad90a2905a5da3a2713383c25ae3746e...  ring3-gui/ring3-gui/build_win32.bat
+   DeepZero: 68 hashes
+     49913db930ca71449d6e1054e52563dd...  .github/workflows/ci.yml
+     29a21e3d8f59d443cad479efd173547a...  .github/workflows/pages.yml
+     184b73a9c52e568f174149756761a4ff...  docs/_config.yml
+     cecdc898d2f5d8f6758aa62422e8d3b1...  docs/assets/js/script.js
+     458479de83327610105062993040b04d...  docs/serve.sh
+     d7f1cccaa22fe1f2117558fb2aa68b68...  pipelines/loldrivers/pipeline.yaml
+     cb13df096d92c3463b222a074a412d94...  pipelines/loldrivers/rules/arbitrary_rw.yaml
+     0e645eefa790480b866047007deb09f5...  pipelines/loldrivers/rules/buffer_overflow.yaml
+     b3146d9689325441163b769e357cbeef...  pipelines/loldrivers/rules/method_neither.yaml
+     020b39c0b6ce458b5ddfcc0a20ca832b...  pipelines/loldrivers/rules/msr_access.yaml
+     ... and 58 more
+   DrvEye: 52 hashes
+     76013baba311f3bdb150864a56df323a...  DrvEye.py
+     09a31cc5b15523d5a5ef8f557096c709...  drivertool/__init__.py
+     dc6904f188215dd9fb72c1bf38f4888e...  drivertool/authenticode.py
+     a28655a4eb878824e9e0e845a48d37ca...  drivertool/cfg.py
+     fb4361e3d1310e46920a834e061c6c10...  drivertool/cli.py
+     a088c76253ad01419dd059a5227521e5...  drivertool/constants.py
+     cf0432497ee0da6e9935984fbddf68de...  drivertool/constprop.py
+     9441df5e85a9be8f658aa810b08399f3...  drivertool/disassembler.py
+     92cb4abf2fea7f0e13204c156331159f...  drivertool/dispatch_finder.py
+     0892974e2c812c67c0d25e1c8d588bce...  drivertool/emulator.py
+     ... and 42 more
+   Empire: 1021 hashes
+     c35c4475df486809b2a561721ccd8c37...  .github/FUNDING.yml
+     b2b18f3be2ae1c2830f448205b9abe22...  .github/ISSUE_TEMPLATE/bug_report.yaml
+     7b2eb7a280aa2eb4395e0997fc16c940...  .github/ISSUE_TEMPLATE/feature_request.yaml
+     d638c11456c5c1e3e422f1bd2c649f1a...  .github/actions/clean-merge/action.yml
+     15907f9bcd61de73719407631f7806fe...  .github/actions/update-starkiller/action.yml
+     adc3e89d77e3c68c8cc5ec9214a536c9...  .github/cst-config-docker.yaml
+     52ba55ad502ae40921dcf6866a954d6e...  .github/dependabot.yml
+     f8a5e00bfeb9fac69608373801dbb848...  .github/docker-compose.yml
+     0cad9028a8c1117e39a97ae8d0acaffc...  .github/install_tests/cst-config-debian.yaml
+     6f4e5abf4e9d8d8e9efafb93a0329ccf...  .github/install_tests/cst-config-install-base.yaml
+     ... and 1011 more
+   Exploits: 4 hashes
+     5593ae6aee371da346fe3aca259d7a71...  CVE-2012-0217/Binaries/sysret.exe
+     3c32c24c985455f1d4128a24ebc59ec7...  CVE-2016-3309/Binaries/bfill.exe
+     59eaa6239a6af0d18a419ec432dc6e5f...  CVE-2016-3371/Binaries/40429.exe
+     4400b9e2697ee80799f72a4b792a81d2...  CVE-2016-7255/CVE-2016-7255.ps1
+   Havoc: 29 hashes
+     6512c83ecef2e6c832b36d21623d1bff...  .github/FUNDING.yml
+     aac180da082542494d433d7c1467843f...  .github/ISSUE_TEMPLATE/Bug_Report-Demon.yml
+     70d8115555a8bf541bab16be74566e1b...  .github/ISSUE_TEMPLATE/Bug_Report-Documentation.yml
+     3f5589e1b936c22aebe9590407127904...  .github/ISSUE_TEMPLATE/Bug_Report-Teamserver-Client.yml
+     dd26d3fc621e6eb248d4c531698243de...  .github/ISSUE_TEMPLATE/Feature_Suggestion.yml
+     d052ef04e197208b1e10f51705de7009...  .github/ISSUE_TEMPLATE/config.yml
+     a593321b68eb5c108e83269b90c1de0f...  client/config.toml
+     856260e8f9f6df77e54a61ecbe054118...  client/data/Havoc.rc
+     ede73a0b3c3a552a203c0bca74f31e56...  payloads/Demon/scripts/hash_func.py
+     5c0e704e9ef1c720080c207dc8281c49...  payloads/DllLdr.x64.bin
+     ... and 19 more
+   Mythic: 384 hashes
+     ce7ebb3f6a5071d6c46e4f4f8d23247c...  .github/FUNDING.yml
+     8d3e61d46515384c9284a7a4090a9bd2...  .github/dependabot.yml
+     511ad44f629006e32859c23d31b1d93a...  .github/workflows/docker.yml
+     6c67b4841728539b06cf709444a95d99...  MythicReactUI/config-overrides.js
+     b55727e6b915cb42b1aaad9a6d17de7c...  MythicReactUI/package-lock.json
+     2130058c94d4d1f41312e54994c1f5ad...  MythicReactUI/package.json
+     e229595348e25a32d57caeffd831ede3...  MythicReactUI/src/cache.js
+     10fbfcfb69e382c426e71d5b9432193e...  MythicReactUI/src/components/App.js
+     54a09d2ac08b1cb35353b372cdcd4088...  MythicReactUI/src/components/EventFeedNotifications.js
+     bd8985a974d4c17f739211fbc4e133d6...  MythicReactUI/src/components/MythicComponents/MythicAgentSVGIcon.js
+     ... and 374 more
+   PersistenceSniper: 1 hashes
+     cbce6a63de3bb2d6cc3dee1595786365...  .github/workflows/main.yml
+   PrivEsc: 49 hashes
+     974d2faf2335fdcd66eaf928e854ca0d...  linux/linux_exploits/10018.sh
+     277a77ddc9b066e703ba80dbbac8788a...  linux/linux_exploits/10060.sh
+     42b3382f4057aa05855e8e1dd6706552...  linux/linux_exploits/12130.py
+     47d89857e13678070ca14d34909d8873...  linux/linux_exploits/1229.sh
+     c8029320a60f845e61f8b5c118982978...  linux/linux_exploits/1297.py
+     7d9deb7cd0c7a4994017279842ad4129...  linux/linux_exploits/1299.sh
+     c32c7d3e85739de658bd04b04387ac77...  linux/linux_exploits/1300.sh
+     cbc406b009a984f4f8a585c2bc6a49f5...  linux/linux_exploits/14273.sh
+     cacdb25245a786ab3af7cd9fe2b9e9ab...  linux/linux_exploits/14339.sh
+     3f9b5c7bded1fd0627c99bc592776b67...  linux/linux_exploits/14830.py
+     ... and 39 more
+   Qu1cksc0pe: 64 hashes
+     eef7213e8b6af46876c251b4e104b6da...  .github/FUNDING.yml
+     f0d1e0248e79619821e25bb59b10e425...  Modules/VTwrapper.py
+     079153fc461559e83c37d3d81f6ef4ea...  Modules/__init__.py
+     03645c8cc64b6f5196ec26470c6c9672...  Modules/analysis/linux/linux_emulator.py
+     44b1ef73910cb357ad6e0edf87701dd5...  Modules/analysis/multiple/go_binary_parser.py
+     3f4889d6ddcdc4d570dd40315ed8572f...  Modules/analysis/multiple/multi.py
+     120738634d964ba239aab3edd0b544f8...  Modules/analysis/multiple/smart_analyzer.py
+     c4d9ae182a285b33b1b534ca27013a42...  Modules/andro_familydetect.py
+     e76c5361aed997d0a85301fc3156e8b7...  Modules/android_dynamic_analyzer.py
+     7e221b68afaaf090761413f14564034c...  Modules/apkAnalyzer.py
+     ... and 54 more
+   ReactExploitGUI: 11 hashes
+     2255b73ffc363f06c1676458f2c6565f...  build.py
+     12bb4d2d8613608a4f072e6b71005d8e...  config/settings.yaml
+     1bfe1f45487769c89c9d455a9badb493...  core/detector.py
+     f72bc4fc2def07435746d31ae85d45bc...  core/exploit.py
+     3cd0dd1822f8f400377506e82e64e2ec...  core/memshell.py
+     da9565b6357435dd113d952d79257901...  core/payload_builder.py
+     04ad95a1f7c8d1bca1447afe6927c0cc...  core/proxy_manager.py
+     52273ed5d4c87b2f97fd0af28d9b4231...  core/reverse_shell.py
+     fc42f478955c124282ec952bf80a3293...  core/waf_bypass.py
+     6c37540d7749d6b44af496f0cf5b678d...  gui/main_window.py
+     ... and 1 more
+   Singularity: 4 hashes
+     a6a0d6eb2058f3106c07a024facdf957...  load_and_persistence.sh
+     aaa3c4cd6bbd0b1f379e27cc85e5b67c...  scripts/trigger.py
+     7c85837ddaef05c3055b3aefc669a6d8...  scripts/x.sh
+     45f7b4585a6bddd0d20db23cd6baabf1...  setup.sh
+   The-MALWARE-Repo: 179 hashes
+     db0d72bc7d10209f7fa354ec100d57ab...  Banking-Malware/DanaBot.exe
+     90c03a8ca35c33aad5e77488625598da...  Banking-Malware/Zloader.xlsm
+     b5fc4fd50e4ba69f0c8c8e5c402813c1...  Email-Worm/Amus.exe
+     da1798c0a49b991fbda674f02007b0a3...  Email-Worm/Anap.a.exe
+     4ae7d63ec497143c2acde1ba79f1d9ee...  Email-Worm/Axam.a.exe
+     941ebf1dc12321bbe430994a55f6e22a...  Email-Worm/Brontok.exe
+     96425ae53a5517b9f47e30f6b41fdc88...  Email-Worm/Bugsoft.exe
+     caec6e664b3cff5717dd2efea8dcd871...  Email-Worm/Duksten.exe
+     3db96ebba9a6875bb058a3a2a4457165...  Email-Worm/Emin.js
+     69ee59cee5a1d39739d935701cfa917f...  Email-Worm/Funsoul.exe
+     ... and 169 more
+   TitanHide: 8 hashes
+     a419dec4978e1dbafb9416d5880e4952...  .github/workflows/build.yml
+     8111500e0f28f596cdddad7fb76f1719...  AStyle.dll
+     ecbba6a97df86cb9c5f5f828345751c7...  AStyleWhore.exe
+     f6a62453324d7358a0ff8c444a755566...  BreakOnSysRq.reg
+     9562b4b277f64c7d0bd0391cb15269ec...  TitanHideGUI/manifest.xml
+     b81c292c1940991bd10b27991dfe0f5a...  TitanHideGUI/resource.rc
+     500dff416e65cd8f54dc889a20ff60a5...  install.bat
+     8649e7baff74cc29ab11243f53ee1531...  release.bat
+   TripleCross: 25 hashes
+     ac5bcf7ed8950023a59908c13b68793e...  apps/deployer.sh
+     c258fa124607b96a0cd39687d49f5f15...  apps/injection_lib.so
+     b1af00d7781b10d44df2597d41844998...  docs/ebpf_offensive_rootkit_tfg.pdf
+     104464eb27dc58dbdb3748d569468cc2...  src/helpers/injection_lib.so
+     401b3d850a28184f9b55a72761d06e21...  src/helpers/opcode_reverser.py
+     2ffc9feee9485067d47ba8cbe6626ea8...  src/helpers/packager.sh
+     828123253b6e856a2c73f0dbe0acc41c...  src/libbpf/docs/conf.py
+     3e0e7cc6188ad96871cb3aa50d9f49a7...  src/libbpf/scripts/coverity.sh
+     9d67f5febd80c627c52e0ededf66a901...  src/libbpf/scripts/sync-kernel.sh
+     e52c6225114650239723ae8f8d3d7bbc...  src/libbpf/travis-ci/managers/debian.sh
+     ... and 15 more
+   UnknownKiller: 1 hashes
+     97bd65e98cdc4e93d49edd4ea905d43a...  UnknownKiller.sys
+   WindowsElevation: 153 hashes
+     cf9725b7daf6b4d50acf7ad27050a5a0...  CVE-2003-0352/MS03-026.exe
+     87ab616b0f0cd3ae652e92ec99e8ccf3...  CVE-2005-1983/MS05-039.exe
+     b4f57b97439bd768541c1ef778cf9d75...  CVE-2008-1084/MS08-025.exe
+     236dd26155eced1af0aef53f60a3af49...  CVE-2008-4037/Disable_Port_445.reg
+     5ac2596bb1c70af8d5eddffb284732c1...  CVE-2008-4037/Enable_Port_445.reg
+     21eef52d1be96001a608a3593fea0ad0...  CVE-2008-4037/libeay32.dll
+     3eb3f90f8c8deace0b58f2951b5e6f1c...  CVE-2008-4037/smbrelay3.exe
+     1c3eb8f1586bf6091115bb86949d696c...  CVE-2008-4037/smrs.exe
+     61b046f794a62f3fef5359c896aac66e...  CVE-2008-4250/40279.py
+     7faf0937271d8fe9843ba7c2ac7b83da...  CVE-2008-4250/MS08-067.exe
+     ... and 143 more
+   awesome-malware-analysis: 2 hashes
+     aac4e0301ecbcf0ffa381881549dea71...  .github/FUNDING.yml
+     413b4f2538a2072dd5e3277e407a8946...  .travis.yml
+   conti-pentester-guide-leak: 2 hashes
+     047c2d5a6cf769c33e019c0b576aef70...  MANUALS/p.bat
+     d47e2b72f71a35a201156f6611a934b3...  MANUALS/rclone.conf
+   ebpfkit: 5 hashes
+     d9b0977bc594fbc0ee0ee4e57b5947b0...  charts/webapp/Chart.yaml
+     21adcbdbc1e4855922e6edf00205e45c...  charts/webapp/templates/postgres-deployment.yaml
+     19edcc2348517c2e59629d54c5766b9a...  charts/webapp/templates/postgres-service.yaml
+     8748c311c7b8a440bde90af1a6760387...  charts/webapp/templates/postgres-storage.yaml
+     fac59a37cc542ecd82dd79ba59ad2a64...  charts/webapp/values.yaml
+   hidden: 3 hashes
+     e3691e66061cbd890526f1563978d944...  Hidden/Hidden.inf
+     7676d45cdf3482cd7a378e87e87534f9...  Hidden/Hidden.rc
+     a0f8421cadcf41f77a6799278737318b...  HiddenCLI/vmware.conf
+   linux-kernel-exploits: 12 hashes
+     8fbd77163be6330e79d82d182b0e2a5a...  2005/CVE-2005-1263/25647.sh
+     0c7d3fccd3d7f2ba610343cbc76fabb4...  2009/CVE-2009-1185/8478.sh
+     a94fe1f6cc511e2190d0f4154c589660...  2009/CVE-2009-1337/8369.sh
+     cb8385bac1174b7c4466a34a47744a96...  2014/CVE-2014-5284/CVE-2014-5284.py
+     ed520d303dc35775d9ced1ad3e7b9684...  2015/CVE-2015-7547/CVE-2015-7547-poc.py
+     34e1e92b2f30489e9d36a229ab189e07...  2016/CVE-2016-2384/poc.py
+     92ae0695da07cb04404e0dbf8115dcb2...  2017/CVE-2017-7494/42060.py
+     1cd429d280e6fdca88c5e4c35288883e...  2018/CVE-2018-18955/exploit.cron.sh
+     79e7ed98204065c40c6e3b8435653251...  2018/CVE-2018-18955/exploit.dbus.sh
+     d05394751f37fb03e6d5d328a14dc3f7...  2018/CVE-2018-18955/exploit.ldpreload.sh
+     ... and 2 more
+   malware-samples: 1 hashes
+     233437b647f9482a8a3ba51d0af69039...  Ransomware/Grandcrab/grandcab.bin
+   merlin: 69 hashes
+     3f2ac6d229c0a4360feebdb4992122ae...  .github/workflows/go_dev.yml
+     ca8c205c1f1e682f443a65b494419ec2...  .github/workflows/go_main.yml
+     6ea874fd2b40c9f9811c3cd1d53d765c...  .github/workflows/qodana.yml
+     670f3a949fbdf3b9b6d095a8eae684e4...  .github/workflows/qodana_pr.yml
+     fce08223276a3eabf7f165d5c4ed9361...  .github/workflows/release.yml
+     edf7d4d33b78093de622b13c1e35a5e3...  .qodana/qodana.sarif.json
+     0b784213292d36ecb9c31849236da3a3...  data/modules/darwin/x64/javascript/enumeration/healthinspector.json
+     19ffb57aa32629d62eae25719ec15b22...  data/modules/darwin/x64/javascript/enumeration/orchard.json
+     c056509eec08ab3899d475a7d6eaba95...  data/modules/darwin/x64/objective-c/kerberos/bifrost.json
+     2f6b9c1455f3c6ec84944b6beb80abaf...  data/modules/darwin/x64/python/enumeration/venator.json
+     ... and 59 more
+   ransomware: 2 hashes
+     9cab135e0fa9823ca90fc8fae8cdd5f0...  .travis.yml
+     3fd740a4332ffa003fbc77494a5891d6...  build-docker.sh
+   some-many-books: 27 hashes
+     7ecf9d3ed1cbae83dc5b3b3e69a7075a...  PDF-file/algorithms/算法心得：高效算法的奥秘（第2版）.pdf
+     01b8576f9810348b3a0e77a9012b2f60...  PDF-file/c/C专家编程.pdf
+     b305e886df0f2a6deb5c4ac21cc9bbab...  PDF-file/c/C程序设计语言（第2版）.pdf
+     0997879872583b61a6cdee2e9472baee...  PDF-file/c/C语言接口与实现.pdf
+     cda3248ad91d0b19630eb46f60c44a4c...  PDF-file/c/C陷阱与缺陷.pdf
+     64f7cc2d2a87cdc800f6b4b1fcaf99a0...  PDF-file/clean-code/代码大全.pdf
+     701fc04db63cfe5bbcb811c1140cce7d...  PDF-file/clean-code/程序设计方法.pdf
+     c454531c3959f3961e9f1a09b5c74581...  PDF-file/docker/Docker从入门到实践（第3版）.pdf
+     88378a71ebb23624de8e2240a3d1ffb0...  PDF-file/git/ProGit中文版.pdf
+     123253b2b14ef1745e4765efdb98b9ca...  PDF-file/golang/Go学习笔记（第4版）.pdf
+     ... and 17 more
+   source-code-of-a-famous-OS: 83 hashes
+     d7f968964ad074283efe58ed0ff3fc86...  Win2K3/NT/printscan/print/drivers/usermode/ddkbuild.cmd
+     8a1d1270dd00e904dcc959f8a8472d46...  Win2K3/NT/printscan/print/drivers/usermode/ddkbuild64.cmd
+     dd9980964c951d26e34d51a80b65ce99...  Win2K3/NT/printscan/print/drivers/usermode/driverui/driverui.rc
+     dc6387576c1cf1b49a7bac9926bb2153...  Win2K3/NT/printscan/print/spooler/exts/splx.rc
+     04e1aa49be2c738f6be4eb643e05e7d2...  Win2K3/NT/printscan/print/spooler/inetpp2/clientui/inetppui.rc
+     9590c4de0de6a48245774c5a58736189...  Win2K3/NT/printscan/print/spooler/inetpp2/server/inetpp.rc
+     f2861c0772dcd15fa6caf5cd6dc0656b...  Win2K3/NT/printscan/print/spooler/inetsrv/iislog/iis.vbs
+     3d10dbd309d52da79a33eee1e7527453...  Win2K3/NT/printscan/print/spooler/inetsrv/iislog/setuplog.cmd
+     87c9cba7badff6da85abe287197e0529...  Win2K3/NT/printscan/print/spooler/inetsrv/printers.rc
+     a5c0677e75567fc1c18f911e653cdd9c...  Win2K3/NT/printscan/print/spooler/inetsrv/server.inf
+     ... and 73 more
+   spectre: 1 hashes
+     4c786e04868f6f9efc2cd15640af000b...  spectre/spectre-kernel/spectre-kernel.inf
+   windows-kernel-exploits: 30 hashes
+     25e686933db924b8a9b9ca85f91d86c5...  CVE-2018-0833/poc.py
+     a4570104f2de7a275b814253a5ac4000...  MS10-012/MS10-020.py
+     893c83059e3b98ee4f5e6a41d632ab2a...  MS10-092/CVE-2010-3338.wsf
+     716f250ea9af40e7601a4ee89f60b540...  MS11-080/CVE-2011-2005.py
+     c23c846c7e247ec7aa11891074124463...  MS14-002/CVE-2013-5065.py
+     f387aa8823573d5aa826685da416666e...  MS14-040/CVE-2014-1767/MS14-40-x32.py
+     7c1683667b7b1e2cc48adc031be98bd3...  MS14-068/pykek/ms14-068.py
+     36be753377d54e8f0f466f42c6d47174...  MS14-068/pykek/pyasn1/__init__.py
+     1040e52584b5ef6107dfd19489d37ff0...  MS14-068/pykek/pyasn1/codec/__init__.py
+     7c5ea47708ace48306f1606ab56597cb...  MS14-068/pykek/pyasn1/codec/ber/decoder.py
+     ... and 20 more
+   winpwn: 17 hashes
+     9f19d69852012017cef3f27c6c691df4...  _config.yml
+     6a51568d24c3c9d4703b59968230e620...  setup.py
+     fd5905fb3d6cc008bef4e0b278b79618...  upload.sh
+     cb5148d9bf2d627c3d28bdf822cf147a...  winpwn/__init__.py
+     dff1f29e83fe22df4f5e6bb31d9a3259...  winpwn/asm.py
+     86125d8b8c824a092586677fe43d6d35...  winpwn/context.py
+     3dc3670308e844d301cd465e6ba22149...  winpwn/dbg.py
+     a4d1c462d73527f2b43ffbf2bc7c565c...  winpwn/example/dotest.exe
+     142a5e99de5072b8a28927ef794c9d23...  winpwn/example/dotest64.exe
+     45dc64b1dbc01aace4d84f942d1fe575...  winpwn/example/kernel.py
+     ... and 7 more
+
+7. MALWARE FAMILY CROSS-REFERENCE
+----------------------------------------
+   Families matching existing DB: 118
+     avoslocker           → DB: AvosLocker ← Ransomware-Tool-Matrix
+     babuk                → DB: Babuk ← Ransomware-Tool-Matrix
+     bazarloader          → DB: BazarLoader ← Ransomware-Tool-Matrix
+     black basta          → DB: Black Basta ← Ransomware-Tool-Matrix
+     blackcat             → DB: blackcat ← Ransomware-Tool-Matrix
+     cerber               → DB: Cerber ← Qu1cksc0pe
+     clop                 → DB: clop ← source-code-of-a-famous-OS
+     cobaltstrike         → DB: cobaltstrike ← Qu1cksc0pe
+     cobaltstrike         → DB: cobaltstrike ← awesome-windows-kernel-security-development
+     cobaltstrike         → DB: cobaltstrike ← conti-pentester-guide-leak
+     conti                → DB: conti ← CVE-2024-1086
+     conti                → DB: conti ← Chaos-Rootkit
+     conti                → DB: conti ← DeepZero
+     conti                → DB: conti ← Diamorphine
+     conti                → DB: conti ← DrvEye
+     conti                → DB: conti ← Empire
+     conti                → DB: conti ← HackSys_HEVD_Exploits
+     conti                → DB: conti ← Havoc
+     conti                → DB: conti ← Mythic
+     conti                → DB: conti ← Nidhogg
+     conti                → DB: conti ← PrivEsc
+     conti                → DB: conti ← Qu1cksc0pe
+     conti                → DB: conti ← Ransomware-Tool-Matrix
+     conti                → DB: conti ← ReactExploitGUI
+     conti                → DB: conti ← Singularity
+     conti                → DB: conti ← The-MALWARE-Repo
+     conti                → DB: conti ← TitanHide
+     conti                → DB: conti ← TripleCross
+     conti                → DB: conti ← WindowsElevation
+     conti                → DB: conti ← awesome-malware-analysis
+     conti                → DB: conti ← conti-pentester-guide-leak
+     conti                → DB: conti ← ebpfkit
+     conti                → DB: conti ← hidden
+     conti                → DB: conti ← linux-kernel-exploitation
+     conti                → DB: conti ← linux-kernel-exploits
+     conti                → DB: conti ← merlin
+     conti                → DB: conti ← ransomware
+     conti                → DB: conti ← source-code-of-a-famous-OS
+     conti                → DB: conti ← spectre
+     conti                → DB: conti ← windows-kernel-exploits
+     cryptolocker         → DB: CryptoLocker ← ransomware
+     darkside             → DB: Darkside ← Empire
+     darkside             → DB: Darkside ← Ransomware-Tool-Matrix
+     egregor              → DB: Egregor ← Ransomware-Tool-Matrix
+     emotet               → DB: emotet ← Empire
+     emotet               → DB: emotet ← Havoc
+     emotet               → DB: emotet ← Qu1cksc0pe
+     emotet               → DB: emotet ← TitanHide
+     emotet               → DB: emotet ← WindowsElevation
+     emotet               → DB: emotet ← awesome-windows-kernel-security-development
+     emotet               → DB: emotet ← merlin
+     emotet               → DB: emotet ← source-code-of-a-famous-OS
+     emotet               → DB: emotet ← windows-kernel-exploits
+     hives                → DB: hives ← DrvEye
+     hives                → DB: hives ← Empire
+     hives                → DB: hives ← PrivEsc
+     hives                → DB: hives ← Qu1cksc0pe
+     hives                → DB: hives ← TripleCross
+     hives                → DB: hives ← WindowsElevation
+     hives                → DB: hives ← awesome-windows-kernel-security-development
+     hives                → DB: hives ← linux-kernel-exploitation
+     hives                → DB: hives ← linux-kernel-exploits
+     hives                → DB: hives ← windows-kernel-exploits
+     icedid               → DB: IcedID ← Ransomware-Tool-Matrix
+     maze                 → DB: Maze ← Empire
+     maze                 → DB: Maze ← PrivEsc
+     maze                 → DB: Maze ← Ransomware-Tool-Matrix
+     petya                → DB: Petya ← Empire
+     phobos               → DB: phobos ← TripleCross
+     play                 → DB: play ← CVE-2024-1086
+     play                 → DB: play ← Chaos-Rootkit
+     play                 → DB: play ← DeepZero
+     play                 → DB: play ← DrvEye
+     play                 → DB: play ← Empire
+     play                 → DB: play ← Havoc
+     play                 → DB: play ← Mythic
+     play                 → DB: play ← Nidhogg
+     play                 → DB: play ← PersistenceSniper
+     play                 → DB: play ← PrivEsc
+     play                 → DB: play ← Qu1cksc0pe
+     play                 → DB: play ← Ransomware-Tool-Matrix
+     play                 → DB: play ← ReactExploitGUI
+     play                 → DB: play ← The-MALWARE-Repo
+     play                 → DB: play ← TitanHide
+     play                 → DB: play ← TripleCross
+     play                 → DB: play ← WindowsElevation
+     play                 → DB: play ← awesome-malware-analysis
+     play                 → DB: play ← awesome-windows-kernel-security-development
+     play                 → DB: play ← conti-pentester-guide-leak
+     play                 → DB: play ← hidden
+     play                 → DB: play ← linux-exploit-suggester-2
+     play                 → DB: play ← linux-kernel-exploitation
+     play                 → DB: play ← linux-kernel-exploits
+     play                 → DB: play ← merlin
+     play                 → DB: play ← ransomware
+     play                 → DB: play ← source-code-of-a-famous-OS
+     play                 → DB: play ← spectre
+     play                 → DB: play ← windows-kernel-exploits
+     qakbot               → DB: QakBot ← Ransomware-Tool-Matrix
+     ragnar               → DB: ragnar ← Ransomware-Tool-Matrix
+     revil                → DB: REvil ← Ransomware-Tool-Matrix
+     revil                → DB: REvil ← WindowsElevation
+     revil                → DB: REvil ← source-code-of-a-famous-OS
+     revil                → DB: REvil ← windows-kernel-exploits
+     royal                → DB: Royal ← CVE-2024-1086
+     royal                → DB: Royal ← Empire
+     royal                → DB: Royal ← Mythic
+     royal                → DB: Royal ← Ransomware-Tool-Matrix
+     royal                → DB: Royal ← WindowsElevation
+     royal                → DB: Royal ← merlin
+     royal                → DB: Royal ← windows-kernel-exploits
+     ryuk                 → DB: ryuk ← Empire
+     ryuk                 → DB: ryuk ← PrivEsc
+     ryuk                 → DB: ryuk ← Ransomware-Tool-Matrix
+     trickbot             → DB: TrickBot ← Ransomware-Tool-Matrix
+     vice society         → DB: Vice Society ← Ransomware-Tool-Matrix
+     wannacry             → DB: WannaCry ← Qu1cksc0pe
+     wannacry             → DB: WannaCry ← malware-samples
+
+   New families (added): 18
+     alphv                ← Ransomware-Tool-Matrix
+     blackcat             ← Chaos-Rootkit
+     blackmatter          ← Ransomware-Tool-Matrix
+     clop                 ← Empire
+     cobaltstrike         ← Empire
+     conti                ← CVE-2020-0796
+     doppelpaymer         ← Ransomware-Tool-Matrix
+     emotet               ← CVE-2020-0796
+     hives                ← CVE-2024-1086
+     jaff                 ← Empire
+     lockbit              ← Ransomware-Tool-Matrix
+     phobos               ← Ransomware-Tool-Matrix
+     play                 ← CVE-2020-0796
+     ragnar               ← Empire
+     ragnarok             ← Empire
+     ryuk                 ← Chaos-Rootkit
+     sodinokibi           ← Ransomware-Tool-Matrix
+     spora                ← CVE-2024-1086
+
+8. MITRE ATT&CK TECHNIQUE CROSS-REFERENCE
+----------------------------------------
+   Techniques matching existing DB: 793
+     T1001        → DB: Data Obfuscation ← Mythic
+     T1001.001    → DB: Junk Data ← Mythic
+     T1001.002    → DB: Steganography ← Mythic
+     T1001.003    → DB: Protocol or Service Impersonation ← Mythic
+     T1003        → DB: ART: T1003.001 ← Mythic, Empire
+     T1003.001    → DB: T1003.001 ← Mythic, Empire
+     T1003.002    → DB: T1003.002 ← Mythic, Empire
+     T1003.003    → DB: T1003.003 ← Mythic, Empire
+     T1003.004    → DB: LSA Secrets ← Mythic, Empire
+     T1003.005    → DB: Cached Domain Credentials ← Mythic
+     T1003.006    → DB: T1003.006 ← Mythic, Empire
+     T1003.007    → DB: Proc Filesystem ← Mythic
+     T1003.008    → DB: /etc/passwd and /etc/shadow ← Mythic, Empire
+     T1005        → DB: T1005 ← Mythic, Empire
+     T1006        → DB: Direct Volume Access ← Mythic, Empire
+     T1007        → DB: T1007 ← Mythic, Empire
+     T1008        → DB: Fallback Channels ← Mythic, Empire
+     T1010        → DB: Application Window Discovery ← Mythic, Empire
+     T1011        → DB: Exfiltration Over Other Network Medium ← Mythic, Empire
+     T1011.001    → DB: Exfiltration Over Bluetooth ← Mythic
+     T1012        → DB: T1012 ← Mythic, Empire
+     T1014        → DB: Rootkit ← Mythic
+     T1016        → DB: System Network Configuration Discovery ← Mythic, Empire
+     T1016.001    → DB: Internet Connection Discovery ← Mythic, Empire
+     T1016.002    → DB: Wi-Fi Discovery ← Mythic
+     T1018        → DB: T1018 ← Mythic, Ransomware-Tool-Matrix, Empire
+     T1020        → DB: Automated Exfiltration ← Mythic
+     T1020.001    → DB: Traffic Duplication ← Mythic
+     T1021        → DB: T1021 ← Mythic, Empire
+     T1021.001    → DB: T1021.001 ← Mythic, Empire
+   ... and 572 more
+
+   New techniques (added): 125
+     T0087        ← Empire
+     T0235        ← Empire
+     T0269        ← Empire
+     T0295        ← Empire
+     T0358        ← Empire
+     T0383        ← Empire
+     T0581        ← Empire
+     T0635        ← Empire
+     T0707        ← Empire
+     T1000        ← CVE-2024-1086
+     T1027.003    ← Mythic
+     T1055.011    ← Mythic
+     T1055.013    ← Mythic
+     T1070.002    ← Mythic
+     T1070.003    ← Mythic
+     T1070.005    ← Mythic
+     T1087.004    ← Mythic
+     T1134.004    ← Empire
+     T1218.001    ← Mythic
+     T1218.003    ← Mythic
+
+9. PER-REPOSITORY SUMMARY
+----------------------------------------
+   CVE-2020-0796                                 8 files     0 hashes    2 CVEs    0 ATT&CK   3 families   8 C2   12 IOCs
+   CVE-2020-12446                                3 files     0 hashes    1 CVEs    0 ATT&CK   0 families   0 C2    0 IOCs
+   CVE-2024-1086                              1981 files   972 hashes    1 CVEs   11 ATT&CK   5 families  16 C2  225 IOCs
+   Chaos-Rootkit                               123 files     5 hashes    0 CVEs    0 ATT&CK   4 families  10 C2   68 IOCs
+   DeepZero                                    154 files    68 hashes    0 CVEs    0 ATT&CK   2 families   9 C2   14 IOCs
+   Diamorphine                                   5 files     0 hashes    0 CVEs    0 ATT&CK   1 families   0 C2    9 IOCs
+   DrvEye                                       60 files    52 hashes    1 CVEs    0 ATT&CK   3 families  10 C2   27 IOCs
+   Empire                                     1337 files  1061 hashes   23 CVEs  256 ATT&CK  14 families  26 C2  301 IOCs
+   Exploits                                     16 files     4 hashes    7 CVEs    0 ATT&CK   0 families   6 C2    8 IOCs
+   HackSys_HEVD_Exploits                        16 files     0 hashes    0 CVEs    0 ATT&CK   1 families   5 C2    2 IOCs
+   Havoc                                       714 files    30 hashes    0 CVEs    0 ATT&CK   3 families  20 C2   74 IOCs
+   Mythic                                     1041 files   396 hashes    0 CVEs  638 ATT&CK   3 families  20 C2   92 IOCs
+   Nidhogg                                      82 files     0 hashes    0 CVEs    0 ATT&CK   2 families   9 C2   10 IOCs
+   PersistenceSniper                             9 files     1 hashes    0 CVEs    0 ATT&CK   1 families   2 C2    9 IOCs
+   PrivEsc                                     316 files    51 hashes   40 CVEs    1 ATT&CK   5 families  13 C2  206 IOCs
+   Qu1cksc0pe                                  277 files    64 hashes    1 CVEs    0 ATT&CK   7 families  23 C2  263 IOCs
+   Ransomware-Samples                           21 files     0 hashes    0 CVEs    0 ATT&CK   0 families   0 C2    0 IOCs
+   Ransomware-Tool-Matrix                       53 files     0 hashes    0 CVEs    7 ATT&CK  24 families  18 C2   56 IOCs
+   ReactExploitGUI                              17 files    11 hashes    1 CVEs    0 ATT&CK   2 families  10 C2   12 IOCs
+   Singularity                                  54 files     4 hashes    0 CVEs    0 ATT&CK   1 families   5 C2    7 IOCs
+   The-MALWARE-Repo                            241 files   179 hashes    0 CVEs    1 ATT&CK   2 families   6 C2   28 IOCs
+   TitanHide                                   166 files     8 hashes    0 CVEs    0 ATT&CK   3 families   6 C2   19 IOCs
+   TripleCross                                 322 files    27 hashes    0 CVEs    0 ATT&CK   4 families  14 C2   50 IOCs
+   UnknownKiller                                12 files     1 hashes    0 CVEs    0 ATT&CK   0 families   1 C2    2 IOCs
+   WindowsElevation                           1045 files   167 hashes  137 CVEs    1 ATT&CK   6 families  20 C2  204 IOCs
+   awesome-malware-analysis                      7 files     2 hashes    0 CVEs    0 ATT&CK   2 families   5 C2  214 IOCs
+   awesome-windows-kernel-security-development      1 files     0 hashes   29 CVEs    0 ATT&CK   4 families  16 C2  159 IOCs
+   conti-pentester-guide-leak                   54 files     2 hashes    1 CVEs    2 ATT&CK   3 families  12 C2   43 IOCs
+   ebpfkit                                     102 files     5 hashes    0 CVEs    0 ATT&CK   1 families  11 C2   17 IOCs
+   hidden                                      131 files     3 hashes    0 CVEs    0 ATT&CK   2 families   5 C2    3 IOCs
+   linux-exploit-suggester-2                     3 files     0 hashes    4 CVEs    0 ATT&CK   1 families   0 C2    2 IOCs
+   linux-kernel-defence-map                      5 files     0 hashes    0 CVEs    0 ATT&CK   0 families   1 C2   17 IOCs
+   linux-kernel-exploitation                     2 files     0 hashes  397 CVEs    0 ATT&CK   3 families  10 C2  325 IOCs
+   linux-kernel-exploits                       161 files    13 hashes   66 CVEs    0 ATT&CK   3 families  11 C2   82 IOCs
+   malware-samples                             109 files     1 hashes    0 CVEs    0 ATT&CK   1 families   0 C2    1 IOCs
+   merlin                                      171 files    69 hashes    3 CVEs    0 ATT&CK   4 families  21 C2   71 IOCs
+   ransomware                                   29 files     2 hashes    0 CVEs    0 ATT&CK   3 families   4 C2    9 IOCs
+   some-many-books                             110 files    27 hashes    0 CVEs    0 ATT&CK   0 families   0 C2    1 IOCs
+   source-code-of-a-famous-OS                27960 files    83 hashes    0 CVEs    1 ATT&CK   5 families   9 C2  109 IOCs
+   spectre                                      69 files     1 hashes    0 CVEs    0 ATT&CK   2 families   5 C2    7 IOCs
+   windows-kernel-exploits                     433 files   118 hashes  108 CVEs    0 ATT&CK   6 families  19 C2  158 IOCs
+   winpwn                                       24 files    17 hashes    0 CVEs    0 ATT&CK   0 families   2 C2    5 IOCs
+
+10. NOTABLE HIGH-SIGNAL FILES
+----------------------------------------
+   [725] linux-kernel-exploitation/README.md
+        CVEs: cve-2024-53141, CVE-2016-2059, CVE-2016-0728, CVE-2022-22071, CVE-2013-2094, CVE-2020-0423, CVE-2021-44733, CVE-2023-4211, CVE-2009-2692, CVE-2016-6187, CVE-2019-2214, CVE-2019-18675, CVE-2019-9213, CVE-2021-33909, CVE-2020-11179, CVE-2024-35880, CVE-2022-20421, CVE-2019-14041, CVE-2020-12351, cve-2017-18344, CVE-2024-43882, CVE-2014-0038, CVE-2020-14356, CVE-2020-8835, CVE-2019-19377, CVE-2024-49882, CVE-2024-46740, cve-2023-2598, CVE-2017-7616, CVE-2008-0009, cve-2021-3492, CVE-2021-1969, CVE-2023-52922, CVE-2024-36978, CVE-2021-3492, cve-2016-3873, cve-2008-0600, CVE-2023-3338, CVE-2016-2434, CVE-2021-25369, CVE-2017-10661, cve-2021-22555, CVE-2025-21836, CVE-2016-2384, CVE-2021-43267, CVE-2009-3001, CVE-2025-0927, CVE-2022-25636, CVE-2021-28663, CVE-2020-24490, CVE-2018-18281, CVE-2023-3390, CVE-2023-5717, CVE-2016-8655, CVE-2023-32832, CVE-2020-14381, CVE-2008-0600, CVE-2025-37899, CVE-2016-2411, CVE-2024-56614, CVE-2004-0077, CVE-2022-2590, CVE-2024-26921, CVE-2021-4440, cve-2025-37899, CVE-2022-2602, CVE-2024-49739, CVE-2024-56626, CVE-2023-1206, CVE-2021-42327, CVE-2024-23380, CVE-2016-1583, CVE-2023-33107, CVE-2023-6241, CVE-2022-0185, CVE-2007-4573, CVE-2024-26809, CVE-2023-33106, CVE-2021-4204, CVE-2021-26341, CVE-2024-20018, cve-2019-2215, CVE-2019-2181, cve-2014-3153, cve-2021-26708, CVE-2025-38004, CVE-2025-21756, CVE-2021-3715, CVE-2023-32233, CVE-2023-5178, CVE-2024-23372, CVE-2021-42008, CVE-2024-33060, CVE-2022-1016, CVE-2016-3873, CVE-2018-3639, CVE-2023-33063, CVE-2024-56770, CVE-2009-0065, CVE-2022-22706, cve-2023-1829, CVE-2014-4699, CVE-2022-20409, CVE-2016-5340, CVE-2018-14634, CVE-2014-2851, CVE-2025-6349, CVE-2021-0399, cve-2016-8633, CVE-2014-0196, CVE-2021-1940, CVE-2022-0995, CVE-2024-44068, CVE-2014-3153, CVE-2015-1805, CVE-2025-39965, CVE-2021-26708, CVE-2023-6200, CVE-2022-1972, CVE-2025-36934, CVE-2017-1000405, CVE-2017-7308, CVE-2025-38617, CVE-2024-53104, CVE-2024-38399, CVE-2025-21669, cve-2025-0072, CVE-2023-0590, CVE-2023-0461, CVE-2023-26083, CVE-2025-37756, CVE-2024-41009, CVE-2016-10277, cve-2016-0728, CVE-2017-1000380, cve-2023-2008, CVE-2020-3680, CVE-2014-9322, CVE-2019-14040, CVE-2022-41218, cve-2022-22706, CVE-2019-7308, CVE-2025-21692, CVE-2020-16119, cve-2020-0041, CVE-2015-3636, CVE-2023-4130, cve-2022-32250, CVE-2024-36886, CVE-2009-2910, CVE-2022-34918, cve-2024-26921, cve-2010-2963, CVE-2017-5123, CVE-2023-6931, cve-2024-41010, CVE-2025-21703, CVE-2019-16508, cve-2017-1000112, CVE-2022-22057, CVE-2021-1961, CVE-2021-39793, CVE-2023-35001, CVE-2016-8453, CVE-2024-56627, CVE-2023-50809, cve-2021-4440, CVE-2025-37947, CVE-2019-18683, CVE-2017-16995, CVE-2010-2240, CVE-2023-3866, cve-2023-5717, CVE-2022-1786, cve-2014-0196, CVE-2023-0266, CVE-2021-3493, CVE-2017-0403, CVE-2018-6555, CVE-2022-27666, cve-2014-9322, CVE-2023-3389, CVE-2021-1968, cve-2007-4573, CVE-2023-32878, CVE-2020-14386, CVE-2024-31333, cve-2017-7308, CVE-2022-3910, CVE-2024-36016, CVE-2023-52447, cve-2017-5123, CVE-2025-21479, CVE-2106-2504, cve-2023-6931, CVE-2022-24354, CVE-2025-38001, CVE-2017-1000363, cve-2010-3081, CVE-2021-28664, cve-2010-4258, CVE-2016-5195, CVE-2023-32837, cve-2014-4014, CVE-2019-9503, CVE-2021-27363, cve-2014-0038, CVE-2009-1046, cve-2020-8835, CVE-2023-6932, CVE-2024-53197, cve-2022-25636, CVE-2022-2586, CVE-2024-38402, cve-2016-7117, CVE-2022-32250, CVE-2022-38181, CVE-2017-6074, CVE-2025-8045, CVE-2023-48409, CVE-2018-8781, CVE-2022-0435, CVE-2023-0386, CVE-2022-25664, CVE-2019-2025, cve-2024-27394, CVE-2020-27786, CVE-2014-4943, cve-2021-20226, CVE-2019-2023, CVE-2024-0582, CVE-2016-2435, CVE-2016-7117, CVE-2016-0819, CVE-2025-0072, CVE-2025-38352, CVE-2021-25370, cve-2021-3490, CVE-2016-2475, CVE-2010-3301, CVE-2025-38236, CVE-2022-4543, CVE-2022-2078, CVE-2024-49848, CVE-2023-2640, CVE-2023-2598, CVE-2020-27194, CVE-2022-47943, cve-2017-11176, CVE-2025-23330, CVE-2022-0847, CVE-2024-41010, CVE-2011-1493, cve-2020-14386, CVE-2025-21700, CVE-2019-11190, CVE-2016-6787, CVE-2021-29657, CVE-2023-1829, CVE-2024-26925, cve-2014-4699, CVE-2021-3573, CVE-2024-50066, CVE-2023-4611, CVE-2021-45608, CVE-2021-41073, CVE-2024-21455, CVE-2021-3609, CVE-2013-1763, CVE-2022-23222, cve-2021-32606, cve-2023-4273, CVE-2022-46395, CVE-2025-37752, cve-2008-0010, CVE-2025-23280, CVE-2024-27394, CVE-2010-3081, cve-2022-1015, CVE-2016-8633, CVE-2022-29582, CVE-2015-0568, CVE-2022-42896, CVE-2021-39815, CVE-2024-43047, cve-2023-21255, CVE-2021-1905, CVE-2024-1086, CVE-2021-1048, CVE-2020-12352, CVE-2021-20226, CVE-2022-22265, CVE-2025-39946, CVE-2024-41003, CVE-2019-2215, CVE-2019-10567, cve-2016-2384, CVE-2017-1000112, CVE-2024-26926, CVE-2024-36904, CVE-2023-2593, CVE-2023-0179, CVE-2010-2963, CVE-2023-42483, CVE-2021-32606, CVE-2020-25220, CVE-2017-2636, CVE-2017-0437, cve-2024-46713, CVE-2023-45864, CVE-2023-3865, cve-2023-52922, cve-2021-45608, CVE-2022-49080, CVE-2024-46713, CVE-2024-23373, CVE-2023-32882, CVE-2017-11176, CVE-2025-8109, CVE-2023-2612, CVE-2022-42895, CVE-2017-1000251, cve-2020-27786, CVE-2023-32629, CVE-2024-36974, cve-2023-6200, cve-2020-0423, CVE-2017-16695, CVE-2017-0569, CVE-2016-0820, cve-2023-20938, CVE-2012-0056, CVE-2021-34866, CVE-2015-0570, cve-2022-0847, CVE-2025-38003, CVE-2025-22037, CVE-2021-27364, CVE-2023-4273, CVE-2022-20122, CVE-2025-21666, cve-2023-2163, CVE-2023-23586, CVE-2022-42703, cve-2023-0386, CVE-2014-4322, CVE-2024-50302, CVE-2018-9568, CVE-2008-0010, CVE-2021-22555, cve-2021-33909, CVE-2021-0920, CVE-2025-22056, CVE-2025-21670, CVE-2020-28588, cve-2013-2094, CVE-2024-56615, CVE-2019-2000, CVE-2021-3490, CVE-2019-9500, CVE-2021-27365, cve-2017-1000363, CVE-2023-21400, cve-2016-6187, CVE-2016-3857, cve-2022-0185, CVE-2010-3437, CVE-2010-2959, CVE-2025-13350, CVE-2023-2156, CVE-2024-50264, CVE-2023-3269, cve-2021-3609, CVE-2025-40040, CVE-2009-1897, CVE-2010-4258, CVE-2020-28343, CVE-2022-20186, CVE-2023-52926, CVE-2023-6546, CVE-2021-23134, CVE-2020-0041, cve-2020-14381, CVE-2022-1015, CVE-2014-4014, CVE-2024-53141, CVE-2018-6554, CVE-2018-17182, CVE-2023-52440, CVE-2023-31248, CVE-2023-20938, CVE-2017-7184, CVE-2023-2163, CVE-2016-2503, CVE-2017-18344, CVE-2023-2008, cve-2017-6074
+        Families: conti, play, hives
+   [637] Mythic/mythic-docker/src/utils/files/attack.json
+        ATT&CK: T1034, T1560.001, T1565.003, T1558.004, T1567.003, T1057, T1098.005, T1652, T1542.005, T1597.001, T1583.002, T1590.006, T1555.004, T1565.002, T1087.003, T1555.006, T1562.007, T1552.002, T1589, T1204.003, T1601.002, T1048.002, T1011, T1565, T1489, T1569, T1114.002, T1602.002, T1586, T1559.003, T1564.008, T1052.001, T1558.003, T1137.005, T1134.004, T1597, T1204.001, T1124, T1070.003, T1003.005, T1518, T1578.001, T1612, T1578.002, T1055.013, T1562.006, T1563.002, T1027.012, T1047, T1153, T1114.003, T1021.002, T1090.004, T1546, T1036.009, T1048.001, T1059.001, T1137.001, T1127, T1594, T1110.003, T1564.005, T1020.001, T1027.010, T1134.003, T1213.001, T1601.001, T1055.012, T1043, T1003, T1218.007, T1037.002, T1016, T1098.001, T1591.002, T1055.008, T1586.002, T1021.003, T1020, T1608.004, T1542, T1102, T1218.010, T1556.005, T1078.001, T1059.008, T1133, T1149, T1137.004, T1593, T1574.001, T1574, T1008, T1497.001, T1593.003, T1590.003, T1090, T1615, T1069.002, T1218.009, T1585, T1553, T1608.003, T1578.003, T1568.003, T1021.006, T1610, T1558.001, T1036.002, T1574.010, T1036, T1583.006, T1578, T1105, T1087.004, T1588.003, T1518.001, T1543.004, T1606.002, T1546.004, T1137.006, T1570, T1053.006, T1053.003, T1562, T1505.001, T1596.003, T1003.007, T1056.003, T1546.003, T1070.008, T1555, T1584.002, T1207, T1525, T1218.012, T1609, T1087.002, T1056, T1195.003, T1016.002, T1562.004, T1218.004, T1567.004, T1547.002, T1010, T1055.015, T1071, T1600.002, T1546.008, T1599.001, T1216.001, T1113, T1056.001, T1071.002, T1573, T1591.004, T1092, T1611, T1003.002, T1653, T1082, T1505.002, T1547.004, T1592, T1620, T1546.012, T1553.004, T1546.013, T1204.002, T1070.002, T1136.001, T1563.001, T1568, T1583.007, T1480, T1027, T1552.006, T1542.004, T1078.004, T1583.001, T1555.002, T1598.002, T1552.003, T1102.002, T1580, T1552.005, T1495, T1137.003, T1037, T1484.001, T1218.008, T1589.001, T1106, T1543, T1564.011, T1599, T1003.006, T1600.001, T1127.001, T1565.001, T1029, T1505.004, T1021.005, T1559.001, T1037.004, T1563, T1556.003, T1055.004, T1129, T1596.004, T1007, T1583.005, T1217, T1566.001, T1072, T1593.002, T1185, T1505.005, T1548.003, T1547.007, T1588.001, T1560.002, T1574.005, T1056.002, T1557.001, T1055.001, T1587.003, T1587.001, T1055.002, T1199, T1212, T1062, T1528, T1205, T1074.002, T1195, T1202, T1203, T1055.011, T1090.003, T1070.006, T1564.009, T1550.002, T1552.001, T1078.003, T1571, T1550.001, T1614, T1566.003, T1606.001, T1564.002, T1059.006, T1547.009, T1537, T1003.003, T1543.001, T1558.002, T1498.001, T1595.003, T1498, T1486, T1059.007, T1059, T1574.004, T1132.002, T1033, T1564.006, T1135, T1567.002, T1136.002, T1071.003, T1053, T1574.013, T1027.001, T1542.001, T1037.003, T1187, T1569.001, T1001.003, T1078, T1542.003, T1561.002, T1558, T1071.004, T1621, T1056.004, T1535, T1567.001, T1564.007, T1210, T1048.003, T1526, T1030, T1554, T1561.001, T1587.002, T1574.007, T1018, T1201, T1569.002, T1090.001, T1112, T1027.009, T1499.001, T1496, T1111, T1098.002, T1548.005, T1559.002, T1546.005, T1114.001, T1200, T1601, T1136, T1074, T1211, T1137, T1041, T1602.001, T1021, T1048, T1213.002, T1547.015, T1003.008, T1564.001, T1547.014, T1037.005, T1216, T1550.003, T1547, T1001, T1110.004, T1552.004, T1606, T1480.001, T1592.003, T1220, T1039, T1053.002, T1588.002, T1546.014, T1059.009, T1505, T1505.003, T1568.002, T1592.001, T1562.003, T1584.007, T1490, T1108, T1140, T1027.007, T1530, T1595.001, T1588.004, T1021.004, T1222, T1036.003, T1568.001, T1049, T1027.006, T1053.004, T1176, T1585.002, T1596.005, T1134, T1574.009, T1197, T1590.002, T1598.003, T1012, T1204, T1059.004, T1651, T1556.002, T1593.001, T1134.002, T1566.002, T1574.011, T1546.007, T1547.012, T1222.002, T1021.007, T1037.001, T1578.004, T1003.004, T1572, T1061, T1553.001, T1538, T1552.007, T1598.004, T1205.002, T1016.001, T1547.010, T1584.005, T1134.001, T1001.001, T1578.005, T1596.002, T1614.001, T1562.008, T1555.005, T1564.010, T1596.001, T1546.006, T1027.004, T1556.004, T1102.001, T1137.002, T1098.006, T1553.006, T1491.001, T1650, T1027.002, T1584.004, T1491.002, T1534, T1498.002, T1552, T1649, T1592.002, T1189, T1222.001, T1499.004, T1026, T1584.001, T1562.001, T1027.008, T1083, T1619, T1573.001, T1562.012, T1600, T1098.004, T1218.001, T1547.013, T1213.003, T1497, T1584.006, T1659, T1583.004, T1132, T1556.007, T1586.003, T1036.006, T1491, T1036.005, T1218.005, T1046, T1588.006, T1574.008, T1567, T1587.004, T1069.003, T1622, T1590, T1195.002, T1021.008, T1055, T1110.001, T1597.002, T1098, T1553.005, T1036.007, T1132.001, T1090.002, T1654, T1040, T1036.004, T1547.005, T1070.007, T1205.001, T1560, T1552.008, T1547.006, T1059.002, T1562.009, T1059.003, T1547.008, T1021.001, T1218.003, T1003.001, T1546.010, T1543.003, T1648, T1557, T1218.002, T1566.004, T1556, T1087, T1051, T1064, T1562.011, T1608.005, T1562.010, T1588, T1583.003, T1590.005, T1071.001, T1591.001, T1574.006, T1553.002, T1573.002, T1484, T1585.003, T1098.003, T1218, T1070.005, T1080, T1550, T1598, T1557.003, T1529, T1195.001, T1006, T1213, T1218.013, T1005, T1091, T1548, T1053.007, T1557.002, T1053.005, T1555.001, T1574.002, T1497.003, T1134.005, T1586.001, T1584, T1548.001, T1657, T1055.005, T1175, T1584.003, T1561, T1556.006, T1499, T1499.003, T1531, T1647, T1014, T1123, T1539, T1588.005, T1550.004, T1555.003, T1546.002, T1564, T1110, T1608.006, T1027.005, T1011.001, T1560.003, T1546.011, T1583.008, T1190, T1592.004, T1542.002, T1482, T1591, T1095, T1055.009, T1001.002, T1556.001, T1589.002, T1547.003, T1055.014, T1546.001, T1136.003, T1068, T1591.003, T1583, T1589.003, T1499.002, T1070, T1125, T1547.001, T1497.002, T1595, T1070.009, T1114, T1546.015, T1595.002, T1656, T1070.001, T1036.008, T1613, T1036.001, T1218.011, T1608.002, T1553.003, T1564.003, T1115, T1590.001, T1069.001, T1564.004, T1543.002, T1069, T1119, T1102.003, T1598.001, T1055.003, T1548.002, T1219, T1559, T1221, T1078.002, T1120, T1587, T1104, T1548.004, T1546.016, T1218.014, T1027.003, T1027.011, T1562.002, T1602, T1608.001, T1110.002, T1070.004, T1059.005, T1590.004, T1556.008, T1608, T1087.001, T1485, T1025, T1566, T1596, T1484.002, T1052, T1585.001, T1574.012, T1546.009, T1074.001
+   [192] awesome-windows-kernel-security-development/README.md
+        CVEs: CVE-2015-1701, cve-2018-1002105, CVE-2016-3309, CVE-2018-15499, CVE-2014-4113, CVE-2019-0708, cve-2019-0808, cve-2018-8453, CVE-2020-0601, CVE-2019-1215, CVE-2017-8570, CVE-2015-2546, CVE-2019-16098, CVE-2020-1034, CVE-2018-8453, CVE-2019-0888, CVE-2019-1132, cve-2016-3088, CVE-2017-0038, cve-2018-2844, CVE-2018-8897, CVE-2017-6008, CVE-2017-4878, CVE-2016-7255, CVE-2020-16938, cve-2017-4946, cve-2016-0040, CVE-2019-0803, CVE-2020-15368
+        Families: play, emotet, cobaltstrike, hives
+   [187] awesome-malware-analysis/README.md
+        Families: conti, play
+   [186] awesome-malware-analysis/恶意软件分析大合集.md
+        Families: play
+   [112] Qu1cksc0pe/Systems/Multiple/whitelist_domains.txt
+   [109] Qu1cksc0pe/Systems/Multiple/blacklist_domains.txt
+   [73] WindowsElevation/README.md
+        CVEs: CVE-2005-1983, CVE-2020-0683, CVE-2014-4113, CVE-2012-0002, CVE-2014-6321, CVE-2015-0002, CVE-2020-0796, CVE-2020-1362, CVE-2014-2814, CVE-2015-0062, CVE-2016-0051, CVE-2013-0008, CVE-2015-2387, CVE-2017-0050, CVE-2016-3225, CVE-2022-21882, CVE-2014-6324, CVE-2020-1337, CVE-2010-2554, CVE-2015-0097, CVE-2008-1084, CVE-2015-1726, CVE-2017-0143, CVE-2020-5272, CVE-2011-1974, CVE-2017-8464, CVE-2016-7214, CVE-2013-1300, CVE-2010-1887, CVE-2021-1732, CVE-2008-4250, CVE-2020-1054, CVE-2019-1405, CVE-2009-1535, CVE-2017-0213, CVE-2011-2005, CVE-2016-3308, CVE-2019-0803, CVE-2010-1899, CVE-2008-4037, CVE-2008-3464, CVE-2009-0079, CVE-2014-4076, CVE-2010-0020, CVE-2015-2517, CVE-2020-1066, CVE-2013-1332, CVE-2014-1767, CVE-2016-0040, CVE-2006-3439, CVE-2021-40449, CVE-2010-4398, CVE-2019-0863, CVE-2009-2532, CVE-2013-5065, CVE-2016-0099, CVE-2018-8120, CVE-2016-0093, CVE-2020-0668, CVE-2010-0232, CVE-2015-2370, CVE-2018-0833, CVE-2016-3305, CVE-2011-1249, CVE-2010-3338, CVE-2020-0787, CVE-2015-1701, CVE-2022-22718, CVE-2019-1253, CVE-2015-0057, CVE-2003-0352
+   [59] Ransomware-Tool-Matrix/ThreatIntel/ExtraThreatIntel.md
+        Families: lockbit, blackcat, alphv, conti, revil, maze, egregor, doppelpaymer, royal, black basta, play, vice society, qakbot, ragnar, avoslocker, darkside
+   [57] linux-kernel-exploits/README.md
+        CVEs: CVE-2018-18955, CVE-2016-5195, CVE-2014-0196, CVE-2012-0056, CVE-2012-3524, CVE-2017-16995, CVE-2017-1000367, CVE-2013-1858, CVE-2016-0728, CVE-2010-3081, CVE-2014-4014, CVE-2010-3904, CVE-2013-2094, CVE-2009-2698, CVE-2008-4210, CVE-2009-1185, CVE-2009-1337, CVE-2010-0415, CVE-2009-2692, CVE-2015-1328, CVE-2017-5123, CVE-2017-7494, CVE-2015-7547, CVE-2016-2384, CVE-2014-3153, CVE-2014-5284, CVE-2010-3301, CVE-2010-2959, CVE-2010-3437, CVE-2005-0736, CVE-2014-4699, CVE-2009-3547, CVE-2014-0038, CVE-2017-6074, CVE-2016-9793, CVE-2010-4347, CVE-2017-7308, CVE-2013-1763, CVE-2010-4258, CVE-2004-1235, CVE-2008-0600, CVE-2010-4073, CVE-2006-2451, CVE-2006-3626, CVE-2013-0268, CVE-2005-1263, CVE-2017-1000112, CVE-2010-1146, CVE-2004-0077, CVE-2017-16939
+   [53] Empire/empire/server/data/module_source/python/situational_awareness/LinPEAS.py
+        CVEs: CVE-2016-1580, CVE-2019-0211, CVE-2019-7304, CVE-2011-1485, CVE-2019-5021, CVE-2019-5736, CVE-2019-13139, CVE-2011-1496, CVE-2019-3010, CVE-2002-1614, CVE-2017-3622, CVE-2019-13272, CVE-2019-12181, CVE-2020-2696, CVE-2019-19726
+        Families: conti, play, ragnar, ragnarok, darkside
+   [40] Havoc/client/CMakeLists.txt
+   [39] Empire/empire/server/data/module_source/situational_awareness/network/powerview.ps1
+        Families: conti, play
+   [29] WindowsElevation/CVE-2013-0008/ms13-005-funz-poc.cpp
+        Families: conti, play
+   [29] windows-kernel-exploits/MS13-005/ms13-005-funz-poc.cpp
+        Families: conti, play
+   [27] Empire/CHANGELOG.md
+        CVEs: CVE-2021-3560, CVE-2021-4034
+        ATT&CK: T1114.001, T1615, T1550.002, T1056, T1005, T1041, T1482, T1059.006, T1037, T1055, T1543.001, T1105, T1113, T1056.001, T1037.002, T1106, T1114, T1056.002, T1562.001
+        Families: conti, play
+   [27] WindowsElevation/CVE-2014-1767/CVE-2014-1767/MS14-040.cpp
+        Families: revil, play
+   [27] windows-kernel-exploits/MS14-040/CVE-2014-1767/MS14-040.cpp
+        Families: revil, play
+   [24] WindowsElevation/PowerUp/PowerUp.ps1
+        ATT&CK: T6410
+        Families: conti, play
+   [23] Empire/empire/server/data/module_source/privesc/PowerUp.ps1
+        ATT&CK: T6410
+        Families: conti, play
+   [23] merlin/.qodana/qodana.sarif.json
+        Families: conti, play
+   [23] windows-kernel-exploits/README.md
+        CVEs: CVE-2018-8453, CVE-2017-8464, CVE-2020-0796, CVE-2018-0833, CVE-2021-33739, CVE-2018-8440, CVE-2021-1732, CVE-2019-1458, CVE-2018-0743, cve-2018-8453, CVE-2020-0787, CVE-2017-0213, CVE-2018-8639, CVE-2018-1038, CVE-2019-0803, CVE-2018-8120
+   [21] Ransomware-Tool-Matrix/Tools/MostUsedTools.md
+        ATT&CK: T1567.002, T1046, T1219, T1562, T1567, T1562.001, T1018
+        Families: lockbit, blackcat, conti, ryuk, revil, maze, royal, black basta, play, vice society, phobos, avoslocker, darkside
+   [21] WindowsElevation/CVE-2013-1300/README.md
+        CVEs: cve-2013-1300, cve-2013-3129, CVE-2013-1340, cve-2013-1345, CVE-2013-3129, CVE-2013-1300, cve-2013-3660, cve-2013-1340, cve-2013-3172, CVE-2013-3167, cve-2013-3167, CVE-2013-3660, CVE-2013-3173, cve-2013-3173, CVE-2013-1345, CVE-2013-3172
+   [21] windows-kernel-exploits/MS13-053/README.md
+        CVEs: cve-2013-1300, cve-2013-3129, CVE-2013-1340, cve-2013-1345, CVE-2013-3129, CVE-2013-1300, cve-2013-3660, cve-2013-1340, cve-2013-3172, CVE-2013-3167, cve-2013-3167, CVE-2013-3660, CVE-2013-3173, cve-2013-3173, CVE-2013-1345, CVE-2013-3172
+   [20] CVE-2024-1086/include/linux-lts-6.1.72/linux/nl80211.h
+        Families: conti, play
+   [20] Empire/empire/server/modules/powershell/credentials/mimikatz/command.yaml
+        ATT&CK: T1558.001, T1003.002, T1134.005, T1552.004, T1134.001, T1003.003, T1547.005, T1558.002, T1555.003, T1098, T1207, T1550.003, T1555.004, T1003.004, T1550.002, T1003.001, T1649
+   [20] WindowsElevation/CVE-2020-1066/README.md
+        CVEs: CVE-2020-0787, CVE-2020-1066, CVE-2017-0213
+        Families: play
+   [20] source-code-of-a-famous-OS/Win2K3/NT/printscan/ui/prevwnd/prevwnd.cpp
+        Families: play
+   [19] TripleCross/src/libbpf/README.md
+        Families: conti
+   [19] WindowsElevation/win-exp-suggester/windows-exploit-suggester.py
+        CVEs: CVE-2015-1730, CVE-2016-7255, CVE-2015-1701, CVE-2016-7201
+        Families: play
+   [19] windows-kernel-exploits/win-exp-suggester/windows-exploit-suggester.py
+        CVEs: CVE-2015-1730, CVE-2016-7255, CVE-2015-1701, CVE-2016-7201
+        Families: play
+   [18] Chaos-Rootkit/ring3-gui/libs/imgui/docs/FONTS.md
+        Families: play
+   [18] DrvEye/drivertool/authenticode.py
+        Families: conti
+   [18] Empire/empire/server/data/module_source/privesc/PrivescCheck.ps1
+        Families: conti, play, hives
+   [17] CVE-2024-1086/include/linux-lts-6.1.72/linux/sctp.h
+   [17] Chaos-Rootkit/ring3-gui/libs/imgui/docs/README.md
+        Families: conti, play
+   [17] Empire/empire/server/data/module_source/collection/Get-USBKeystrokes.ps1
+        ATT&CK: T5655, T3654, T0087, T3599, T0235, T2401, T7361, T0581, T2106, T7604, T1814, T2317, T9821
+        Families: ryuk, clop, play, jaff
+   [17] conti-pentester-guide-leak/MANUALS/2load.txt
+        ATT&CK: T1600
+   [16] PrivEsc/linux/linux_exploits/9191.txt
+        Families: conti, maze, play
+
+================================================================================
+END OF REPORT
+================================================================================
