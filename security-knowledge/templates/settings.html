@@ -69,32 +69,57 @@
   </section>
 
   <section class="card">
-    <h2>🦞 OpenClaw Skill</h2>
+    <h2>🦞 Agent Skills</h2>
     <p class="muted">
-      Install the <strong>zje-enrich</strong> skill for OpenClaw agents. Enables IOC enrichment,
-      threat intel lookup, LLM-assisted analysis, and auto-posting results back to z.je
-      — all from your agent console.
+      Install the <strong>zje-enrich</strong> skill for your preferred AI agent. Enables IOC enrichment,
+      threat intel lookup, LLM-assisted analysis with provenance tracking, and auto-posting results back to z.je.
+      All versions share the same z.je API surface — pick the format that matches your agent.
     </p>
+    <table class="data-table" style="margin-top:0.6rem">
+      <thead><tr><th>Agent</th><th>Format</th><th>Install</th><th>Download</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>OpenClaw</strong></td>
+          <td><code>SKILL.md</code></td>
+          <td><code>openclaw skill install zje-enrich</code></td>
+          <td><a href="/static/skills/zje-enrich.tar.gz" download>⬇ zje-enrich.tar.gz</a></td>
+        </tr>
+        <tr>
+          <td><strong>Codex</strong></td>
+          <td><code>AGENTS.md</code></td>
+          <td>Copy <code>AGENTS.md</code> to project root</td>
+          <td><a href="/static/skills/zje-enrich-codex.tar.gz" download>⬇ zje-enrich-codex.tar.gz</a></td>
+        </tr>
+        <tr>
+          <td><strong>Claude Code / Desktop</strong></td>
+          <td><code>CLAUDE.md</code></td>
+          <td>Copy to project root or add to <code>~/.claude/CLAUDE.md</code>. Desktop: Settings → Personalization, or use MCP server at <code>/api/v1/mcp/sse</code></td>
+          <td><a href="/static/skills/zje-enrich-claude.tar.gz" download>⬇ zje-enrich-claude.tar.gz</a></td>
+        </tr>
+        <tr>
+          <td><strong>GitHub Copilot</strong></td>
+          <td><code>copilot-instructions.md</code></td>
+          <td>Copy to <code>.github/copilot-instructions.md</code></td>
+          <td><a href="/static/skills/zje-enrich-copilot.tar.gz" download>⬇ zje-enrich-copilot.tar.gz</a></td>
+        </tr>
+      </tbody>
+    </table>
     <details style="margin-top:0.6rem">
       <summary><strong>Install instructions</strong></summary>
-      <pre style="background:var(--surface);padding:1rem;border-radius:6px;margin-top:0.4rem;overflow-x:auto;font-size:0.85rem"># Install from ClawHub
-openclaw skill install zje-enrich
-
-# Or manual
-mkdir -p ~/.openclaw/skills/zje-enrich
-# Then copy skill files into that directory
-
-# Configure
+      <pre style="background:var(--surface);padding:1rem;border-radius:6px;margin-top:0.4rem;overflow-x:auto;font-size:0.85rem"># After downloading and extracting:
+# 1. Get your API key from the "Personal API keys" section above
+# 2. Set environment variables:
 export ZJE_API_URL=https://z.je
-export ZJE_API_KEY=your-key-from-above
+export ZJE_API_KEY=your-key-here
 
-# Verify
-python ~/.openclaw/skills/zje-enrich/scripts/zje_client.py search "APT29"</pre>
+# OpenClaw: install via CLI or copy to ~/.openclaw/skills/zje-enrich/
+# Codex: place AGENTS.md in your project root
+# Claude Code: place CLAUDE.md in project root or ~/.claude/CLAUDE.md
+# Claude Desktop: add to custom instructions, or configure MCP:
+#   {"mcpServers":{"zje":{"url":"https://z.je/api/v1/mcp/sse","headers":{"X-API-Key":"your-key"}}}}
+# GitHub Copilot: copy copilot-instructions.md to .github/copilot-instructions.md</pre>
     </details>
-    <p style="margin-top:0.6rem">
-      <a href="/static/skills/zje-enrich.tar.gz" class="button" download>⬇ Download skill package</a>
-      <span class="muted" style="margin-left:0.5rem">v1.0.0</span>
-    </p>
+    <p class="muted" style="margin-top:0.4rem">All skill versions: v1.0.0 · Same API, same provenance rules, same anti-hallucination protocol</p>
   </section>
 
   <section class="card">
