@@ -1169,3 +1169,38 @@ After BUG-1 and BUG-2, ensure capabilities lists the new routes.
 ### Execution slot
 Run after Section A items (A1-A5) and before Section B per-kind work
 (P-K1 et al.) — see plan.md §3 for the updated master order.
+
+---
+
+## Phase Implementation Status — 2026-05-10 feedback batch
+
+The 24-phase improvement plan from `docs/feedback-20260510.md` has been fully implemented in branches:
+
+| Phase | Branch | Status |
+|-------|--------|--------|
+| 0 | baseline | ✅ docs/baseline-20260510.md |
+| 1 | phase-01-entity-dedup | ✅ |
+| 2 | phase-02-investigation-context | ✅ |
+| 3 | phase-03-cors | ✅ |
+| 4 | phase-04-lifecycle | ✅ |
+| 5 | phase-05-temporal | ✅ |
+| 6 | phase-06-confidence | ✅ |
+| 7 | phase-07-mv-search | ✅ |
+| 8 | phase-08-osv-fallback | ✅ |
+| 9 | phase-09-embeddings | ✅ |
+| 10 | phase-10-corpus-graph | ✅ |
+| 11 | phase-11-rag-ask | ✅ |
+| 12 | phase-12-actor-profile | ✅ |
+| 13 | phase-13-cve-detail | ✅ |
+| 14 | phase-14-enrichment-quality | ✅ |
+| 15 | phase-15-sigma-yara | ✅ |
+| 16 | phase-16-onion-classification | ✅ |
+| 17 | phase-17-rate-limiting | ✅ |
+| 18 | phase-18-graph-perf | ✅ |
+| 19 | phase-19-campaign-decay | ✅ |
+| 20 | phase-20-typed-columns | ✅ |
+| 21 | phase-21-provenance-breach | ✅ |
+| 22 | phase-22-freshness-perf | ✅ |
+| 23 | phase-23-final-sweep | ✅ |
+
+All phases maintain the test baseline (no new failures vs origin/main).
