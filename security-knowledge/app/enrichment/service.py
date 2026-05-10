@@ -7,6 +7,7 @@ import app.enrichment.providers  # noqa: F401 — side-effect: registers all pro
 from app.auth.byok import resolve_user_provider_key
 from app.enrichment.budget import check_budget, increment_usage
 from app.enrichment.registry import get_provider
+from app.enrichment.graph_materializer import materialize_enrichment
 from app.models.enrichment import EnrichmentCache
 
 logger = structlog.get_logger(__name__)
@@ -88,4 +89,25 @@ class EnrichmentService:
         )
         self.db.add(cache)
         await self.db.flush()
+
+        # Materialize enrichment data into graph elements (claims, relationships, linked entities)
+        try:
+            from app.models.entities import Entity
+            from sqlalchemy import select as sa_select
+            ent_q = await self.db.execute(
+                sa_select(Entity).where(
+                    Entity.tenant_id == self.tenant_id,
+                    Entity.kind == entity_kind,
+                    Entity.canonical_name == entity_value,
+                )
+            )
+            entity = ent_q.scalar_one_or_none()
+            if entity:
+                await materialize_enrichment(
+                    self.db, entity, self.tenant_id, provider_name, result,
+                )
+                await self.db.flush()
+        except Exception as exc:
+            logger.warning("enrichment_materialization_failed", provider=provider_name, error=str(exc))
+
         return result

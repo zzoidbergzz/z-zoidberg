@@ -382,4 +382,28 @@ class VirusTotalProvider(BaseEnrichmentProvider):
             if rescan is not None:
                 result["rescan"] = rescan
 
+        # Extended graph data extraction for file hashes
+        if resource_type == "files":
+            result = await self._fetch_and_merge_extended(entity_kind, entity_value, result, api_key)
+
         return result
+
+# ---------------------------------------------------------------------------
+# Extended graph data extraction (added for graph materializer support)
+# ---------------------------------------------------------------------------
+
+async def _fetch_and_merge_extended(self, entity_kind: str, entity_value: str, result: dict, api_key: str) -> dict:
+    """For file hashes, fetch contacted IPs, dropped files, CAPA data from VT.
+    Merges into result dict under _prefixed keys consumed by graph_materializer."""
+    if result.get("resource_type") != "files":
+        return result
+    sha256 = result.get("sha256") or entity_value
+    if not sha256 or len(sha256) != 64:
+        return result
+    try:
+        from app.enrichment.providers.vt_extended import fetch_extended_file_data
+        extended = await fetch_extended_file_data(sha256, api_key)
+        result.update(extended)
+    except Exception as exc:
+        logger.warning("vt_extended_fetch_failed", error=str(exc))
+    return result

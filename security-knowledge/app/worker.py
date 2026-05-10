@@ -143,11 +143,11 @@ _AUTO_ENRICHMENT_PROVIDERS: dict[str, tuple[str, ...]] = {
     "technique": ("mitre_attack",),
     "subtechnique": ("mitre_attack",),
     "url": ("urlscan",),
-    "ip": ("greynoise", "ipinfo", "abuseipdb"),
-    "ip_address": ("greynoise", "ipinfo", "abuseipdb"),
-    "domain": ("virustotal", "urlscan"),
-    "hash": ("virustotal",),
-    "file_hash": ("virustotal",),
+    "ip": ("virustotal", "greynoise", "ipinfo", "abuseipdb", "otx"),
+    "ip_address": ("virustotal", "greynoise", "ipinfo", "abuseipdb", "otx"),
+    "domain": ("virustotal", "otx", "urlscan"),
+    "hash": ("virustotal", "malwarebazaar", "otx"),
+    "file_hash": ("virustotal", "malwarebazaar", "otx"),
 }
 
 
