@@ -119,6 +119,9 @@ class Settings(BaseSettings):
     EMBEDDING_API_URL: str = ""
     EMBEDDING_API_KEY: str = ""
     EMBEDDING_DIM: int = 1536
+    # Set to True once pgvector extension + embedding columns are confirmed present.
+    # Migrations 0037 will set up the extension; flip this on via env when ready.
+    SEARCH_USE_SEMANTIC: bool = False
 
     # LLM
     LLM_BASE_URL: str = ""

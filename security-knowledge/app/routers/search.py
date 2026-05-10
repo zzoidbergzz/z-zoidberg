@@ -1,6 +1,7 @@
 from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from app.config import settings
@@ -9,6 +10,7 @@ from app.auth.dependencies import require_read
 from app.lookup.normalizer import looks_defanged, normalize_indicator
 from app.services.search import corpus_search, full_text_search
 from app.services.web_search import searxng_search
+from app.embeddings.generator import generate_embedding
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -61,6 +63,7 @@ async def search(
     q: str = Query(..., min_length=2),
     limit: int = Query(20, le=100),
     corpus: Optional[str] = Query(None, description="Filter to corpus: cve, gcve, exploitdb"),
+    mode: Optional[str] = Query(None, description="Search mode: 'hybrid' enables semantic+FTS fusion"),
     web_fallback: bool = Query(True, description="Use SearXNG web fallback when DB results are sparse"),
     web_only: bool = Query(False, description="Bypass DB and search only SearXNG web results"),
     web_categories: str = Query("general", description="SearXNG categories for fallback"),
@@ -76,6 +79,8 @@ async def search(
 
     if corpus:
         results = await corpus_search(db, _tenant_id(auth), q, corpus=corpus, limit=limit)
+    elif mode == "hybrid" and settings.SEARCH_USE_SEMANTIC:
+        results = await _hybrid_search(db, _tenant_id(auth), q, limit)
     else:
         results = await full_text_search(db, _tenant_id(auth), q, limit)
 
@@ -119,3 +124,100 @@ async def search(
                     break
 
     return out[:limit]
+
+
+# ---------------------------------------------------------------------------
+# Semantic search endpoint (pgvector)
+# ---------------------------------------------------------------------------
+
+_SEMANTIC_SQL = """
+SELECT
+    e.id::text,
+    e.kind,
+    e.canonical_name,
+    1 - (e.embedding <=> :q_emb) AS score
+FROM entities e
+WHERE e.tenant_id = :tid
+  AND e.embedding IS NOT NULL
+  AND (:kind IS NULL OR e.kind = :kind)
+ORDER BY e.embedding <=> :q_emb
+LIMIT :lim
+"""
+
+
+class SemanticSearchRequest(BaseModel):
+    query: str
+    limit: int = 10
+    kind: Optional[str] = None
+
+
+@router.post("/semantic", response_model=list[SearchResult])
+async def semantic_search(
+    req: SemanticSearchRequest,
+    db: AsyncSession = Depends(get_db),
+    auth = Depends(require_read),
+):
+    """Semantic (vector cosine) search over entities with pgvector embeddings.
+
+    Requires ``SEARCH_USE_SEMANTIC=true`` and the pgvector extension to be
+    installed (migration 0037).  Returns 503 if semantic search is disabled.
+    """
+    from fastapi import HTTPException
+    if not settings.SEARCH_USE_SEMANTIC:
+        raise HTTPException(status_code=503, detail="Semantic search not enabled")
+
+    q_emb = await generate_embedding(req.query)
+    if not q_emb or all(v == 0.0 for v in q_emb):
+        raise HTTPException(status_code=503, detail="Embedding provider unavailable")
+
+    rows = await db.execute(
+        text(_SEMANTIC_SQL),
+        {
+            "q_emb": str(q_emb),
+            "tid": _tenant_id(auth),
+            "kind": req.kind,
+            "lim": min(req.limit, 100),
+        },
+    )
+    return [
+        SearchResult(kind=r.kind, id=r.id, name=r.canonical_name, score=float(r.score))
+        for r in rows.fetchall()
+    ]
+
+
+async def _hybrid_search(
+    db: AsyncSession,
+    tenant_id: str,
+    query: str,
+    limit: int,
+) -> list[dict]:
+    """Combine FTS and semantic cosine scores (0.4 FTS + 0.6 semantic)."""
+    fts_results = await full_text_search(db, tenant_id, query, limit * 2)
+    fts_map: dict[str, float] = {r["id"]: float(r.get("score", 0.5)) for r in fts_results}
+
+    q_emb = await generate_embedding(query)
+    sem_map: dict[str, float] = {}
+    if q_emb and not all(v == 0.0 for v in q_emb):
+        rows = await db.execute(
+            text(_SEMANTIC_SQL),
+            {"q_emb": str(q_emb), "tid": tenant_id, "kind": None, "lim": limit * 2},
+        )
+        for r in rows.fetchall():
+            sem_map[r.id] = float(r.score)
+
+    # Normalise FTS scores to [0,1]
+    max_fts = max(fts_map.values(), default=1.0) or 1.0
+    fts_norm = {k: v / max_fts for k, v in fts_map.items()}
+
+    all_ids = set(fts_norm) | set(sem_map)
+    scored = []
+    fts_lookup = {r["id"]: r for r in fts_results}
+    for eid in all_ids:
+        fts_s = fts_norm.get(eid, 0.0)
+        sem_s = sem_map.get(eid, 0.0)
+        combined = 0.4 * fts_s + 0.6 * sem_s
+        base = fts_lookup.get(eid, {})
+        scored.append({**base, "id": eid, "score": combined})
+
+    scored.sort(key=lambda x: x["score"], reverse=True)
+    return scored[:limit]
