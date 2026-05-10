@@ -22,6 +22,8 @@ _TTL_ATTR: dict[str, str] = {
     "otx": "ENRICHMENT_TTL_OTX",
     "recordedfuture": "ENRICHMENT_TTL_RF",
     "abuseipdb": "ENRICHMENT_TTL_ABUSEIPDB",
+    "c2workbench": "ENRICHMENT_TTL_C2WORKBENCH",
+    "malwarebazaar": "ENRICHMENT_TTL_MALWAREBAZAAR",
     "urlscan": "ENRICHMENT_TTL_URLSCAN",
 }
 _DEFAULT_TTL_HOURS = 24

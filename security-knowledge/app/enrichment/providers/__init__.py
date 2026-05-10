@@ -22,4 +22,6 @@ from . import (  # noqa: F401  (import-for-side-effects)
     shodan,
     urlscan,
     virustotal,
+    c2workbench,
+    malware_bazaar,
 )
