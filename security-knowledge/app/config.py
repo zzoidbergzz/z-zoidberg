@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     AUTO_ENRICHMENT_DISABLED: bool = False
 
     # Core
+    APP_VERSION: str = "0.1.0"
     DATABASE_URL: str = "postgresql+asyncpg://sk:sk@localhost/sk"
     REDIS_URL: str = "redis://localhost:6379"
     SECRET_KEY: str = "change-me-in-production"

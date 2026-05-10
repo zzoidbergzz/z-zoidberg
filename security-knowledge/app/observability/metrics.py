@@ -7,8 +7,13 @@ active_requests = Gauge("active_requests", "Active HTTP requests")
 enrichment_calls_total = Counter("enrichment_calls_total", "Enrichment provider calls", ["provider", "status"])
 ingestion_jobs_total = Counter("ingestion_jobs_total", "Ingestion jobs", ["status"])
 vector_search_duration_seconds = Histogram("vector_search_duration_seconds", "Vector search duration")
+handled_exceptions_total = Counter("handled_exceptions_total", "Exceptions caught and logged", ["subsystem"])
 
 
 def metrics_response() -> Response:
     data = generate_latest()
     return Response(content=data, media_type=CONTENT_TYPE_LATEST)
+
+
+def record_exception_counter(subsystem: str) -> None:
+    handled_exceptions_total.labels(subsystem=subsystem).inc()

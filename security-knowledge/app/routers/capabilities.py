@@ -5,7 +5,9 @@ from __future__ import annotations
 import subprocess
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
+
+from app.auth.dependencies import AuthContext, require_admin
 
 router = APIRouter(prefix="/capabilities", tags=["capabilities"])
 
@@ -24,8 +26,12 @@ def _git_sha() -> str:
 
 
 @router.get("", summary="Live service capability inventory")
-async def get_capabilities(request: Request) -> dict[str, Any]:
+async def get_capabilities(
+    request: Request,
+    auth: AuthContext = Depends(require_admin),
+) -> dict[str, Any]:
     """Return what this service can do right now — honest about stubs."""
+    _ = auth
     import app.mcp  # noqa: F401 — trigger tool registration side-effects
     from app.config import settings
     from app.enrichment.registry import list_providers
@@ -55,7 +61,7 @@ async def get_capabilities(request: Request) -> dict[str, Any]:
             "fts_search": True,
             "graphql_resolvers": True,
             "enrich_entity_mcp_tool": True,
-            "rate_limiting": settings.RATE_LIMIT_ENABLED,
+            "rate_limiting": getattr(settings, "RATE_LIMIT_ENABLED", False),
             "search_use_mv": getattr(settings, "SEARCH_USE_MV", False),
             "graph_cte_pathfinding": True,
             "pgvector_semantic_search": True,

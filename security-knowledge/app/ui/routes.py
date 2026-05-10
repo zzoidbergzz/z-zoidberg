@@ -1,6 +1,7 @@
 from pathlib import Path
 from urllib.parse import quote
 
+import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -8,11 +9,13 @@ from sqlalchemy import text as sql_text
 
 from app.config import settings
 from app.database import AsyncSessionLocal
+from app.observability.metrics import record_exception_counter
 from app.ui.deps import get_template_user
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "templates"))
 
 ui_router = APIRouter(tags=["UI"])
+logger = structlog.get_logger(__name__)
 
 PROTECTED = ["/", "/graph", "/entities", "/search", "/admin", "/investigation", "/fp", "/settings", "/claims", "/digests", "/breaches"]
 
@@ -83,7 +86,8 @@ async def ui_entity_detail(request: Request, entity_id: str):
                     if cl and cl[0]:
                         return RedirectResponse(url=f"/entities/{cl[0]}", status_code=302)
         except Exception:
-            pass
+            logger.exception("ui_entity_detail_redirect_probe_failed", entity_id=entity_id)
+            record_exception_counter("ui.entity_detail_redirect")
 
     return templates.TemplateResponse(request, "entity_detail.html", {"current_user": get_template_user(request)})
 

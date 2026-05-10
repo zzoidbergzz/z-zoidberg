@@ -9,10 +9,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text
 
 from app.config import settings
 from app.database import engine
+from app.database import AsyncSessionLocal
 from app.graphql.schema import graphql_router
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.observability.logging import configure_logging
 from app.observability.tracing import configure_tracing
 from app.routers.admin import router as admin_router
@@ -109,6 +112,7 @@ async def lifespan(app: FastAPI):
     from app.services import mitre_attack
     asyncio.create_task(mitre_attack.preload_if_cached())
     await browser_pool.start()  # no-op if PLAYWRIGHT_ENABLED=false
+    app.state.pg_stat_statements_available = await _has_pg_stat_statements()
     await _bootstrap_admin()
     yield
     await browser_pool.stop()
@@ -129,6 +133,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityHeadersMiddleware)
+
+
+async def _has_pg_stat_statements() -> bool:
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements') AS present"
+                )
+            )
+            row = result.mappings().one_or_none()
+            return bool(row and row["present"])
+    except Exception:
+        return False
 
 # ── Templates ──────────────────────────────────────────────────────────────────
 _templates_dir = Path(__file__).parent.parent / "templates"

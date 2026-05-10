@@ -2,12 +2,15 @@
 from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 import bcrypt as _bcrypt
-from fastapi import APIRouter, Depends, HTTPException, Query
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, field_validator
-from sqlalchemy import select, func
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -34,6 +37,13 @@ def _is_superadmin(auth: AuthContext) -> bool:
 
 def _tenant_uuid(auth: AuthContext) -> uuid.UUID:
     return uuid.UUID(auth.tenant_id)
+
+
+def _alembic_script_directory() -> ScriptDirectory:
+    repo_root = Path(__file__).resolve().parents[2]
+    cfg = Config(str(repo_root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(repo_root / "alembic"))
+    return ScriptDirectory.from_config(cfg)
 
 
 class ApproveUserBody(BaseModel):
@@ -491,6 +501,69 @@ async def get_stats(
         "document_count": document_count,
         "entity_count": entity_count,
         "audit_count": audit_count,
+    }
+
+
+@router.get("/migrations/state")
+async def migration_state(
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = auth
+    script = _alembic_script_directory()
+    head_revision = script.get_current_head()
+    current_revision = (
+        await db.execute(text("SELECT version_num FROM alembic_version LIMIT 1"))
+    ).scalar_one_or_none()
+    pending_revisions = [rev.revision for rev in script.iterate_revisions(head_revision, current_revision)]
+    return {
+        "current_revision": current_revision,
+        "head_revision": head_revision,
+        "in_sync": current_revision == head_revision,
+        "pending_migrations": pending_revisions,
+    }
+
+
+@router.get("/slow-queries")
+async def slow_queries(
+    request: Request,
+    limit: int = Query(20, ge=1, le=200),
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    _ = auth
+    if not getattr(request.app.state, "pg_stat_statements_available", False):
+        return {"enabled": False, "reason": "pg_stat_statements extension is not installed"}
+
+    result = await db.execute(
+        text(
+            """
+            SELECT
+                query,
+                calls,
+                total_exec_time,
+                mean_exec_time,
+                rows
+            FROM pg_stat_statements
+            ORDER BY mean_exec_time DESC
+            LIMIT :limit
+            """
+        ),
+        {"limit": limit},
+    )
+    rows = result.mappings().all()
+    return {
+        "enabled": True,
+        "rows": [
+            {
+                "query": row["query"],
+                "calls": int(row["calls"]),
+                "total_exec_time_ms": float(row["total_exec_time"]),
+                "mean_exec_time_ms": float(row["mean_exec_time"]),
+                "rows": int(row["rows"]),
+            }
+            for row in rows
+        ],
     }
 
 

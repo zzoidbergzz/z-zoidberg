@@ -21,6 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import settings
+from app.observability.metrics import record_exception_counter
 from app.observability.trace_propagation import trace_from_job
 from app.observability.worker import record_job_end, record_job_start
 from app.services.audit import record_audit_event
@@ -76,7 +77,8 @@ def _parse_content(html: str, content_type: str) -> str:
         if text:
             return _strip_null_bytes(text)
     except Exception:
-        pass
+        logger.exception("worker_trafilatura_extract_failed")
+        record_exception_counter("worker.parse_content.trafilatura")
 
     try:
         from bs4 import BeautifulSoup
@@ -86,7 +88,8 @@ def _parse_content(html: str, content_type: str) -> str:
             tag.decompose()
         return _strip_null_bytes(soup.get_text(separator="\n"))
     except Exception:
-        pass
+        logger.exception("worker_bs4_extract_failed")
+        record_exception_counter("worker.parse_content.bs4")
 
     # Last resort: strip HTML tags with regex
     return _strip_null_bytes(re.sub(r"<[^>]+>", " ", html))
@@ -207,7 +210,8 @@ async def _enqueue_auto_enrichment(entities: list, tenant_id: str) -> None:
         try:
             await pool.aclose()
         except Exception:
-            pass
+            logger.exception("auto_enrichment_pool_close_failed")
+            record_exception_counter("worker.auto_enrichment.pool_close")
 
 
 async def process_ingest_job(

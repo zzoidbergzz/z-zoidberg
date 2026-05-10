@@ -18,10 +18,13 @@ from app.lookup.extractor import extract_iocs
 from app.models.enrichment import EnrichmentCache, EnrichmentDiff
 from app.models.entities import Entity
 from app.models.relationships import Relationship
+from app.observability.metrics import record_exception_counter
 from app.pivot.graph import shortest_path
 from app.services.audit import record_audit_event
+import structlog
 
 router = APIRouter(tags=["lookup"])
+logger = structlog.get_logger(__name__)
 
 # Minimum seconds between automatic enrichment dispatches for the same entity+tenant
 _DISPATCH_DEBOUNCE_SECONDS = 300
@@ -145,7 +148,8 @@ async def _dispatch_enrichment(
             try:
                 await svc.enrich(provider_name, entity.kind, entity.canonical_name)
             except Exception:
-                pass
+                logger.exception("lookup_enrichment_provider_failed", provider=provider_name, entity_id=str(entity.id))
+                record_exception_counter("lookup.dispatch_enrichment")
         await bg_db.commit()
 
 
