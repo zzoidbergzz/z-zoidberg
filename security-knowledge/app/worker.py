@@ -17,7 +17,7 @@ import uuid
 import structlog
 from arq.connections import RedisSettings
 from arq.cron import cron
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import settings
@@ -265,6 +265,8 @@ async def process_ingest_job(
                     if existing_src_ent is not None:
                         return existing_src_ent.id
 
+                    # ON CONFLICT DO UPDATE atomically returns the surviving id
+                    # whether this is a fresh insert or a race-lost duplicate.
                     ins_stmt = (
                         pg_insert(Entity.__table__)
                         .values(
@@ -273,25 +275,14 @@ async def process_ingest_job(
                             canonical_name=source_url,
                             external_refs={},
                         )
-                        .on_conflict_do_nothing(
-                            index_elements=["tenant_id", "kind", "canonical_name"]
+                        .on_conflict_do_update(
+                            index_elements=["tenant_id", "kind", "canonical_name"],
+                            set_={"updated_at": func.now()},
                         )
                         .returning(Entity.__table__.c.id)
                     )
                     ins_result = await db.execute(ins_stmt)
-                    new_id = ins_result.scalar_one_or_none()
-                    if new_id is not None:
-                        return new_id
-                    resolved = (
-                        await db.execute(
-                            select(Entity).where(
-                                Entity.tenant_id == tenant_id,
-                                Entity.kind == "url",
-                                Entity.canonical_name == source_url,
-                            )
-                        )
-                    ).scalar_one_or_none()
-                    return resolved.id if resolved is not None else None
+                    return ins_result.scalar_one_or_none()
 
                 async def _persist_tor_findings_for_doc(doc_id) -> None:
                     if job.source_type != "tor_scrape":
@@ -676,13 +667,11 @@ async def process_ingest_job(
                     mapped_kind = _KIND_MAP.get(raw_kind, "other")
                     canonical = ent_data["value"]
 
-                    # Race-safe upsert. Relies on
-                    # UNIQUE(tenant_id, kind, canonical_name) added in
-                    # alembic 0026_entity_unique_constraint. Without
-                    # ON CONFLICT, two concurrent workers can both insert
-                    # the same (tenant, kind, name) and a later read-then-
-                    # insert would see duplicates and crash with
-                    # MultipleResultsFound.
+                    # Race-safe upsert via ON CONFLICT DO UPDATE, which always
+                    # returns the surviving id — whether a fresh insert or a
+                    # race-lost duplicate. Eliminates the conditional second
+                    # SELECT. Relies on UNIQUE(tenant_id, kind, canonical_name)
+                    # added in alembic 0026_entity_unique_constraint.
                     ins_stmt = (
                         pg_insert(Entity.__table__)
                         .values(
@@ -691,31 +680,22 @@ async def process_ingest_job(
                             canonical_name=canonical,
                             external_refs={},
                         )
-                        .on_conflict_do_nothing(
-                            index_elements=["tenant_id", "kind", "canonical_name"]
+                        .on_conflict_do_update(
+                            index_elements=["tenant_id", "kind", "canonical_name"],
+                            set_={"updated_at": func.now()},
                         )
-                        .returning(Entity.__table__.c.id)
+                        .returning(Entity.__table__)
                     )
                     ins_result = await db.execute(ins_stmt)
-                    new_id = ins_result.scalar_one_or_none()
-                    if new_id is not None:
-                        await db.flush()
-                        entity = (
-                            await db.execute(
-                                select(Entity).where(Entity.id == new_id)
-                            )
-                        ).scalar_one()
+                    row = ins_result.first()
+                    is_new = row.created_at == row.updated_at if row else False
+                    entity = (
+                        await db.execute(
+                            select(Entity).where(Entity.id == row.id)
+                        )
+                    ).scalar_one()
+                    if is_new:
                         newly_created_entities.append(entity)
-                    else:
-                        entity = (
-                            await db.execute(
-                                select(Entity).where(
-                                    Entity.tenant_id == tenant_id,
-                                    Entity.kind == mapped_kind,
-                                    Entity.canonical_name == canonical,
-                                )
-                            )
-                        ).scalar_one()
 
                     # Create Claim linking entity to this document
                     claim = Claim(
