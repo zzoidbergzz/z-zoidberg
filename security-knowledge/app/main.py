@@ -39,6 +39,7 @@ from app.routers.metrics import router as metrics_router
 from app.routers.mitre import router as mitre_router
 from app.routers.pingback import router as pingback_router
 from app.routers.search import router as search_router
+from app.routers.euvd import router as euvd_router
 from app.routers.watchlists import router as watchlists_router
 from app.routers.sectors import router as sectors_router
 from app.routers.sources import router as sources_router
@@ -180,6 +181,7 @@ app.include_router(entities_router, prefix="/api/v1")
 app.include_router(claims_router, prefix="/api/v1")
 app.include_router(evidence_router, prefix="/api/v1")
 app.include_router(search_router, prefix="/api/v1")
+app.include_router(euvd_router, prefix="/api/v1")
 app.include_router(ingest_router, prefix="/api/v1")
 app.include_router(enrich_router, prefix="/api/v1")
 app.include_router(graph_router, prefix="/api/v1")

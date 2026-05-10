@@ -27,6 +27,7 @@ from app.services.audit import record_audit_event
 from app.workers.feed_poller import poll_feeds
 from app.workers.urlscan import poll_pending_urlscan_scans
 from app.workers.tor_scraper import scrape_onion_sources
+from app.workers.euvd_sync import euvd_sync
 
 logger = structlog.get_logger(__name__)
 
@@ -1057,4 +1058,6 @@ class WorkerSettings:
         cron(poll_pending_urlscan_scans, minute=set(range(60))),
         # Historical corpus refresh — daily 03:17 UTC (after most upstream daily syncs)
         cron(refresh_corpora, hour={3}, minute={17}),
+        # EUVD sync — every 20 minutes
+        cron(euvd_sync, minute={4, 24, 44}),
     ]
