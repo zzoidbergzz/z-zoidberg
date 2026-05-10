@@ -179,6 +179,64 @@
   const entityId = window.location.pathname.split("/").pop();
   const statusEl = document.getElementById("status");
 
+
+  // ── Auto-enrichment trigger + polling ────────────────────────────────
+  let enrichmentPollTimer = null;
+  let enrichmentComplete = false;
+
+  async function triggerEnrichment() {
+    try {
+      await fetch("/api/v1/enrich/" + entityId, { method: "POST", credentials: "same-origin" });
+    } catch (_) {}
+    startEnrichmentPolling();
+  }
+
+  function startEnrichmentPolling() {
+    if (enrichmentPollTimer || enrichmentComplete) return;
+    showEnrichmentThinking();
+    enrichmentPollTimer = setInterval(pollEnrichment, 10000);
+    setTimeout(pollEnrichment, 2000);
+  }
+
+  function showEnrichmentThinking() {
+    let card = document.getElementById("enrichment-thinking");
+    if (!card) {
+      card = document.createElement("section");
+      card.id = "enrichment-thinking";
+      card.className = "card";
+      card.style.marginTop = "1rem";
+      card.innerHTML = '<div style="display:flex;align-items:center;gap:0.75rem;">' +
+        '<span class="spinner" style="width:20px;height:20px;border:2px solid var(--border,#2a2a4a);border-top-color:var(--accent,#4af);border-radius:50%;animation:enrichSpin 1s linear infinite;display:inline-block;"></span>' +
+        '<span style="color:var(--text-muted,#94a3b8);">Running enrichment\u2026</span></div>' +
+        '<style>@keyframes enrichSpin{to{transform:rotate(360deg)}}</style>';
+      var ec = document.getElementById("enrichments-card");
+      if (ec) ec.parentNode.insertBefore(card, ec);
+      else document.getElementById("details-card").parentNode.appendChild(card);
+    }
+    card.style.display = "";
+  }
+
+  function hideEnrichmentThinking() {
+    const card = document.getElementById("enrichment-thinking");
+    if (card) card.style.display = "none";
+  }
+
+  async function pollEnrichment() {
+    try {
+      const resp = await fetch("/api/v1/lookup/entity/" + entityId + "/results", { credentials: "same-origin" });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const filled = (data.enrichments || []).filter(e => e.data && Object.keys(e.data).length > 0);
+      if (filled.length > 0) {
+        enrichmentComplete = true;
+        if (enrichmentPollTimer) { clearInterval(enrichmentPollTimer); enrichmentPollTimer = null; }
+        hideEnrichmentThinking();
+        const e = window._currentEntity || {};
+        renderEnrichments(e.kind || "", e.canonical_name || "", e.external_refs || {}, data);
+      }
+    } catch (_) {}
+  }
+
   async function loadAll() {
     statusEl.textContent = "Loading…";
     try {
@@ -189,6 +247,17 @@
         fetch("/api/v1/claims/entity/" + entityId + "/tor-context", { credentials: "same-origin" }).catch(() => null),
         fetch("/api/v1/evidence/entity/" + entityId, { credentials: "same-origin" }).catch(() => null),
       ]);
+
+      // Auto-trigger enrichment if no results yet
+      if (enrichResp && enrichResp.ok) {
+        try {
+          const peek = await enrichResp.clone().json();
+          const hasResults = (peek.enrichments || []).some(e => e.data && Object.keys(e.data).length > 0);
+          if (!hasResults) triggerEnrichment();
+        } catch(_) { triggerEnrichment(); }
+      } else {
+        triggerEnrichment();
+      }
       const e = entityResp.ok ? await entityResp.json() : null;
       const enrichData = enrichResp && enrichResp.ok ? await enrichResp.json() : null;
       const claimsData = claimsResp && claimsResp.ok ? await claimsResp.json() : null;
@@ -204,6 +273,7 @@
   }
 
   function renderEntity(e, enrichData, claimsData, torContext, evidenceData) {
+    window._currentEntity = e;
     const name = e.canonical_name || e.name || e.id;
     const kind = e.kind || "";
     const icon = KIND_ICONS[kind] || "📦";
@@ -314,6 +384,54 @@
     }
 
     document.getElementById("details-card").style.display = "";
+
+    // ── External Intelligence Links ────────────────────────────────────
+    var extLinks = [];
+    var hashVal = extRefs.sha256 || (kind === "hash" ? name : null);
+    var domainVal = kind === "domain" ? name : null;
+    var ipVal = (kind === "ip" || kind === "ip_address") ? name : null;
+    var cveVal = extRefs.cve || ((kind === "cve" || kind === "vulnerability") ? name : null);
+    var urlVal = kind === "url" ? name : null;
+
+    if (hashVal) {
+      extLinks.push({ label: "VirusTotal", url: "https://www.virustotal.com/gui/file/" + encodeURIComponent(hashVal), icon: "\u{1F6E1}" });
+      extLinks.push({ label: "Malware Bazaar", url: "https://bazaar.abuse.ch/sample/" + encodeURIComponent(hashVal) + "/", icon: "\u{1F9A0}" });
+      extLinks.push({ label: "Hybrid Analysis", url: "https://hybrid-analysis.com/sample/" + encodeURIComponent(hashVal), icon: "\u{1F52C}" });
+      extLinks.push({ label: "AlienVault OTX", url: "https://otx.alienvault.com/indicator/file/" + encodeURIComponent(hashVal), icon: "\u{1F6F0}" });
+    }
+    if (domainVal) {
+      extLinks.push({ label: "VirusTotal", url: "https://www.virustotal.com/gui/domain/" + encodeURIComponent(domainVal), icon: "\u{1F6E1}" });
+      extLinks.push({ label: "Shodan", url: "https://www.shodan.io/host/" + encodeURIComponent(domainVal), icon: "\u{1F50D}" });
+      extLinks.push({ label: "URLhaus", url: "https://urlhaus.abuse.ch/host/" + encodeURIComponent(domainVal) + "/", icon: "\u{1F517}" });
+      extLinks.push({ label: "AlienVault OTX", url: "https://otx.alienvault.com/indicator/domain/" + encodeURIComponent(domainVal), icon: "\u{1F6F0}" });
+    }
+    if (ipVal) {
+      extLinks.push({ label: "VirusTotal", url: "https://www.virustotal.com/gui/ip-address/" + encodeURIComponent(ipVal), icon: "\u{1F6E1}" });
+      extLinks.push({ label: "Shodan", url: "https://www.shodan.io/host/" + encodeURIComponent(ipVal), icon: "\u{1F50D}" });
+      extLinks.push({ label: "GreyNoise", url: "https://viz.greynoise.io/ip/" + encodeURIComponent(ipVal), icon: "\u{1F4CA}" });
+      extLinks.push({ label: "AbuseIPDB", url: "https://www.abuseipdb.com/check/" + encodeURIComponent(ipVal), icon: "\u{1F6AB}" });
+    }
+    if (cveVal) {
+      extLinks.push({ label: "NVD", url: "https://nvd.nist.gov/vuln/detail/" + encodeURIComponent(cveVal), icon: "\u{1F534}" });
+      extLinks.push({ label: "EPSS", url: "https://www.first.org/epss/model?" + encodeURIComponent(cveVal), icon: "\u{1F4C8}" });
+    }
+    if (kind === "malware" || kind === "actor" || kind === "tool") {
+      extLinks.push({ label: "C2 Workbench", url: "https://www.c2workbench.com/", icon: "\u{1F4E1}" });
+    }
+    if (extRefs.mitre_attack_id || kind === "technique" || kind === "attack_pattern") {
+      var atkId = extRefs.mitre_attack_id || name;
+      extLinks.push({ label: "MITRE ATT&CK", url: "https://attack.mitre.org/", icon: "\u26A1" });
+    }
+    if (extLinks.length) {
+      var linksHtml = '<section class="card" id="ext-links-card" style="margin-top:1rem;">' +
+        '<div class="section-title">\u{1F517} External Intelligence Links</div>' +
+        '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+        extLinks.map(function(l) {
+          return '<a href="' + esc(l.url) + '" target="_blank" rel="noopener" class="button-muted" style="text-decoration:none;font-size:0.85rem;">' + l.icon + ' ' + esc(l.label) + ' \u2197</a>';
+        }).join("") +
+        '</div></section>';
+      document.getElementById("details-card").insertAdjacentHTML("afterend", linksHtml);
+    }
 
     // Raw JSON
     var rawCard = document.createElement("section");
