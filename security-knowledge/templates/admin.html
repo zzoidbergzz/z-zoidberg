@@ -39,6 +39,24 @@
     </table>
   </section>
 
+  <section class="card">
+    <h3>Invited users auto-approval</h3>
+    <div id="invite-status" class="muted"></div>
+    <div class="row" style="gap:0.5rem; margin-bottom:0.5rem; flex-wrap:wrap;">
+      <select id="invite-rule-type">
+        <option value="email">email address</option>
+        <option value="domain">full domain</option>
+      </select>
+      <input id="invite-rule-value" placeholder="user@example.com or example.com" style="min-width:18rem;" />
+      <button class="button" id="invite-add">Add invite</button>
+      <button class="button-muted" id="invite-refresh">Refresh</button>
+    </div>
+    <table class="data-table" id="invites-table">
+      <thead><tr><th>Type</th><th>Value</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
   <section class="card" id="tenant-admin-card" style="display:none;">
     <h3>Tenants</h3>
     <div id="tenants-status" class="muted"></div>
@@ -155,9 +173,10 @@
     const tenantOptions = tenants.map(t => `<option value="${t.id}">${escape(t.slug)}</option>`).join("");
     tbody.innerHTML = users.map(u => {
       const canMove = isSuperadmin && tenants.length > 0;
-      const actions = canMove
+      const moveControls = canMove
         ? `<select data-tenant-select="${u.id}">${tenantOptions}</select> <button class="button-muted" data-move-user="${u.id}">Move</button>`
-        : "—";
+        : "";
+      const actions = `${moveControls} <button class="button-muted" data-reset-password="${u.id}">Reset password</button>`;
       return `<tr>
         <td>${escape(u.email)}</td>
         <td><span class="tiny-pill ${u.status === 'approved' ? '' : (u.status === 'pending' ? 'warn' : 'danger')}">${escape(u.status)}</span></td>
@@ -173,6 +192,32 @@
         if (sel) sel.value = u.tenant_id;
       });
     }
+  }
+
+  async function loadInvites() {
+    const tbody = document.querySelector("#invites-table tbody");
+    const status = document.getElementById("invite-status");
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">Loading…</td></tr>`;
+    const r = await fetch("/api/v1/admin/invites", {credentials:"same-origin"});
+    if (!r.ok) {
+      status.textContent = `Failed to load invite rules: ${r.status}`;
+      tbody.innerHTML = `<tr><td colspan="4" class="tiny-pill danger">load failed: ${r.status}</td></tr>`;
+      return;
+    }
+    const rows = await r.json();
+    status.textContent = `${rows.length} active invite rules`;
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">No invite rules configured.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map((row) => `
+      <tr>
+        <td>${escape(row.rule_type)}</td>
+        <td class="mono">${escape(row.rule_value)}</td>
+        <td>${fmt(row.created_at)}</td>
+        <td><button class="button-danger" data-delete-invite="${row.id}">Delete</button></td>
+      </tr>
+    `).join("");
   }
 
   async function loadTenants() {
@@ -325,6 +370,27 @@
   });
 
   document.querySelector("#users-table").addEventListener("click", async (ev) => {
+    const resetBtn = ev.target.closest("button[data-reset-password]");
+    if (resetBtn) {
+      const id = resetBtn.dataset.resetPassword;
+      const newPassword = window.prompt("Enter a new password (12+ chars, mixed case, includes a digit):");
+      if (!newPassword) return;
+      resetBtn.disabled = true;
+      const r = await fetch(`/api/v1/admin/users/${id}/reset-password`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({new_password: newPassword}),
+      });
+      if (r.ok) {
+        alert("Password reset successfully.");
+      } else {
+        const err = await r.json().catch(() => ({detail: "error"}));
+        alert(`password reset failed: ${err.detail || r.status}`);
+        resetBtn.disabled = false;
+      }
+      return;
+    }
     const btn = ev.target.closest("button[data-move-user]");
     if (!btn) return;
     const id = btn.dataset.moveUser;
@@ -366,6 +432,51 @@
     document.getElementById("tenant-slug").value = "";
     await loadTenants();
     await loadUsers(document.getElementById("user-status-filter").value);
+  });
+
+  document.getElementById("invite-add").addEventListener("click", async () => {
+    const ruleType = document.getElementById("invite-rule-type").value;
+    const ruleValue = document.getElementById("invite-rule-value").value.trim().toLowerCase();
+    const status = document.getElementById("invite-status");
+    if (!ruleValue) {
+      status.textContent = "Enter an email or domain first.";
+      return;
+    }
+    const r = await fetch("/api/v1/admin/invites", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({rule_type: ruleType, rule_value: ruleValue}),
+    });
+    if (r.ok) {
+      document.getElementById("invite-rule-value").value = "";
+      status.textContent = "Invite rule added.";
+      await loadInvites();
+    } else {
+      const err = await r.json().catch(() => ({detail: "error"}));
+      status.textContent = `Add failed: ${err.detail || r.status}`;
+    }
+  });
+
+  document.getElementById("invite-refresh").addEventListener("click", loadInvites);
+  document.querySelector("#invites-table").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button[data-delete-invite]");
+    if (!btn) return;
+    const status = document.getElementById("invite-status");
+    if (!confirm("Delete this invite rule?")) return;
+    btn.disabled = true;
+    const r = await fetch(`/api/v1/admin/invites/${btn.dataset.deleteInvite}`, {
+      method: "DELETE",
+      credentials: "same-origin",
+    });
+    if (r.ok || r.status === 204) {
+      status.textContent = "Invite rule deleted.";
+      await loadInvites();
+    } else {
+      const err = await r.json().catch(() => ({detail: "error"}));
+      status.textContent = `Delete failed: ${err.detail || r.status}`;
+      btn.disabled = false;
+    }
   });
 
   document.getElementById("watchlist-settings-save").addEventListener("click", async () => {
@@ -567,6 +678,7 @@
     await loadStats();
     await loadPending();
     await loadUsers(document.getElementById("user-status-filter").value);
+    await loadInvites();
     await loadSources();
     await loadAudit();
   })();

@@ -1,5 +1,5 @@
 from app.models.audit import AuditEvent
-from app.models.auth import ApiKey, Tenant, User
+from app.models.auth import ApiKey, Tenant, TenantInviteRule, User
 from app.models.base import Base, TimestampMixin, UUIDMixin
 from app.models.changes import Change
 from app.models.claims import Claim
@@ -24,7 +24,7 @@ from app.models.webhooks import WebhookDelivery, WebhookSubscription
 
 __all__ = [
     "Base", "TimestampMixin", "UUIDMixin",
-    "Tenant", "ApiKey", "User",
+    "Tenant", "ApiKey", "User", "TenantInviteRule",
     "SourceRecord", "FetchOutcome", "RawObject",
     "ParsedDocument", "DocumentSection",
     "Evidence", "ChunkEmbedding",

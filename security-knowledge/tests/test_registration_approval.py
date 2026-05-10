@@ -3,6 +3,7 @@ import pytest
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import AsyncClient, ASGITransport
+import bcrypt
 
 
 @pytest.fixture
@@ -234,6 +235,84 @@ async def test_register_invalid_sector(open_client, mock_db):
     assert resp.status_code == 422
 
 
+@pytest.mark.asyncio
+async def test_register_auto_approves_invited_email(open_client, mock_db):
+    """Invited email addresses are auto-approved at registration."""
+    from app.models.auth import Tenant, TenantInviteRule
+
+    tenant = Tenant(id=uuid.uuid4(), name="Example", slug="example-com", active=True)
+    invite = TenantInviteRule(
+        tenant_id=tenant.id,
+        created_by_user_id=None,
+        rule_type="email",
+        rule_value="vip@example.com",
+        active=True,
+    )
+
+    existing_result = MagicMock()
+    existing_result.scalar_one_or_none.return_value = None
+    tenant_result = MagicMock()
+    tenant_result.scalar_one_or_none.return_value = tenant
+    invite_result = MagicMock()
+    invite_result.scalars.return_value.all.return_value = [invite]
+    mock_db.execute = AsyncMock(side_effect=[existing_result, tenant_result, invite_result])
+    mock_db.flush = AsyncMock()
+    mock_db.refresh = AsyncMock()
+
+    with patch("bcrypt.hashpw", return_value=b"hashed"):
+        resp = await open_client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "vip@example.com",
+                "password": "SuperSecret123",
+                "full_name": "VIP User",
+                "business_sector": "Technology",
+            },
+        )
+
+    assert resp.status_code == 201
+    assert resp.json()["status"] == "approved"
+
+
+@pytest.mark.asyncio
+async def test_register_auto_approves_invited_domain(open_client, mock_db):
+    """Invited domains are auto-approved at registration."""
+    from app.models.auth import Tenant, TenantInviteRule
+
+    tenant = Tenant(id=uuid.uuid4(), name="Example", slug="example-com", active=True)
+    invite = TenantInviteRule(
+        tenant_id=tenant.id,
+        created_by_user_id=None,
+        rule_type="domain",
+        rule_value="example.com",
+        active=True,
+    )
+
+    existing_result = MagicMock()
+    existing_result.scalar_one_or_none.return_value = None
+    tenant_result = MagicMock()
+    tenant_result.scalar_one_or_none.return_value = tenant
+    invite_result = MagicMock()
+    invite_result.scalars.return_value.all.return_value = [invite]
+    mock_db.execute = AsyncMock(side_effect=[existing_result, tenant_result, invite_result])
+    mock_db.flush = AsyncMock()
+    mock_db.refresh = AsyncMock()
+
+    with patch("bcrypt.hashpw", return_value=b"hashed"):
+        resp = await open_client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "someone@example.com",
+                "password": "SuperSecret123",
+                "full_name": "Invited User",
+                "business_sector": "Technology",
+            },
+        )
+
+    assert resp.status_code == 201
+    assert resp.json()["status"] == "approved"
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Admin user approval
 # ──────────────────────────────────────────────────────────────────────────────
@@ -286,6 +365,79 @@ async def test_admin_approve_user_not_found(admin_client, mock_db):
         json={"action": "approve"},
     )
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_admin_reset_password(admin_client, mock_db, tenant_id):
+    """POST /admin/users/{id}/reset-password updates password hash."""
+    from app.models.auth import User
+
+    user = User(
+        id=uuid.uuid4(),
+        tenant_id=uuid.UUID(tenant_id),
+        email="reset@example.com",
+        hashed_password=bcrypt.hashpw("OldPassword123".encode(), bcrypt.gensalt()).decode(),
+        full_name="Reset User",
+        business_sector="Technology",
+        status="approved",
+        role="user",
+        active=True,
+    )
+    original_hash = user.hashed_password
+
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = user
+    mock_db.execute = AsyncMock(return_value=result)
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+
+    resp = await admin_client.post(
+        f"/api/v1/admin/users/{user.id}/reset-password",
+        json={"new_password": "NewPassword456"},
+    )
+
+    assert resp.status_code == 200
+    assert user.hashed_password != original_hash
+    assert bcrypt.checkpw("NewPassword456".encode(), user.hashed_password.encode())
+
+
+@pytest.mark.asyncio
+async def test_admin_manage_invites(admin_client, mock_db, tenant_id):
+    """Admin can list/create/delete invite rules."""
+    from app.models.auth import TenantInviteRule
+    from datetime import datetime, timezone
+
+    existing = TenantInviteRule(
+        id=uuid.uuid4(),
+        tenant_id=uuid.UUID(tenant_id),
+        created_by_user_id=None,
+        rule_type="domain",
+        rule_value="example.com",
+        active=True,
+    )
+    existing.created_at = datetime.now(timezone.utc)
+
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = [existing]
+    none_result = MagicMock()
+    none_result.scalar_one_or_none.return_value = None
+    delete_result = MagicMock()
+    delete_result.scalar_one_or_none.return_value = existing
+
+    mock_db.execute = AsyncMock(side_effect=[list_result, none_result, delete_result])
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+    mock_db.delete = AsyncMock()
+
+    listed = await admin_client.get("/api/v1/admin/invites")
+    created = await admin_client.post("/api/v1/admin/invites", json={"rule_type": "email", "rule_value": "a@b.com"})
+    deleted = await admin_client.delete(f"/api/v1/admin/invites/{existing.id}")
+
+    assert listed.status_code == 200
+    assert listed.json()[0]["rule_value"] == "example.com"
+    assert created.status_code == 201
+    assert created.json()["rule_type"] == "email"
+    assert deleted.status_code == 204
 
 
 @pytest.mark.asyncio

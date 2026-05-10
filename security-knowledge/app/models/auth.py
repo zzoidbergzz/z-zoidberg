@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, Enum
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, Enum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -89,3 +89,16 @@ class UserProviderKey(Base, UUIDMixin, TimestampMixin):
     encrypted_key: Mapped[str] = mapped_column(Text, nullable=False)
     key_hint: Mapped[str | None] = mapped_column(String(10), nullable=True)
     user: Mapped["User"] = relationship("User", back_populates="provider_keys")
+
+
+class TenantInviteRule(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "tenant_invite_rules"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "rule_type", "rule_value", name="uq_tenant_invite_rule"),
+    )
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    rule_type: Mapped[str] = mapped_column(String(20), nullable=False)  # email | domain
+    rule_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

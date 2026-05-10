@@ -4,19 +4,19 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 import bcrypt as _bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, EmailStr, field_validator
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import AuthContext, Scope, get_auth
 from app.auth.jwt import create_access_token
 from app.config import settings
 from app.database import get_db
-from app.models.auth import ApiKey, Tenant, User, UserRole, UserStatus
+from app.models.auth import ApiKey, Tenant, TenantInviteRule, User, UserRole, UserStatus
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -39,6 +39,23 @@ VALID_SECTORS = [
 
 def _personal_domains() -> set[str]:
     return {d.strip().lower() for d in settings.PERSONAL_EMAIL_DOMAINS.split(",") if d.strip()}
+
+
+async def _is_invited_registration(db: AsyncSession, tenant_id: uuid.UUID, email: str) -> bool:
+    domain = email.split("@")[-1]
+    rows = (
+        await db.execute(
+            select(TenantInviteRule).where(
+                TenantInviteRule.tenant_id == tenant_id,
+                TenantInviteRule.active.is_(True),
+                or_(
+                    (TenantInviteRule.rule_type == "email") & (TenantInviteRule.rule_value == email),
+                    (TenantInviteRule.rule_type == "domain") & (TenantInviteRule.rule_value == domain),
+                ),
+            )
+        )
+    ).scalars().all()
+    return bool(rows)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -154,6 +171,9 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
     # Hash password
     hashed = bcrypt.hashpw(req.password.encode(), bcrypt.gensalt()).decode()
+    is_invited = await _is_invited_registration(db, tenant.id, email)
+    status_value = UserStatus.approved if is_invited else UserStatus.pending
+    approved_at = datetime.now(UTC) if is_invited else None
 
     user = User(
         id=user_id,
@@ -162,8 +182,9 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
         hashed_password=hashed,
         full_name=req.full_name,
         business_sector=req.business_sector or "UK-General",
-        status=UserStatus.pending,
+        status=status_value,
         role=UserRole.user,
+        approved_at=approved_at,
     )
     db.add(user)
     await db.flush()
@@ -174,7 +195,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
         "id": str(user.id),
         "email": user.email,
         "status": user.status,
-        "message": "Registration successful. Awaiting admin approval.",
+        "message": "Registration successful. Awaiting admin approval." if user.status == UserStatus.pending else "Registration successful. Account auto-approved.",
     }
 
 

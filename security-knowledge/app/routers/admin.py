@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+import bcrypt as _bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select, func
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.auth.dependencies import require_scope, Scope, AuthContext
-from app.models.auth import ApiKey, Tenant, User, UserProviderKey, UserStatus
+from app.models.auth import ApiKey, Tenant, TenantInviteRule, User, UserProviderKey, UserStatus
 from app.models.pingback import IocWatch, IocSighting
 from app.models.enrichment import EnrichmentCache
 from app.models.watchlists import Watchlist
@@ -48,6 +49,54 @@ class MoveUserTenantBody(BaseModel):
     tenant_id: uuid.UUID
 
 
+class AdminResetPasswordBody(BaseModel):
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def _validate_new_password(cls, value: str) -> str:
+        if len(value) < 12:
+            raise ValueError("New password must be at least 12 characters")
+        if value.lower() == value or value.upper() == value:
+            raise ValueError("New password must contain mixed case")
+        if not any(c.isdigit() for c in value):
+            raise ValueError("New password must contain at least one digit")
+        return value
+
+
+class InviteRuleCreateBody(BaseModel):
+    rule_type: str
+    rule_value: str
+
+    @field_validator("rule_type")
+    @classmethod
+    def _validate_rule_type(cls, value: str) -> str:
+        v = value.strip().lower()
+        if v not in {"email", "domain"}:
+            raise ValueError("rule_type must be email or domain")
+        return v
+
+    @field_validator("rule_value")
+    @classmethod
+    def _validate_rule_value(cls, value: str) -> str:
+        v = value.strip().lower()
+        if not v:
+            raise ValueError("rule_value is required")
+        return v
+
+    @field_validator("rule_value")
+    @classmethod
+    def _validate_rule_by_type(cls, value: str, info):
+        rule_type = info.data.get("rule_type")
+        if rule_type == "email":
+            if "@" not in value:
+                raise ValueError("email invite must include @")
+            return value
+        if "@" in value:
+            raise ValueError("domain invite must not include @")
+        return value.lstrip(".")
+
+
 class WatchlistSettingsBody(BaseModel):
     scope_mode: str | None = None
     default_expiry_hours: int | None = None
@@ -67,6 +116,108 @@ class CreateOrgWatchlistBody(BaseModel):
     description: str | None = None
     public_slug: str | None = None
     allow_unauthenticated: bool = False
+
+
+@router.post("/users/{user_id}/reset-password")
+async def admin_reset_user_password(
+    user_id: uuid.UUID,
+    body: AdminResetPasswordBody,
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(User).where(User.id == user_id)
+    if not _is_superadmin(auth):
+        q = q.where(User.tenant_id == _tenant_uuid(auth))
+    user = (await db.execute(q)).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.hashed_password = _bcrypt.hashpw(body.new_password.encode(), _bcrypt.gensalt()).decode()
+    await db.flush()
+    await db.commit()
+    return {"id": str(user.id), "email": user.email, "password_reset": True}
+
+
+@router.get("/invites")
+async def list_registration_invites(
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        await db.execute(
+            select(TenantInviteRule)
+            .where(TenantInviteRule.tenant_id == _tenant_uuid(auth), TenantInviteRule.active.is_(True))
+            .order_by(TenantInviteRule.rule_type.asc(), TenantInviteRule.rule_value.asc())
+        )
+    ).scalars().all()
+    return [
+        {
+            "id": str(row.id),
+            "rule_type": row.rule_type,
+            "rule_value": row.rule_value,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+        for row in rows
+    ]
+
+
+@router.post("/invites", status_code=201)
+async def create_registration_invite(
+    body: InviteRuleCreateBody,
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    tenant_id = _tenant_uuid(auth)
+    existing = (
+        await db.execute(
+            select(TenantInviteRule).where(
+                TenantInviteRule.tenant_id == tenant_id,
+                TenantInviteRule.rule_type == body.rule_type,
+                TenantInviteRule.rule_value == body.rule_value,
+                TenantInviteRule.active.is_(True),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="Invite rule already exists")
+
+    row = TenantInviteRule(
+        tenant_id=tenant_id,
+        created_by_user_id=uuid.UUID(auth.user_id) if auth.user_id else None,
+        rule_type=body.rule_type,
+        rule_value=body.rule_value,
+        active=True,
+    )
+    db.add(row)
+    await db.flush()
+    await db.commit()
+    return {
+        "id": str(row.id),
+        "rule_type": row.rule_type,
+        "rule_value": row.rule_value,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+@router.delete("/invites/{invite_id}", status_code=204)
+async def delete_registration_invite(
+    invite_id: uuid.UUID,
+    auth: AuthContext = Depends(require_scope(Scope.admin)),
+    db: AsyncSession = Depends(get_db),
+):
+    row = (
+        await db.execute(
+            select(TenantInviteRule).where(
+                TenantInviteRule.id == invite_id,
+                TenantInviteRule.tenant_id == _tenant_uuid(auth),
+                TenantInviteRule.active.is_(True),
+            )
+        )
+    ).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Invite rule not found")
+    await db.delete(row)
+    await db.flush()
+    await db.commit()
 
 
 @router.get("/users")
