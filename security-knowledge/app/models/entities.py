@@ -5,6 +5,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
+try:
+    from pgvector.sqlalchemy import Vector as _Vector
+    _VECTOR_TYPE = _Vector(1536)
+except ImportError:  # pgvector not installed in this env
+    _Vector = None  # type: ignore[assignment,misc]
+    _VECTOR_TYPE = None  # type: ignore[assignment]
+
 
 class EntityKind(str, enum.Enum):
     vulnerability = "vulnerability"
@@ -37,6 +44,11 @@ class Entity(Base, UUIDMixin, TimestampMixin):
     canonical_name: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
     mitre_attack_id: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
     external_refs: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # pgvector embedding — nullable; populated asynchronously by the embedding ARQ worker.
+    # Only present when the pgvector extension is installed (migration 0037).
+    embedding: Mapped[list[float] | None] = mapped_column(
+        _VECTOR_TYPE, nullable=True  # type: ignore[arg-type]
+    ) if _VECTOR_TYPE is not None else mapped_column(Text, nullable=True)
     aliases: Mapped[list["EntityAlias"]] = relationship("EntityAlias", back_populates="entity")
 
 
