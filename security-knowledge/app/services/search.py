@@ -173,6 +173,22 @@ def _build_entity_result(row: Any) -> dict[str, Any]:
         "mitre_link": None,
     }
 
+    # Hash/malware enrichment
+    if kind == hash and ext.get(source, ).startswith(malware-repo):
+        result[detail_url] = f/entities/{row["id"]}
+        result[tags] = list(set(result[tags] + [malware, ext.get(family, unknown)]))
+
+    # Hash / malware enrichment
+    if kind == "hash":
+        fn = ext.get("filename", "")
+        fam = ext.get("family", "")
+        if fn:
+            result["name"] = fn
+            result["description"] = f"SHA256: {name[:16]}..." + (f" | Family: {fam}" if fam else "")
+        if ext.get("source", "").startswith("malware-repo"):
+            result["detail_url"] = f"/entities/{row["id"]}"
+            result["tags"] = list(set(result["tags"] + ["malware"] + ([fam] if fam else [])))
+
     # CVE-specific enrichment
     cve_id: str | None = ext.get("cve") or (name if _CVE_RE.match(name) else None)
     if cve_id:
@@ -220,7 +236,11 @@ _ENTITY_ILIKE_SQL = text(
         NULL::text AS description, NULL::jsonb AS tags, NULL::text AS confidence
     FROM entities e
     WHERE e.tenant_id = :tenant_id
-      AND e.canonical_name ILIKE :pat
+      AND (
+          e.canonical_name ILIKE :pat
+          OR e.external_refs->>'filename' ILIKE :pat
+          OR e.external_refs->>'family' ILIKE :pat
+      )
     ORDER BY e.updated_at DESC
     LIMIT :lim
     """
