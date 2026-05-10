@@ -10,7 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func, or_, and_
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_auth, AuthContext
@@ -73,7 +73,6 @@ async def search_euvd(
     min_score: Optional[float] = Query(None, ge=0, le=10, description="Minimum CVSS score"),
     max_score: Optional[float] = Query(None, ge=0, le=10, description="Maximum CVSS score"),
     min_epss: Optional[float] = Query(None, ge=0, le=1, description="Minimum EPSS score"),
-    exploited: Optional[bool] = Query(None, description="Only exploited vulnerabilities"),
     assigner: Optional[str] = Query(None, description="Filter by CNA assigner"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -81,74 +80,65 @@ async def search_euvd(
     auth: AuthContext = Depends(get_auth),
 ):
     """Search EUVD vulnerability data with rich filters."""
-    # Build base query
-    stmt = select(CorpusDocument).where(CorpusDocument.corpus == "euvd")
-    count_stmt = select(func.count()).select_from(CorpusDocument).where(CorpusDocument.corpus == "euvd")
+    tenant_id = str(auth.tenant_id)
 
-    # Full-text search
+    # Build WHERE clauses
+    wheres = ["corpus = 'euvd'", "tenant_id = :tenant_id"]
+    params = {"tenant_id": tenant_id}
+
     if q:
-        ts_query = f"websearch_to_tsquery('english', :q)"
-        stmt = stmt.filter(text(f"search_vector @@ {ts_query}"))
-        count_stmt = count_stmt.filter(text(f"search_vector @@ {ts_query}"))
-
-    # JSONB filters on raw_json
-    if vendor:
-        stmt = stmt.filter(text("raw_json::text ILIKE :vendor"))
-        count_stmt = count_stmt.filter(text("raw_json::text ILIKE :vendor"))
-    if product:
-        stmt = stmt.filter(text("raw_json::text ILIKE :product"))
-        count_stmt = count_stmt.filter(text("raw_json::text ILIKE :product"))
-    if assigner:
-        stmt = stmt.filter(text("raw_json->>'assigner' ILIKE :assigner"))
-        count_stmt = count_stmt.filter(text("raw_json->>'assigner' ILIKE :assigner"))
-    if min_score is not None:
-        stmt = stmt.filter(text("COALESCE((raw_json->>'baseScore')::float, 0) >= :min_score"))
-        count_stmt = count_stmt.filter(text("COALESCE((raw_json->>'baseScore')::float, 0) >= :min_score"))
-    if max_score is not None:
-        stmt = stmt.filter(text("COALESCE((raw_json->>'baseScore')::float, 0) <= :max_score"))
-        count_stmt = count_stmt.filter(text("COALESCE((raw_json->>'baseScore')::float, 0) <= :max_score"))
-    if min_epss is not None:
-        stmt = stmt.filter(text("COALESCE((raw_json->>'epss')::float, 0) >= :min_epss"))
-        count_stmt = count_stmt.filter(text("COALESCE((raw_json->>'epss')::float, 0) >= :min_epss"))
-    if exploited:
-        stmt = stmt.filter(text("raw_json::text ILIKE '%exploited%'"))
-        count_stmt = count_stmt.filter(text("raw_json::text ILIKE '%exploited%'"))
-
-    # Get total count
-    params = {}
-    if q:
+        wheres.append("search_vector @@ websearch_to_tsquery('english', :q)")
         params["q"] = q
     if vendor:
-        params["vendor"] = f'%{vendor}%'
+        wheres.append("raw_json::text ILIKE :vendor")
+        params["vendor"] = f"%{vendor}%"
     if product:
-        params["product"] = f'%{product}%'
+        wheres.append("raw_json::text ILIKE :product")
+        params["product"] = f"%{product}%"
     if assigner:
-        params["assigner"] = f'%{assigner}%'
+        wheres.append("raw_json->>'assigner' ILIKE :assigner")
+        params["assigner"] = f"%{assigner}%"
     if min_score is not None:
+        wheres.append("COALESCE((raw_json->>'baseScore')::float, 0) >= :min_score")
         params["min_score"] = min_score
     if max_score is not None:
+        wheres.append("COALESCE((raw_json->>'baseScore')::float, 0) <= :max_score")
         params["max_score"] = max_score
     if min_epss is not None:
+        wheres.append("COALESCE((raw_json->>'epss')::float, 0) >= :min_epss")
         params["min_epss"] = min_epss
 
-    total_result = await db.execute(count_stmt, params)
+    where_clause = " AND ".join(wheres)
+
+    # Count
+    count_sql = f"SELECT count(*) FROM corpus_documents WHERE {where_clause}"
+    total_result = await db.execute(text(count_sql), params)
     total = total_result.scalar() or 0
 
     # Fetch results
-    stmt = stmt.order_by(CorpusDocument.published_at.desc()).offset(offset).limit(limit)
-    result = await db.execute(stmt, params)
-    docs = result.scalars().all()
+    data_sql = f"""
+        SELECT id, external_id, title, summary, published_at, modified_at, raw_json
+        FROM corpus_documents
+        WHERE {where_clause}
+        ORDER BY published_at DESC NULLS LAST
+        LIMIT :limit OFFSET :offset
+    """
+    params["limit"] = limit
+    params["offset"] = offset
+    result = await db.execute(text(data_sql), params)
+    rows = result.fetchall()
 
     hits = []
-    for doc in docs:
-        extra = _extract_from_raw(doc.raw_json)
+    for row in rows:
+        raw = row.raw_json if isinstance(row.raw_json, dict) else {}
+        extra = _extract_from_raw(raw)
         hits.append(EUVDSearchHit(
-            id=str(doc.id),
-            euvd_id=doc.external_id,
-            title=doc.title,
-            summary=doc.summary,
-            published_at=doc.published_at.isoformat() if doc.published_at else None,
-            modified_at=doc.modified_at.isoformat() if doc.modified_at else None,
+            id=str(row.id),
+            euvd_id=row.external_id,
+            title=row.title,
+            summary=row.summary,
+            published_at=row.published_at.isoformat() if row.published_at else None,
+            modified_at=row.modified_at.isoformat() if row.modified_at else None,
             cvss_score=extra.get("cvss_score"),
             cvss_version=extra.get("cvss_version"),
             cvss_vector=extra.get("cvss_vector"),
@@ -158,7 +148,7 @@ async def search_euvd(
             products=extra.get("products", []),
             references=extra.get("references", []),
             assigner=extra.get("assigner"),
-            raw_json=doc.raw_json,
+            raw_json=raw,
         ))
 
     return EUVDSearchResponse(total=total, offset=offset, limit=limit, results=hits)

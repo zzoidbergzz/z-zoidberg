@@ -26,7 +26,7 @@ from app.models.corpus import CorpusDocument
 logger = structlog.get_logger(__name__)
 
 # Default tenant ID (matches bootstrap admin)
-_DEFAULT_TENANT = "00000000-0000-0000-0000-000000000001"
+_DEFAULT_TENANT = "bcc8ab78-0982-4ea3-81d3-7e4bd166881a"
 
 
 async def euvd_sync(ctx: dict) -> dict:
