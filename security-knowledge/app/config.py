@@ -149,6 +149,8 @@ class Settings(BaseSettings):
     # Session / UI auth
     SESSION_COOKIE_NAME: str = "sk_session"
     SESSION_COOKIE_SECURE: bool = True
+    SESSION_COOKIE_DOMAIN: str = ".z.je"
+    MALWARE_SAMPLES_DOMAIN: str = "malware-analysis-samples.z.je"
     ACCESS_TOKEN_EXPIRE_HOURS: int = 168  # 7 days for browser sessions
 
     # Web search fallback (SearXNG)

@@ -123,7 +123,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://z.je", "https://malware-analysis-samples.z.je", "http://localhost:8000", "http://localhost:8010"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -294,6 +294,7 @@ async def login(req: LoginRequest, response: Response, db: AsyncSession = Depend
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
         value=token,
+        domain=settings.SESSION_COOKIE_DOMAIN,
         httponly=True,
         secure=settings.SESSION_COOKIE_SECURE,
         samesite="lax",
@@ -315,7 +316,7 @@ async def login(req: LoginRequest, response: Response, db: AsyncSession = Depend
 @router.post("/logout")
 async def logout(response: Response):
     """Clear the session cookie."""
-    response.delete_cookie(settings.SESSION_COOKIE_NAME)
+    response.delete_cookie(settings.SESSION_COOKIE_NAME, domain=settings.SESSION_COOKIE_DOMAIN)
     return {"message": "Logged out"}
 
 
@@ -364,7 +365,7 @@ async def change_password(
     user.hashed_password = _bcrypt.hashpw(req.new_password.encode(), _bcrypt.gensalt()).decode()
     await db.flush()
 
-    response.delete_cookie(settings.SESSION_COOKIE_NAME)
+    response.delete_cookie(settings.SESSION_COOKIE_NAME, domain=settings.SESSION_COOKIE_DOMAIN)
     return {"message": "Password changed. Please log in again."}
 
 
