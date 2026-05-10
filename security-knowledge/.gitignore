@@ -14,3 +14,5 @@ build/
 *.log
 data/corpora/
 *.db
+*.pyc
+__pycache__/

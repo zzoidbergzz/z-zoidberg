@@ -49,6 +49,8 @@ from app.routers.sources import router as sources_router
 from app.routers.stix import router as stix_router
 from app.routers.webhooks import router as webhooks_router
 from app.routers.malware import router as malware_router
+from app.routers.batch import router as batch_router
+from app.routers.analysis import router as analysis_router
 from app.taxii.server import taxii_router
 
 configure_logging()
@@ -232,6 +234,8 @@ templates_path = Path(__file__).parent.parent / "templates"
 if templates_path.exists():
     from app.ui.routes import ui_router
     app.include_router(ui_router)
+app.include_router(batch_router, prefix="/api/v1")
+app.include_router(analysis_router, prefix="/api/v1")
 
 # Serve /static from mzje/z-style static directory if present
 _static_dir = Path(__file__).parent.parent / "static"

@@ -34,6 +34,10 @@ class ClaimCreate(BaseModel):
     subject: str | None = None
     predicate: str | None = None
     object: str | None = None
+    entity_id: str | None = None
+    source_url: str | None = None
+    source_kind: str | None = None  # human|osint|enrichment|llm_analysis
+    llm_model: str | None = None    # e.g. gpt-4o, claude-3.5 (for llm_analysis claims)
 
 
 class ClaimOut(BaseModel):
@@ -44,6 +48,8 @@ class ClaimOut(BaseModel):
     tenant_id: uuid.UUID
     entity_id: uuid.UUID | None = None
     source_url: str | None = None
+    source_kind: str | None = None
+    llm_model: str | None = None
     model_config = {"from_attributes": True}
 
 
@@ -92,6 +98,8 @@ async def list_claims(
             "tenant_id": claim.tenant_id,
             "entity_id": claim.entity_id,
             "source_url": (claim.value or {}).get("source_url") if isinstance(claim.value, dict) else None,
+            "source_kind": (claim.value or {}).get("source_kind") if isinstance(claim.value, dict) else None,
+            "llm_model": (claim.value or {}).get("llm_model") if isinstance(claim.value, dict) else None,
         }
         for claim in claims
     ]
@@ -114,8 +122,16 @@ async def create_claim(
         value["predicate"] = body.predicate
     if body.object:
         value["object"] = body.object
+    if body.source_url:
+        value["source_url"] = body.source_url
+    if body.source_kind:
+        value["source_kind"] = body.source_kind
+    if body.llm_model:
+        value["llm_model"] = body.llm_model
+    entity_id_val = uuid.UUID(body.entity_id) if body.entity_id else None
     claim = Claim(
         tenant_id=_tenant_id(auth),
+        entity_id=entity_id_val,
         claim_type=body.claim_type,
         value=value,
         confidence=body.confidence,
@@ -123,13 +139,19 @@ async def create_claim(
     db.add(claim)
     await db.flush()
     await db.refresh(claim)
-    return {
+    # Build response with new fields
+    resp = {
         "id": claim.id,
         "statement": statement,
         "claim_type": claim.claim_type,
         "confidence": claim.confidence,
         "tenant_id": claim.tenant_id,
+        "entity_id": claim.entity_id,
+        "source_url": body.source_url,
+        "source_kind": body.source_kind,
+        "llm_model": body.llm_model,
     }
+    return resp
 
 
 class ClaimDetailOut(BaseModel):

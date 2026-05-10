@@ -18,6 +18,8 @@ class EvidenceCreate(BaseModel):
     content: str
     source_url: str | None = None
     entity_id: uuid.UUID | None = None
+    claim_id: uuid.UUID | None = None
+    confidence: float = 1.0
 
 
 class EvidenceOut(BaseModel):

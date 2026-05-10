@@ -69,6 +69,35 @@
   </section>
 
   <section class="card">
+    <h2>🦞 OpenClaw Skill</h2>
+    <p class="muted">
+      Install the <strong>zje-enrich</strong> skill for OpenClaw agents. Enables IOC enrichment,
+      threat intel lookup, LLM-assisted analysis, and auto-posting results back to z.je
+      — all from your agent console.
+    </p>
+    <details style="margin-top:0.6rem">
+      <summary><strong>Install instructions</strong></summary>
+      <pre style="background:var(--surface);padding:1rem;border-radius:6px;margin-top:0.4rem;overflow-x:auto;font-size:0.85rem"># Install from ClawHub
+openclaw skill install zje-enrich
+
+# Or manual
+mkdir -p ~/.openclaw/skills/zje-enrich
+# Then copy skill files into that directory
+
+# Configure
+export ZJE_API_URL=https://z.je
+export ZJE_API_KEY=your-key-from-above
+
+# Verify
+python ~/.openclaw/skills/zje-enrich/scripts/zje_client.py search "APT29"</pre>
+    </details>
+    <p style="margin-top:0.6rem">
+      <a href="/static/skills/zje-enrich.tar.gz" class="button" download>⬇ Download skill package</a>
+      <span class="muted" style="margin-left:0.5rem">v1.0.0</span>
+    </p>
+  </section>
+
+  <section class="card">
     <h2>Session</h2>
     <p class="muted">Sign out of this browser session.</p>
     <button class="button-muted" id="logout-btn">Logout</button>
@@ -77,7 +106,7 @@
 
 <script>
 (function(){
-  const SUPPORTED = ["virustotal","greynoise","ipinfo","shodan","abuseipdb","urlscan","anthropic"];
+  const SUPPORTED = ["virustotal","greynoise","ipinfo","shodan","abuseipdb","urlscan","anthropic","otx","misp","opencti","recordedfuture","malshare"];
 
   async function refreshKeys() {
     const body = document.getElementById("keys-body");
